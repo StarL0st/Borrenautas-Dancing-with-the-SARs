@@ -6,6 +6,8 @@ Status: Draft. Ratify at kickoff (hour 0-3). Decisions marked **DECIDE** are clo
 
 An open-source web app that lets a non-expert watch a piece of Earth's surface change over time as NISAR sees it, understand why it changed, and trust what they are looking at. The radar is the hard part; the product's job is to make it readable.
 
+Shape: a 3D globe (frontend) backed by a service (backend). The backend selects NISAR acquisitions, detects change, classifies it into typed event records (flood, forest loss, ...), stores them, and answers location queries; the frontend shows them on the globe and asks the backend what is known at a place. The long-term goal is global; the hackathon demo covers Mexico with three sites.
+
 Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 
 ## Users and what they need
@@ -60,10 +62,10 @@ Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 
 ## Non-goals
 
-- Global "search any place" coverage or on-demand processing
-- User accounts, a database, or any server we have to run during judging
+- Global coverage or on-demand processing during the hackathon. The query API is built for it, but the demo covers Mexico (three sites)
+- User accounts. The API server (Cloud Run) is used, but the demo must also run from a static export if the server is down
 - Writing new SAR processing from raw signal data (we use the mission's higher-level products)
-- Real-time or near-real-time updates
+- Real-time or near-real-time updates. "Live" means the latest acquisition (12-day repeat per track and frame), and the app says so
 - Claims beyond what the data supports (every layer states its data maturity)
 
 ## Quality bar
@@ -83,6 +85,6 @@ Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 
 | Decision | Owner | Deadline |
 |---|---|---|
-| Study area and change type(s) (ADR-002) | Team, led by Lane 3 and Lane 1 | T+3h |
+| Study area and change type(s) (ADR-002). **Region decided: Mexico**, three sites (10 m detail, optional national 80 m overview); the three sites and their change types still open. San Francisco is the local pipeline test area only | Team, led by Lane 3 and Lane 1 | T+3h |
 | Change-detection method (ADR-003) | Lane 1 | T+4h |
 | Final product name | Team | T+6h |
