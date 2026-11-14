@@ -24,10 +24,10 @@ As the team, we want integration problems found within hours, not on the last ni
 5. Smoke test the deployed site: manifest loads, a layer shows, story mode opens.
 6. Sanity check in at least two desktop browsers and one phone-sized viewport.
 7. A fresh-clone test works from the README.
-8. Google Cloud (team credit), scripted under `deploy/` with a README:
-   - Batch: a VM in `us-west1` runs the pipeline and writes to a Cloud Storage bucket; stopped when idle.
-   - API: the backend server as a container on Cloud Run, reading the data root from the bucket.
-   - Earthdata token in Secret Manager; nothing secret in images or the repo.
+8. Google Cloud (team credit), scripted under `backend/deploy/` with a README:
+   - Batch: a Cloud Run job in `us-west1` runs `sars-pipeline refresh` (only sites with new granules are processed) and writes to a Cloud Storage bucket; Cloud Scheduler runs it every 12 hours; scales to zero.
+   - API: the backend server as a container on Cloud Run, reading the data root from the same bucket (mounted at `/data`).
+   - Earthdata token, FIRMS key and the admin token for `POST /sites` in Secret Manager; nothing secret in images or the repo.
    - A budget alert on the project.
 9. Integration happens on the `testing` branch (backend + frontend together) before humans merge to `main`.
 

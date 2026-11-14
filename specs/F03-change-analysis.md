@@ -29,15 +29,19 @@ As a viewer, I want to see where and how much the surface changed between dates,
 6. Validate against an independent reference where possible (an optical image, a known event date) and note agreement or disagreement honestly in the data notes.
 7. Never claim more than the data support; BETA or PROVISIONAL status is carried into the UI text.
 8. Image overlays are at most 2048 px on the long side.
-9. Classification turns changed pixels into C7 event records. Baseline is rules, one per change type, thresholds in config:
+9. Classification turns changed pixels into C7 event records in two steps, thresholds in config. First the **signature**, what the radar saw (rules, after removing the scene-wide median change and speckle averaging):
 
-| Type | Rule (after speckle averaging, dB) |
-|---|---|
-| `flood_wetland` | HH and HV both drop sharply (open water turns dark) |
-| `forest_loss` / `wildfire` | HV drops; HH changes less |
-| `agriculture` | Repeated HV/HH swings across the time series |
-| `deformation` | Needs GUNW, not GCOV; out of scope unless a site requires it |
-| `other` | Significant change matching no rule |
+| Signature | Product | Rule (summary) |
+|---|---|---|
+| `darkening_both` | GCOV | HH and HV both drop sharply and end at open-water levels |
+| `hv_drop` | GCOV | HV drops clearly more than HH, from vegetation-level HV |
+| `brightening` | GCOV | HH rises strongly on land |
+| `strong_change` | GCOV | Large change matching none of the above |
+| `seasonal_cycle` | GCOV | Repeated HV swings across 4+ dates |
+| `sinking` | GUNW | Line-of-sight rate past a threshold, away from the satellite |
+| `soil_drying` | SME2 | Latest soil moisture well below earlier dates |
+
+   Then the **categories**: signature x surface type (water, built-up, vegetation, bare, from mean GCOV backscatter) x context (FIRMS fire detections) gives the frontend category ids, first one primary. For example `hv_drop` on vegetation gives `deforestation` (`wildfires` first if FIRMS saw fire); `sinking` on built-up gives `subsidence` and `groundwater`; a land change over water is dropped; no match gives `other`. Exact thresholds, surface rules and the full decision table: `backend/README.md`.
 
 10. Connected changed pixels become one event; tiny regions below a minimum area (config) are dropped. `confidence` comes from the margin over the threshold and the pixel count; the formula is written in `provenance.steps`.
 11. Optional model (stretch goal): a scikit-learn classifier trained on land-cover labels (ESA WorldCover) with HH, HV, HV/HH, and texture features; events come from class transitions between dates. Its events carry `method: "model"`, are labelled experimental, and are reported next to the rules with held-out accuracy.

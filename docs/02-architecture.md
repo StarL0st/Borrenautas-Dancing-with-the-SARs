@@ -17,7 +17,7 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 ASF DAAC / Earthdata Cloud (NISAR HDF5, AWS us-west-2)
         |  asf_search (select) + h5py/fsspec over HTTPS (stream windows, no full downloads)
         v
-backend/ batch (Python; local, or a GCP VM in us-west1)
+backend/ batch (Python; local, or a Cloud Run job in us-west1)
   select -> read -> change -> classify -> export
         |  manifest.json, layers, time series, events.json  (contracts C1-C7)
         v
@@ -31,9 +31,10 @@ frontend/ (Vite + TypeScript + MapLibre GL JS globe)
 
 ## Deployment (Google Cloud, team credit)
 
-- Batch: one VM in `us-west1` (next to the data in AWS `us-west-2`), started for a run and stopped after. Streams over HTTPS; ASF HTTPS egress is free.
-- Data: one Cloud Storage bucket (public read, CORS for GET) holds outputs and tiles too big for the repo.
-- API: Cloud Run, scales to zero. Reads the data root from the bucket.
+- Batch: a Cloud Run job `sars-batch` in `us-west1` (next to the data in AWS `us-west-2`) runs `sars-pipeline refresh`: searches the catalog per site and processes only sites with new granules. Cloud Scheduler starts it every 12 hours; it scales to zero between runs. Streams over HTTPS; ASF HTTPS egress is free.
+- Data: one Cloud Storage bucket, mounted at `/data` in both the job and the API, holds selections, cached windows and outputs. It stays private; the API serves the files.
+- API: Cloud Run service `sars-api` (`serve --jobs`), one instance, scales to zero. Reads the data root from the bucket; `POST /sites` (admin token) queues new places for processing.
+- Scripts and steps: `backend/deploy/` (`gcp.sh`, README). One image serves both the job and the API.
 - Secrets: the Earthdata token lives in Secret Manager (cloud) or `backend/.env` (local), never in images or the repo.
 
 ## Default stack (ADR-001)
