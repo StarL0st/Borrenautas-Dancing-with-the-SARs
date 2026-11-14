@@ -157,7 +157,9 @@ def create_app(
         """Ask for a new site around a point; it is processed in the background. The manifest
         event (/events) fires when its data is ready."""
         require_jobs(authorization)
-        site_id = req.id or f"p{req.lat:+.3f}{req.lon:+.3f}".replace(".", "_")
+        # URL-safe id from the point, e.g. at-17_990n-92_930w
+        ns, ew = "ns"[req.lat < 0], "ew"[req.lon < 0]
+        site_id = req.id or f"at-{abs(req.lat):.3f}{ns}-{abs(req.lon):.3f}{ew}".replace(".", "_")
         if site_id in jobs.sites():
             return {"id": site_id, **jobs.submit(site_id)}
         site = {

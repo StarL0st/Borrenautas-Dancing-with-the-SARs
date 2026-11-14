@@ -290,6 +290,7 @@ def test_sites_api_queues_and_processes(tmp_path):
         res = c.post("/sites", json={"lat": 19.43, "lon": -99.13, "km": 10}, headers=auth)
         assert res.status_code == 202
         site_id = res.json()["id"]
+        assert site_id == "at-19_430n-99_130w"
         assert jobs.wait_idle()
         assert done and done[0][0] == site_id
         sites = {s["id"]: s for s in c.get("/sites").json()["sites"]}
