@@ -170,6 +170,22 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - Checked in headless Chrome at desktop size: events loaded with no data file (194 events), and still frames of both animations. Not checked: the animation playing in a real browser, phone size, other browsers.
 - Later: the name has a 3D look (stacked text shadows; the flying letters also turn edge-on as they round the globe). The house button no longer plays the orbit backwards: the letters rise one by one from behind the Earth's horizon into the title (`riseName`).
 
+### Tenth batch: live events for more types than earthquakes
+
+`src/livefeeds.ts` now goes beyond the back end's `livefeeds.py` (the back-end lane may want to take these over):
+
+| Source | Types it feeds | Note |
+|---|---|---|
+| USGS earthquake feed (all kinds, past day) | earthquakes (M2.5+), landslides, sinkholes and collapses, ice quakes, shaking caused by people (blasts, mining, induced) | the non-earthquake kinds are rare |
+| GDACS (UN OCHA, EU JRC) | hurricanes, floods, volcanoes, drought, wildfires | last 7 days; floods, droughts, cyclones and eruptions stay while GDACS marks them current |
+| NASA EONET | wildfires, storms, hurricanes, volcanoes, sea ice, dust, heat, cold, marine, landslides, industrial | open events of the last 7 days |
+| NOAA National Weather Service alerts | storms, hurricanes, floods, heat, cold, dust, wildfires (fire weather), marine (tsunami, surf, surge), forecast (watches) | United States only; newest 40; each alert's zone is looked up once and remembered in the browser |
+| USGS Volcano Hazards Program | volcanoes at a raised alert level | United States only |
+
+- **When an event leaves:** a moment in time (earthquake, fire detection) after 24 hours; an event its source still lists as going on (flood, drought, weather alert, restless volcano) when the source stops listing it. `active` on a feature marks the second kind.
+- **No live source found** (so nothing live for them): oil spills (NOAA's incident list refuses requests from web pages), groundwater, subsidence, logging, coastal loss, reservoirs, permafrost, ice sheets, glacial lakes. These are slow changes: the radar areas are where they show.
+- Checked 2026-11-14 in headless Chrome: 233 events across ten types (earthquakes 46, wildfires 139, cold 16, floods 12, sea ice 6, hurricanes 4, volcanoes 3, forecast 3, marine 2, drought 2).
+
 ## Test
 
 ```

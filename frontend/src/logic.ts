@@ -169,6 +169,8 @@ export type LiveFeature = {
   properties: {
     id: string; source: string; source_name: string; credit: string; category: string;
     title: string; place?: string; date: string; detail: string; url: string; lon: number; lat: number;
+    severity?: number; // 0 minor .. 3 most dangerous
+    active?: boolean; // its source still lists it as going on (set by livefeeds.ts)
   };
 };
 
@@ -195,7 +197,7 @@ export function ago(date: string, now: number): [number, "minute" | "hour" | "da
 }
 
 export const SOURCE_SHORT: Record<string, string> = {
-  usgs: "USGS", eonet: "NASA EONET", gdacs: "GDACS", nhc: "NOAA NHC", firms: "NASA FIRMS",
+  usgs: "USGS", eonet: "NASA EONET", gdacs: "GDACS", nhc: "NOAA NHC", firms: "NASA FIRMS", nws: "NOAA NWS", volcano: "USGS Volcanoes",
 };
 
 // ---- Country filter ----

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
 import { readFileSync } from "node:fs";
-import { collectLive, eonetCategory, parseEonet, parseGdacs, parseUsgs, quakeSeverity, recent } from "../src/livefeeds.ts";
+import { collectLive, eonetCategory, parseEonet, parseGdacs, parseNws, parseUsgs, parseVolcanoes, quakeSeverity, recent } from "../src/livefeeds.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
 import { ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
@@ -137,7 +137,7 @@ test("country filter: a point is inside its own country only", () => {
 
 // ---- Live events asked by the page (a port of the back end's livefeeds.py) ----
 
-const usgs = { features: [{ id: "us1", properties: { mag: 6.1, time: Date.parse("2026-11-14T10:30:00Z"), place: "7 km SE of Tagbina, Philippines", tsunami: 1, url: "https://earthquake.usgs.gov/x" }, geometry: { coordinates: [126.2, 8.4, 35.2] } }] };
+const usgs = { features: [{ id: "us1", properties: { type: "earthquake", mag: 6.1, time: Date.parse("2026-11-14T10:30:00Z"), place: "7 km SE of Tagbina, Philippines", tsunami: 1, url: "https://earthquake.usgs.gov/x" }, geometry: { coordinates: [126.2, 8.4, 35.2] } }] };
 const gdacs = { features: [
   { properties: { eventtype: "TC", eventid: 7, name: "Tropical Cyclone ANA", alertlevel: "Red", fromdate: "2026-11-12T00:00:00", todate: "2026-11-14T06:00:00", affectedcountries: [{ countryname: "Mexico" }], url: { report: "https://www.gdacs.org/r" } }, geometry: { type: "Point", coordinates: [-100, 15] } },
   { properties: { eventtype: "EQ", eventid: 8, name: "Quake" }, geometry: { type: "Point", coordinates: [0, 0] } },
@@ -168,8 +168,32 @@ test("live feeds: events expire after 24 hours; one source failing does not stop
   const got = await collectLive(async (url) => {
     if (url.includes("usgs")) return usgs;
     if (url.includes("gdacs")) throw new Error("down");
+    if (url.includes("weather.gov") || url.includes("volcanoes")) return { features: [] };
     return eonet;
   });
-  assert.equal(got.ok, 2);
+  assert.equal(got.ok, 4); // the weather and volcano feeds answered with nothing in them
   assert.deepEqual(got.features.map((f) => f.properties.source).sort(), ["eonet", "usgs"]);
+  // An event its source still lists as going on stays past 24 hours.
+  assert.equal(recent([{ properties: { date: "2026-11-01", active: true } } as LiveFeature], now).length, 1);
+});
+
+test("live feeds: more than earthquakes (other USGS kinds, weather alerts, volcano alert levels)", async () => {
+  const quake = (id: string, type: string, mag: number) => ({ id, properties: { type, mag, time: 0 }, geometry: { coordinates: [0, 0, 1] } });
+  const kinds = parseUsgs({ features: [quake("a", "earthquake", 1.2), quake("b", "quarry blast", 1.5), quake("c", "landslide", 2), quake("d", "sonic boom", 2), quake("e", "earthquake", 3)] });
+  assert.deepEqual(kinds.map((f) => [f.properties.id, f.properties.category]), [["usgs-b", "induced-seismicity"], ["usgs-c", "landslides"], ["usgs-e", "earthquakes"]]);
+
+  const alert = (id: string, event: string, zone: string, sent: string) => ({ properties: { id, event, sent, severity: "Severe", areaDesc: "Sherman; Wallace; Greeley; Logan", affectedZones: [`https://api.weather.gov/zones/forecast/${zone}`] } });
+  const nws = await parseNws(
+    { features: [alert("1", "Flash Flood Warning", "KSZ013", "2026-11-14T10:00:00-06:00"), alert("2", "Small Craft Advisory", "KSZ013", "2026-11-14T11:00:00-06:00"), alert("3", "Gale Watch", "PZZ350", "2026-11-14T12:00:00-06:00"), alert("4", "Winter Storm Watch", "COZ091", "2026-11-14T13:00:00-06:00"), alert("5", "Heat Advisory", "XXZ000", "2026-11-14T09:00:00-06:00")] },
+    async (zone) => (zone.endsWith("XXZ000") ? undefined : [-101.7, 39.3]),
+  );
+  // Routine advisories, sea zones and alerts whose zone cannot be found are left out.
+  assert.deepEqual(nws.map((f) => [f.properties.category, f.properties.title, f.properties.date, f.properties.place, f.properties.active]), [
+    ["forecast", "Winter Storm Watch", "2026-11-14T19:00Z", "Sherman, Wallace, Greeley", true],
+    ["floods", "Flash Flood Warning", "2026-11-14T16:00Z", "Sherman, Wallace, Greeley", true],
+  ]);
+
+  const volcano = (name: string, alertLevel: string) => ({ geometry: { coordinates: [-176.1, 52.1] }, properties: { volcanoName: name, vnum: name, alertLevel, region: "Aleutians", noticeId: "DOI-USGS-AVO-2026-11-13T19:12:01+00:00", noticeSynopsis: "<p>Lava continues to erupt.</p>" } });
+  const v = parseVolcanoes({ features: [volcano("Great Sitkin", "WATCH"), volcano("Adagdak", "UNASSIGNED"), volcano("Spurr", "NORMAL")] });
+  assert.deepEqual(v.map((f) => [f.properties.title, f.properties.date, f.properties.severity, f.properties.detail]), [["Great Sitkin volcano: alert level WATCH", "2026-11-13", 2, "Lava continues to erupt."]]);
 });
