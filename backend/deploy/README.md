@@ -1,6 +1,6 @@
 # Deploy
 
-One scripted target: **Azure** (`azure.sh`). Not run against a live account yet: every command below is syntax-checked only. The earlier Google Cloud scripts were removed on 2026-11-14 (git history has them).
+One scripted target: **Azure** (`azure.sh`). Run on 2026-11-14 (`vm`, `deploy`, `seed`, `status`); `site` and `dns` are not run yet. The earlier Google Cloud scripts were removed on 2026-11-14 (git history has them).
 
 ## Design
 
@@ -28,7 +28,7 @@ How results reach storage (`sync` in `compose.yaml`, rclone):
 
 ## Frontend change this needs (frontend lane, `src/main.ts`)
 
-Today one base URL serves files and calls. With storage they differ. Three lines:
+Committed on the local `frontend` branch on 2026-11-14 (after `22d8ca9`). One base URL served files and calls; with storage they differ. Three lines:
 
 ```
  const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/", location.href);
@@ -55,6 +55,8 @@ Without `VITE_API_BASE` nothing changes (local use, static build). `query` and `
 | Lookup abuse | 5 new places per address per hour, 20 queued, 300 places; requests over 16 KB refused |
 
 Measured on a laptop (2026-11-14, `scripts/load_test.py`, real data): 300 open streams plus 50 requests a second on `/query`, `/history` and `/health` for 20 s: 1000 of 1000 answered, median 120 ms, slowest 435 ms. 600 streams: 500 opened, 100 refused with 503.
+
+Measured on Azure (2026-11-14, `Standard_B2s_v2`, test sent through a VPN while a site job ran): same 300 streams and 50 requests a second: 1000 of 1000 answered, median 767 ms, slowest 2913 ms. API container stopped: storage kept serving every file; API back in about 10 s. A new place (Oaxaca, 14 granules) took about 2 minutes from request to storage. Seeding 585 MB took 51 s.
 
 ## Steps
 
@@ -106,4 +108,5 @@ Stop the VM without losing anything (the site keeps working from storage, withou
 - Logs: `azure.sh ssh`, then `sudo docker logs -f sars-api-1` (or `sars-sync-1`, `sars-caddy-1`).
 - The first run per site streams every selected granule (a few minutes for a 20 km site); later runs reuse `/data/interim` and only stream new ones.
 - Some subscriptions forbid public read on storage (`az storage account create` then fails or the container stays private). Fallback: let Caddy serve `/data/processed` from the VM and build the site with one URL; this loses the crash protection.
-- Unverified until the first run: the `rclone/rclone` image signing in with the VM identity (fallback: azcopy), the cloud-init swap file, the VM size list.
+- Verified on the first run: rclone signs in with the VM identity, the swap file, the VM size list (`Standard_B2s_v2` chosen), public read on storage.
+- Some networks block SSH (port 22): `deploy`, `seed`, `status` and `ssh` then time out. Use another network or a VPN and allow its address (note above).
