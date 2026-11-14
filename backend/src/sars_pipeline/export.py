@@ -14,10 +14,10 @@ from PIL import Image
 
 from .granule import Granule, open_granule, read_db
 
-CONTRACT_VERSION = "0.1.0"
+CONTRACT_VERSION = "0.2.0"
 # shortcut: provisional credit line; replace with ASF's official NISAR citation (docs/03 VERIFY).
 ATTRIBUTION = "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
-MATURITY_WORST_FIRST = ["OTHER", "BETA", "PROVISIONAL"]
+MATURITY_WORST_FIRST = ["OTHER", "BETA", "PROVISIONAL", "VALIDATED"]
 
 
 @cache
@@ -50,6 +50,27 @@ def _write_png(path: Path, db: np.ndarray, lo: float, hi: float) -> None:
     Image.fromarray(np.dstack([gray, alpha]).astype("uint8")).save(path)
 
 
+def write_rgba(path: Path, rgba: np.ndarray) -> None:
+    """Colors baked in: the frontend shows overlay images as they are."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(rgba.astype("uint8"), "RGBA").save(path)
+
+
+def load_events(data_dir: Path) -> dict:
+    path = Path(data_dir) / "events.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {"contract_version": CONTRACT_VERSION, "events": []}
+
+
+def write_events(data_dir: Path, area_id: str, events: list[dict]) -> None:
+    """Replace this area's events (C7), keep every other area's."""
+    doc = load_events(data_dir)
+    doc["contract_version"] = CONTRACT_VERSION
+    doc["events"] = [e for e in doc["events"] if e["area_id"] != area_id] + events
+    _write_json(Path(data_dir) / "events.json", doc)
+
+
 def load_manifest(data_dir: Path) -> dict:
     path = Path(data_dir) / "manifest.json"
     if path.exists():
@@ -67,8 +88,7 @@ def ingested_ids(data_dir: Path) -> set[str]:
 
 
 def _area(manifest: dict, g: Granule) -> dict:
-    # One area per track/frame/pass: same viewing geometry, so its dates are comparable (F02 edge cases).
-    area_id = f"t{g.track:03d}-f{g.frame:03d}-{g.pass_direction[:1].lower()}"
+    area_id = g.area_id
     for area in manifest["areas"]:
         if area["id"] == area_id:
             return area
@@ -87,6 +107,22 @@ def _area(manifest: dict, g: Granule) -> dict:
 
 def _layer(g: Granule, term: str, data_dir: Path, area_id: str) -> dict:
     db, step = read_db(g.path, term)
+    return backscatter_layer(
+        g,
+        term,
+        db,
+        g.bounds,
+        data_dir,
+        area_id,
+        steps=[f"read {term} from the frequency A grid", f"kept every {step}th pixel"],
+        params={"decimation": step},
+    )
+
+
+def backscatter_layer(
+    g: Granule, term, db, bounds, data_dir: Path, area_id: str, steps: list, params: dict
+) -> dict:
+    """Write one dB grid as a gray PNG and return its C2 layer record."""
     valid = db[np.isfinite(db)]
     if valid.size == 0:
         raise ValueError(f"{g.granule_id} {term}: no valid pixels")
@@ -102,7 +138,7 @@ def _layer(g: Granule, term: str, data_dir: Path, area_id: str) -> dict:
         "scatter more radar energy back to the satellite.",
         "kind": "image_overlay",
         "url": url,
-        "bounds": list(g.bounds),
+        "bounds": list(bounds),
         "date": g.date,
         "product": g.product,
         "polarization": pol,
@@ -114,16 +150,17 @@ def _layer(g: Granule, term: str, data_dir: Path, area_id: str) -> dict:
         "provenance": {
             "source_granules": [g.granule_id],
             "steps": [
-                f"read {term} from the frequency A grid",
-                f"kept every {step}th pixel",
+                *steps,
                 "converted linear power to dB",
                 "stretched between the 2nd and 98th percentile",
             ],
-            "params": {"term": term, "decimation": step, "stretch_percentiles": [2, 98]},
+            "params": {"term": term, **params, "stretch_percentiles": [2, 98]},
             "software": _software(),
             "attribution": ATTRIBUTION,
         },
-        # Extra field (contracts allow unknown fields): feeds the time series.
+        # Extra fields (contracts allow unknown fields): role separates backscatter from change
+        # layers; stats feeds the time series.
+        "role": "backscatter",
         "stats": {
             "mean_db": round(float(10 * np.log10(np.mean(10 ** (valid / 10)))), 3),
             "n_pixels": int(valid.size),
@@ -132,7 +169,9 @@ def _layer(g: Granule, term: str, data_dir: Path, area_id: str) -> dict:
 
 
 def _refresh_area(area: dict, data_dir: Path) -> None:
-    area["layers"].sort(key=lambda layer: (layer["date"], layer["id"]))
+    area["layers"].sort(
+        key=lambda layer: (layer.get("date") or layer["date_range"][1], layer["id"])
+    )
     bounds = [layer["bounds"] for layer in area["layers"]]
     w, s = min(b[0] for b in bounds), min(b[1] for b in bounds)
     e, n = max(b[2] for b in bounds), max(b[3] for b in bounds)
@@ -140,8 +179,9 @@ def _refresh_area(area: dict, data_dir: Path) -> None:
     area["center"] = [round((w + e) / 2, 6), round((s + n) / 2, 6)]
     area["zoom_default"] = max(0, min(14, round(math.log2(360 / max(e - w, n - s, 1e-6)))))
     area["timeseries"] = []
-    for pol in sorted({layer["polarization"] for layer in area["layers"]}):
-        layers = [layer for layer in area["layers"] if layer["polarization"] == pol]
+    backscatter = [layer for layer in area["layers"] if "stats" in layer]  # not change layers
+    for pol in sorted({layer["polarization"] for layer in backscatter}):
+        layers = [layer for layer in backscatter if layer["polarization"] == pol]
         title = f"Mean {pol} backscatter over the frame"
         url = f"areas/{area['id']}/timeseries/{pol.lower()}.json"
         _write_json(
@@ -175,6 +215,16 @@ def _refresh_area(area: dict, data_dir: Path) -> None:
         area["timeseries"].append({"id": pol.lower(), "title": title, "url": url})
 
 
+def write_manifest(data_dir: Path, manifest: dict) -> None:
+    manifest.update(
+        contract_version=CONTRACT_VERSION,
+        generated_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        git_commit=_software()["commit"],
+        synthetic=any(layer["synthetic"] for a in manifest["areas"] for layer in a["layers"]),
+    )
+    _write_json(Path(data_dir) / "manifest.json", manifest)
+
+
 def ingest(path, data_dir) -> list[str]:
     """Parse one GCOV granule into layers, time series and manifest. Re-ingesting replaces its layers."""
     data_dir = Path(data_dir)
@@ -187,11 +237,5 @@ def ingest(path, data_dir) -> list[str]:
     ids = {layer["id"] for layer in new}
     area["layers"] = [layer for layer in area["layers"] if layer["id"] not in ids] + new
     _refresh_area(area, data_dir)
-    manifest.update(
-        contract_version=CONTRACT_VERSION,
-        generated_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        git_commit=_software()["commit"],
-        synthetic=any(layer["synthetic"] for a in manifest["areas"] for layer in a["layers"]),
-    )
-    _write_json(data_dir / "manifest.json", manifest)
+    write_manifest(data_dir, manifest)
     return sorted(ids)

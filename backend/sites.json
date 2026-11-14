@@ -1,0 +1,9 @@
+{
+  "sf": {
+    "title": "San Francisco (pipeline test)",
+    "summary": "Test area for the pipeline, not a demo site. Radar backscatter over San Francisco and the Bay, and what changed between the two latest passes.",
+    "bbox": [-122.52, 37.70, -122.30, 37.85],
+    "change_types": ["other"],
+    "looks": 4
+  }
+}
