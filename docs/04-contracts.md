@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.5.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas. Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.6.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas; 0.6.0 adds live events (C9, `live.geojson`, the `live` push event and the `storms` category). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -44,7 +44,7 @@ These contracts are the only coupling between the pipeline (producer) and the fr
 
 ### Categories
 
-The ids of the frontend filter panel (`frontend/src/filters.ts`), so filters map 1:1 to data: `earthquakes`, `volcanoes`, `landslides`, `floods`, `forecast`, `sinkholes`, `wildfires`, `drought`, `marine`, `glaciers`, `ice-sheets`, `sea-ice`, `permafrost`, `glacial-lakes`, `induced-seismicity`, `oil-spills`, `groundwater`, `subsidence`, `logging`, `coastal-loss`, `reservoirs`, `deforestation`, `urban`, `agriculture`, plus `other`. The backend currently produces `floods`, `deforestation`, `wildfires` (with fire data), `agriculture`, `urban`, `subsidence`, `groundwater`, `drought`, `other` (decision table in `backend/README.md`).
+The ids of the frontend filter panel (`frontend/src/filters.ts`), so filters map 1:1 to data: `earthquakes`, `volcanoes`, `landslides`, `floods`, `forecast`, `sinkholes`, `wildfires`, `drought`, `marine`, `glaciers`, `ice-sheets`, `sea-ice`, `permafrost`, `glacial-lakes`, `induced-seismicity`, `oil-spills`, `groundwater`, `subsidence`, `logging`, `coastal-loss`, `reservoirs`, `deforestation`, `urban`, `agriculture`, `storms` (live events only, C9), plus `other`. The backend currently produces `floods`, `deforestation`, `wildfires` (with fire data), `agriculture`, `urban`, `subsidence`, `groundwater`, `drought`, `other` (decision table in `backend/README.md`).
 
 ## C2. Layer
 
@@ -115,6 +115,7 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /<timeseries.url>` | C4 time series, e.g. `areas/<area>/timeseries/<pol>.json` |
 | `GET /events` | Server-sent events. `event: manifest` with data `{"type": "manifest", "url": "manifest.json"}` whenever the manifest changes. The frontend refetches the manifest on each event |
 | `GET /health` | `{"ok": true}` |
+| `GET /live.geojson` | C9 live events. Only when the server runs with `serve --live-minutes N` (or after `sars-pipeline live-events`); otherwise 404, and the frontend must work without it. `/events` then also sends `event: live` with data `{"type": "live", "url": "live.geojson"}` whenever the file changes |
 | `GET /events.json` | All events: `{ contract_version, events: Event[] }` (C7). Also present in the static export |
 | `GET /query?lat=<lat>&lon=<lon>` | `{ contract_version, events: Event[], area_ids: string[] }`: events whose geometry contains the point, and areas whose `bbox` contains it |
 | `GET /query?bbox=w,s,e,n` | Same shape: events and areas whose `bbox` intersects the box |
@@ -192,6 +193,50 @@ Card:
 | `maturity` | enum | when level > 0 | Lowest maturity among the events |
 | `event_ids` | string[] | when level > 0 | Up to 5 C7 event ids, largest first |
 | `layer_id` | string or null | when level > 0 | A C2 layer that shows it |
+
+## C9. Live events (`live.geojson`)
+
+What public disaster feeds report right now, shown next to the radar results. **These are not NISAR detections and not C7 events**: the frontend must draw them differently (hollow rings today) and show each feature's `credit`. Optional file, in the data root; also in the static export when present. Sources and licenses: `docs/09`.
+
+A GeoJSON FeatureCollection with extra top-level fields:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `type` | string | yes | `FeatureCollection` |
+| `generated_at` | string | yes | UTC, `YYYY-MM-DDTHH:MM:SSZ` |
+| `note` | string | yes | Plain sentence saying these are not NISAR detections |
+| `sources` | Source[] | yes | One per feed, also the feeds that failed |
+| `features` | Feature[] | yes | Point features, newest first. May be empty |
+
+Source:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `id` | enum | yes | `eonet` (NASA EONET), `usgs` (earthquakes), `gdacs`, `nhc` (NOAA hurricanes), `firms` (NASA fire detections, last 24 h, Mexico) |
+| `name`, `owner`, `url`, `credit` | string | yes | Feed name, who runs it, its address, credit line |
+| `ok` | boolean | yes | `false`: the feed failed or has no key; the other feeds still load |
+| `count` | integer | yes | Features from this feed; 0 when `ok` is false |
+| `error` | string | when `ok` is false | Reason, at most 200 characters |
+
+Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `id` | string | yes | `<source>-<the feed's own id>`; stable between refreshes |
+| `source` | enum | yes | A Source `id` |
+| `source_name` | string | yes | Who runs the feed |
+| `credit` | string | yes | Credit line. Must be shown with the event |
+| `category` | string | yes | A category id (C1 Categories): `wildfires`, `volcanoes`, `floods`, `landslides`, `drought`, `earthquakes`, `sea-ice`, `storms`, `marine` or `other` |
+| `title` | string | yes | What is happening, e.g. `Magnitude 5.1 earthquake` |
+| `place` | string | yes | Where, in words; `""` when the feed gives none |
+| `date` | string | yes | UTC. `YYYY-MM-DD`, or with a time (`YYYY-MM-DDTHH:MMZ`) when the feed gives one. The latest update of the event |
+| `detail` | string | yes | One short line (size, alert level, who reported it); may be `""` |
+| `url` | string | yes | Link to the source's page for the event; may be `""` |
+| `lon`, `lat` | number | yes | Same as the geometry, for popups |
+
+- One event may reach us through two feeds; the backend keeps one (GDACS events are taken from GDACS, not EONET; earthquakes from USGS, not GDACS).
+- A fire detection (`firms`) is a hot spot seen from space: it can also be a crop burn or a gas flare. Its `detail` says so.
+- Refresh: the server rewrites the file every N minutes; the frontend reloads on the `live` push event or on its own timer.
 
 ## Validation rules
 
