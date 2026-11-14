@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+# Frontend build output, present when switching branches
+frontend/node_modules/
+frontend/dist/
