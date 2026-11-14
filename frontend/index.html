@@ -9,6 +9,10 @@
     <header>
       <h1>Dancing with the SARs</h1>
       <button type="button" id="tour-btn" data-i18n="btn.tutorial"></button>
+      <div id="mode" class="mode" role="radiogroup" aria-labelledby="mode-label">
+        <span id="mode-label" class="muted" data-i18n="mode.label"></span>
+        <div id="mode-seg" class="seg"></div>
+      </div>
       <button type="button" id="settings-btn" data-i18n="btn.settings"></button>
       <div id="banner" role="status" hidden></div>
     </header>
@@ -16,8 +20,8 @@
       <nav data-i18n-label="nav.label">
         <h3 data-i18n="h.filters"></h3>
         <div id="filters"></div>
-        <h3 data-i18n="h.coords"></h3>
-        <form id="coords">
+        <h3 class="tech" data-i18n="h.coords"></h3>
+        <form id="coords" class="tech">
           <label for="lat" data-i18n="coords.lat"></label>
           <input id="lat" type="number" min="-90" max="90" step="any" required placeholder="19.43" />
           <label for="lon" data-i18n="coords.lon"></label>

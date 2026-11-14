@@ -5,6 +5,7 @@ import { el } from "./ui";
 // [element to outline, text key]: the texts are `tour.<key>.title` and `tour.<key>.text`.
 const STEPS: [string, string][] = [
   ["#stage", "globe"],
+  ["#mode", "mode"],
   ["#filters", "filters"],
   ["#coords", "coords"],
   ["#results", "areas"],
@@ -15,10 +16,14 @@ const STEPS: [string, string][] = [
   ["#banner", "banner"],
 ];
 
+// Simple mode hides the technical parts of the page; their steps are left out.
+const hidden = (sel: string) => !!document.querySelector(sel)?.matches(':root[data-mode="simple"] .tech');
+
 let close: (() => void) | undefined;
 
 export function startTour(returnFocus?: HTMLElement) {
   close?.();
+  const steps = STEPS.filter(([sel]) => !hidden(sel));
   let i = 0;
   let target: Element | null = null;
 
@@ -26,7 +31,7 @@ export function startTour(returnFocus?: HTMLElement) {
   const text = el("p");
   const count = el("span", { className: "muted" });
   const back = el("button", { type: "button", onclick: () => show(i - 1) }, t("tour.back"));
-  const next = el("button", { type: "button", className: "primary", onclick: () => (i === STEPS.length - 1 ? end() : show(i + 1)) });
+  const next = el("button", { type: "button", className: "primary", onclick: () => (i === steps.length - 1 ? end() : show(i + 1)) });
   const card = el(
     "div",
     { className: "tour", role: "dialog" },
@@ -39,14 +44,14 @@ export function startTour(returnFocus?: HTMLElement) {
   function show(n: number) {
     i = n;
     target?.classList.remove("tour-target");
-    target = document.querySelector(STEPS[i][0]);
+    target = document.querySelector(steps[i][0]);
     target?.classList.add("tour-target");
     target?.scrollIntoView({ block: "nearest" });
-    title.textContent = t(`tour.${STEPS[i][1]}.title` as Key);
-    text.textContent = t(`tour.${STEPS[i][1]}.text` as Key);
-    count.textContent = t("tour.count", { i: i + 1, n: STEPS.length });
+    title.textContent = t(`tour.${steps[i][1]}.title` as Key);
+    text.textContent = t(`tour.${steps[i][1]}.text` as Key);
+    count.textContent = t("tour.count", { i: i + 1, n: steps.length });
     back.disabled = i === 0;
-    next.textContent = i === STEPS.length - 1 ? t("tour.done") : t("tour.next");
+    next.textContent = i === steps.length - 1 ? t("tour.done") : t("tour.next");
     next.focus();
   }
 

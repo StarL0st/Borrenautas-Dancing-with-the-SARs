@@ -1,3 +1,6 @@
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
@@ -8,7 +11,7 @@ import {
   datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type Manifest,
 } from "./logic";
-import { loadSettings, renderSettings, type Settings } from "./settings";
+import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
 import { createWheel } from "./wheel";
@@ -21,6 +24,9 @@ const filters = $("filters"), results = $("results"), status = $("status"), card
 
 const settings = loadSettings();
 setLang(settings.lang);
+// Simple mode: plain words and fewer controls. Technical mode: everything the back end sends.
+const simple = () => settings.mode === "simple";
+document.documentElement.dataset.mode = settings.mode;
 
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
@@ -78,7 +84,7 @@ function buildFilters() {
         { open: open[n] ?? n === 0 },
         el("summary", {}, dot(g.color), groupLabel(g.id)),
         el("label", { className: "check all" }, all, t("filter.all")),
-        ...boxes.map((box, i) => el("label", { className: "check" }, box, typeLabel(g.items[i]))),
+        ...boxes.map((box, i) => el("label", { className: "check" }, box, simple() ? typeLabel(g.items[i]).replace(/\s*[(:].*/, "") : typeLabel(g.items[i]))),
       );
     }),
   );
@@ -181,7 +187,9 @@ function card(a: AreaView) {
   if (a.example) tags.append(el("span", { className: "tag warn" }, t("tag.example")));
   if (a.synthetic) tags.append(el("span", { className: "tag warn" }, t("tag.synthetic")));
 
-  const timeline = a.events.map((e) =>
+  // Simple mode sums the radar passes up in one sentence and drops the confidence figures.
+  const passes = a.events.filter((e) => e.pols).map((e) => e.date).sort();
+  const timeline = (simple() ? a.events.filter((e) => !e.pols) : a.events).map((e) =>
     el(
       "li",
       {},
@@ -192,7 +200,7 @@ function card(a: AreaView) {
         { className: "muted" },
         e.pols
           ? t("timeline.pols", { list: e.pols.join(", ") })
-          : [e.text, e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
+          : [e.text, !simple() && e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
       ),
     ),
   );
@@ -210,8 +218,9 @@ function card(a: AreaView) {
     tags,
     el("p", {}, a.summary),
     ...radarSection(a),
-    chartSection(a),
-    el("h4", {}, t("card.timeline")),
+    simple() ? el("div") : chartSection(a),
+    el("h4", {}, t(simple() ? "simple.changes" : "card.timeline")),
+    ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
@@ -226,6 +235,8 @@ function radarSection(a: AreaView): Node[] {
   const v = views.get(a.id) ?? { pol: pols[0], date: "", opacity: 1 };
   views.set(a.id, v);
   if (!pols.includes(v.pol)) v.pol = pols[0];
+  // Simple mode picks the most telling picture itself; the technical choice is kept for later.
+  const pol = () => (simple() ? ["Detected change", "Surface type"].find((g) => pols.includes(g)) ?? pols[0] : v.pol);
 
   const info = el("div");
   const dateOut = el("output", {}, v.date);
@@ -234,7 +245,7 @@ function radarSection(a: AreaView): Node[] {
 
   // The slider moves over the available dates only, so it cannot land on a gap.
   const setDates = () => {
-    const dates = datesFor(a.layers, v.pol);
+    const dates = datesFor(a.layers, pol());
     if (!dates.includes(v.date)) v.date = dates.at(-1) ?? "";
     slider.max = String(Math.max(dates.length - 1, 0));
     slider.value = String(dates.indexOf(v.date));
@@ -244,12 +255,12 @@ function radarSection(a: AreaView): Node[] {
   const update = () => {
     dateOut.textContent = v.date;
     slider.setAttribute("aria-valuetext", v.date);
-    const layer = layerAt(a.layers, v.pol, v.date);
+    const layer = layerAt(a.layers, pol(), v.date);
     globe.showOverlay(a.id, layer, BASE, v.opacity);
     info.replaceChildren(...(layer ? layerInfo(layer) : []));
   };
   slider.oninput = () => {
-    v.date = datesFor(a.layers, v.pol)[+slider.value];
+    v.date = datesFor(a.layers, pol())[+slider.value];
     update();
   };
   polSelect.onchange = () => {
@@ -260,6 +271,7 @@ function radarSection(a: AreaView): Node[] {
   opacity.oninput = () => globe.setOpacity(a.id, (v.opacity = +opacity.value));
 
   setDates();
+  if (simple()) return [el("h4", {}, t("simple.picture")), el("label", { htmlFor: slider.id }, t("radar.date"), " ", dateOut), slider, info];
   return [
     el("h4", {}, t("card.radar")),
     el("label", { htmlFor: polSelect.id }, t("radar.layer")), polSelect,
@@ -317,6 +329,7 @@ function layerInfo(l: Layer): Node[] {
     }
     out.push(el("p", { className: "legend" }, el("span", {}, `${min} ${l.units}`), el("span", {}, `${max} ${l.units}`)));
   }
+  if (simple()) return out;
   const p = l.provenance;
   const row = (key: Key, val: Node | string) => [el("dt", {}, t(key)), el("dd", {}, val)];
   out.push(
@@ -453,6 +466,19 @@ function applyLanguage() {
   document.documentElement.lang = settings.lang;
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n]")) node.textContent = t(node.dataset.i18n as Key);
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
+  $("mode-seg").replaceChildren(
+    ...(["simple", "technical"] as const).map((mode) => {
+      const input = el("input", { type: "radio", name: "mode", checked: settings.mode === mode });
+      input.onchange = () => {
+        settings.mode = mode;
+        saveSettings(settings);
+        document.documentElement.dataset.mode = mode;
+        buildFilters();
+        render();
+      };
+      return el("label", {}, input, el("span", {}, t(`mode.${mode}`)));
+    }),
+  );
   buildFilters();
   buildWheel();
   showStatus();

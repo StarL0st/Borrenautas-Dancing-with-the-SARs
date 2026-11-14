@@ -6,6 +6,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
 import type { AreaView, EventFeature, Layer } from "./logic";
+import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
 setWorkerUrl(workerUrl);
@@ -79,7 +80,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
   let spinFrameId = 0, lastFrame = 0; // auto-rotate: 0 means off
   const overlays = new Set<string>();
-  const marker = new Marker({ color: "#5fe3e0" });
+  const marker = new Marker({ color: "#ededeb" });
 
   const point = ["==", ["geometry-type"], "Point"] as ["==", ["geometry-type"], "Point"];
   // Dots fade out once you are close enough to see the area's outline and radar image.
@@ -96,8 +97,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.addLayer({
         id: "areas-halo", type: "circle", source: "areas", filter: point,
         paint: {
-          "circle-radius": ["case", ["get", "open"], 30, 18],
-          "circle-color": ["get", "color"], "circle-blur": 1, "circle-opacity": fade(0.75),
+          "circle-radius": ["case", ["get", "open"], 16, 12],
+          "circle-color": ["get", "color"], "circle-opacity": fade(0.25),
         },
       });
       map.addLayer({
@@ -114,7 +115,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "text-field": ["get", "title"], "text-font": ["Open Sans Semibold"], "text-size": 12,
           "text-offset": [0, 1.3], "text-anchor": "top",
         },
-        paint: { "text-color": "#e6f1f5", "text-halo-color": "#03060a", "text-halo-width": 1.5 },
+        paint: { "text-color": "#ededeb", "text-halo-color": "#0a0a0b", "text-halo-width": 1.5 },
       });
       // Detected changes (events.geojson): outlines when close, dots at every zoom.
       const empty = { type: "FeatureCollection" as const, features: [] };
@@ -132,7 +133,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         id: "events-dot", type: "circle", source: "event-points",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
-          "circle-color": ["get", "color"], "circle-stroke-color": "#03060a", "circle-stroke-width": 1,
+          "circle-color": ["get", "color"], "circle-stroke-color": "#0a0a0b", "circle-stroke-width": 1,
         },
       });
       for (const layer of ["events-fill", "events-dot"]) {
@@ -144,6 +145,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = picking ? "crosshair" : ""));
+      map.addLayer(satelliteLayer(map));
       resolve();
     }),
   );
@@ -181,7 +183,14 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
-          el("p", { className: "muted" }, t("popup.meta", { from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity })),
+          el(
+            "p",
+            { className: "muted" },
+            // Simple mode leaves out the confidence figure and the data maturity.
+            t(document.documentElement.dataset.mode === "simple" ? "popup.meta.simple" : "popup.meta", {
+              from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity,
+            }),
+          ),
           el("p", {}, p.summary),
         ),
       )
