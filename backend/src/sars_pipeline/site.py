@@ -671,7 +671,7 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
         colormap="classes",
         provenance={
             "source_granules": [],
-            "steps": ["NASA FIRMS VIIRS S-NPP detections", "grown to 375 m footprints"],
+            "steps": ["NASA FIRMS VIIRS NOAA-20 detections", "grown to 375 m footprints"],
             "params": {"fire_season": season, "detections": len(spots)},
             "attribution": firms.CREDIT,
         },

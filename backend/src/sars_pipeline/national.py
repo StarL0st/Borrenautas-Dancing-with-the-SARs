@@ -337,7 +337,10 @@ def fires(run, bounds, rows, shape, origin, maturity) -> None:
         colormap="classes",
         provenance={
             "source_granules": [],
-            "steps": ["NASA FIRMS VIIRS S-NPP detections", "marked on the 2 km grid, grown 1 cell"],
+            "steps": [
+                "NASA FIRMS VIIRS NOAA-20 detections",
+                "marked on the 2 km grid, grown 1 cell",
+            ],
             "params": {"days": FIRE_DAYS, "detections": len(spots)},
             "attribution": firms.CREDIT,
         },

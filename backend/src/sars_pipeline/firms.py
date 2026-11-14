@@ -16,10 +16,10 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 API = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{source}/{bbox}/{days}/{start}"
-# Standard (SP) for older dates, near-real-time (NRT) for the last weeks; both VIIRS on Suomi NPP.
-SOURCES = ("VIIRS_SNPP_SP", "VIIRS_SNPP_NRT")
+# Standard (SP) for older dates, near-real-time (NRT) for the last weeks; both VIIRS on NOAA-20 (Suomi NPP near-real-time data stops on 2026-11-02).
+SOURCES = ("VIIRS_NOAA20_SP", "VIIRS_NOAA20_NRT")
 CREDIT = (
-    "NASA FIRMS: VIIRS (S-NPP) 375 m active fire detections, NASA LANCE. "
+    "NASA FIRMS: VIIRS (NOAA-20) 375 m active fire detections, NASA LANCE. "
     "https://firms.modaps.eosdis.nasa.gov/"
 )
 
