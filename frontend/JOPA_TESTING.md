@@ -6,10 +6,10 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 ## What the branch has now (after round 3)
 
 - **Event icons** on every filter type: filled when on, outline when off. Compact buttons, with "Show N more" per group.
-- **Live events, worldwide, last 24 hours,** for every type with a public feed, weather included. Each event has a danger score. The page says how often the server checks the sources.
-- **Most dangerous right now** (live) and **Most destructive recent events** (Mexico since 2015, with sources).
+- **Live events, worldwide, last 24 hours,** for every type with a public feed, weather included. Serious and extreme events carry a danger label. The page says how often the server checks the sources.
+- **Most destructive recent events** (Mexico since 2015, with sources).
 - **Open areas panel (Technical mode only):** a satellite before/now view (NASA GIBS), "What changed" with effects on plants and animals, and a timeline of remarkable events per zone. Simple mode shows a short popup with "See all details".
-- **Removed in round 3:** the "How dangerous" slider and the "Infrastructure risks near you" function.
+- **Removed in round 3:** the "How dangerous" slider, the "Infrastructure risks near you" function and the "Most dangerous right now" box.
 
 ## Change log (one row per commit)
 
@@ -24,7 +24,9 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `d5143fc` | 2 | Docs: round 2, source check, update frequency |
 | `4dec1df` | 2 | Fixes found while running: worldwide wording, Simple list length, sea ice label, popup no longer waits for the map's flight |
 | `281dd08` | 3 | Removed the "How dangerous" slider (and its minimum-danger filter and texts) and the "Infrastructure risks near you" function (panel, location, radius slider, globe dots, data, texts, styles, tests) |
-| *this commit* | 3 | Docs: round 3 and this change log |
+| `82c0e5d` | 3 | Docs: round 3 and this change log |
+| `31596a7` | 3 | Removed the "Most dangerous right now" box (heading, list, empty message, `topLive`, texts, styles, test) |
+| *this commit* | 3 | Docs: change log row above |
 
 ## Round 3 (2026-11-14, evening)
 
@@ -32,6 +34,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 |---|---|
 | Erase the "How dangerous" slider and data | **Removed:** the slider in "Happening now", the minimum-danger filter (`minSeverity` in `src/logic.ts`), and its texts (`live.level`, `level.0`–`level.3`) in three languages. The unused "From the last" texts from round 2 went too. **Kept:** each event's danger score (`severity` from the backend), because **Most dangerous right now** needs it to rank events and the list marks serious and extreme events. Ask if you also want the score itself removed. |
 | Erase the function that analyzes infrastructure near the user | **Removed:** the left-panel section (Use my location, the radius slider, the list), the colored dots on the globe, the data (`INFRA`, `LEARN`, `INFRA_THRESHOLDS`, `statusOf`, `infraNear` in `src/mexico.ts`), about 30 texts in each language, the styles and the tests. The browser no longer asks for location. |
+| Erase the "Most dangerous right now" text | **Removed:** the whole box, including the heading, its list, the "Nothing serious…" message, the `topLive` ranking, its texts in three languages, its styles and its test. **Kept:** the danger label (Serious, Extreme) on events in the live list. |
 | Push to my personal branch | The branch `jopa-testing` was pushed to GitHub (`origin/jopa-testing`). Nothing was merged into `testing`, `frontend` or `main`. |
 
 The round 1 and round 2 sections below describe some features that were removed later; they are marked as such.
