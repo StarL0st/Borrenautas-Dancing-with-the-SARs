@@ -33,6 +33,9 @@ Use the same pattern with each collection's title and DOI.
 
 | Source | License | Status | Note |
 |---|---|---|---|
+| RADARSAT-1 archive, Canadian Space Agency / Natural Resources Canada (C-band, HH, 1996-2013), Cloud Optimized GeoTIFFs in `s3://radarsat-r1-l1-cog` (AWS ca-central-1, public) | [Open Government Licence - Canada](https://open.canada.ca/en/open-government-licence-canada) (per the [AWS open data registry entry](https://registry.opendata.aws/radarsat-1/)) | candidate (from the challenge resource list) | Historical baseline. Bucket keys hold date and beam mode only, no location: find scenes through the EODMS catalog (https://www.eodms-sgdot.nrcan-rncan.gc.ca). `asf_search` returned no RADARSAT-1 results on 2026-11-14 |
+| RADARSAT Constellation Mission (RCM), Canadian Space Agency (C-band, current) | **VERIFY** (EODMS terms) | candidate (from the challenge resource list) | EODMS registration needed; coverage over Mexico unknown |
+| CSA SAR Python tutorial | n/a (tutorial) | candidate (from the challenge resource list) | Reference for reading RCM/RADARSAT products |
 | MapLibre demo tiles (basemap, `https://demotiles.maplibre.org/`) | **VERIFY** | used (frontend) | Check the tile data license and attribution before submission; switch to a NASA basemap (for example GIBS) if unclear |
 | ESA WorldCover 10 m (land cover) | **VERIFY** before use | candidate | Only if no NASA land cover is fine enough |
 | JRC Global Surface Water | **VERIFY** before use | candidate | Prefer OPERA DSWx (NASA) |
