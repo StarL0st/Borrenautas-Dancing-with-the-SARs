@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
-import { datesFor, inFilter, layerAt, supportedVersion, ticks, toAreaView, type Layer } from "../src/logic.ts";
+import { ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -73,4 +73,40 @@ test("every language has every text, with the same placeholders", () => {
       assert.equal(holes(text), holes(STRINGS.en[key as keyof typeof STRINGS.en]), `${lang} ${key}`);
     }
   }
+});
+
+test("live events follow the filters; unknown categories always show", () => {
+  const f = (category: string) => ({ properties: { category } }) as LiveFeature;
+  const known = (id: string) => ["earthquakes", "storms"].includes(id);
+  const ticked = new Set(["storms"]);
+  assert.ok(liveShown(f("storms"), ticked, known));
+  assert.ok(!liveShown(f("earthquakes"), ticked, known));
+  assert.ok(liveShown(f("other"), ticked, known));
+});
+
+test("every live category the back end sends is a filter or 'other'", () => {
+  // Mirrors backend/src/sars_pipeline/livefeeds.py (EONET_CATEGORIES, GDACS_CATEGORIES).
+  const sent = ["wildfires", "volcanoes", "floods", "landslides", "drought", "earthquakes", "sea-ice", "storms", "marine"];
+  for (const id of sent) assert.ok(STRINGS.en[`type.${id}` as keyof typeof STRINGS.en], id);
+});
+
+test("live list: newest first, filtered, and every row says where", () => {
+  const f = (id: string, category: string, date: string, place = "") =>
+    ({ properties: { id, category, date, place, lat: 19.43, lon: -99.13 } }) as LiveFeature;
+  const known = (id: string) => ["earthquakes", "wildfires"].includes(id);
+  const list = liveList(
+    [f("a", "earthquakes", "2026-11-10"), f("b", "earthquakes", "2026-11-14T09:26Z", "Oaxaca, Mexico"), f("c", "wildfires", "2026-11-13")],
+    new Set(["earthquakes"]),
+    known,
+  );
+  assert.deepEqual(list.map((x) => x.properties.id), ["b", "a"]);
+  assert.equal(liveWhere(list[0].properties), "Oaxaca, Mexico");
+  assert.equal(liveWhere(list[1].properties), "19.43° N, 99.13° W");
+});
+
+test("relative time picks a readable unit", () => {
+  const now = Date.parse("2026-11-14T12:00:00Z");
+  assert.deepEqual(ago("2026-11-14T11:30Z", now), [-30, "minute"]);
+  assert.deepEqual(ago("2026-11-14T02:00Z", now), [-10, "hour"]);
+  assert.deepEqual(ago("2026-11-10", now), [-5, "day"]);
 });

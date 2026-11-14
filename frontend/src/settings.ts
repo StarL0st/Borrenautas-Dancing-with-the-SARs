@@ -4,17 +4,21 @@ import type { Texture } from "./globe";
 import { LANGS, t, type Key, type Lang } from "./i18n";
 import { el } from "./ui";
 
-export type Settings = { lang: Lang; wheel: "large" | "medium" | "small"; texture: Texture };
+export type Settings = { lang: Lang; wheel: "large" | "medium" | "small"; texture: Texture; mode: "simple" | "technical" };
 
 const OPTIONS: { [K in keyof Settings]: readonly Settings[K][] } = {
   lang: ["en", "es", "de"],
   wheel: ["large", "medium", "small"],
-  texture: ["bluemarble", "hologram", "street"],
+  texture: ["sentinel", "hologram", "street"],
+  mode: ["simple", "technical"],
 };
 const KEYS = Object.keys(OPTIONS) as (keyof Settings)[];
+// The menu's rows. Mode has its own switch in the header.
+type Row = "lang" | "wheel" | "texture";
+const ROWS: Row[] = ["lang", "wheel", "texture"];
 
 export function loadSettings(): Settings {
-  const out: Record<string, string> = { lang: "en", wheel: "large", texture: "bluemarble" };
+  const out: Record<string, string> = { lang: "en", wheel: "medium", texture: "sentinel", mode: "simple" };
   try {
     const saved = JSON.parse(localStorage.getItem("settings") ?? "{}") ?? {};
     // Only known values are accepted: storage can hold anything.
@@ -25,18 +29,26 @@ export function loadSettings(): Settings {
   return out as Settings;
 }
 
-const optionLabel = (key: keyof Settings, value: string) =>
+export function saveSettings(settings: Settings) {
+  try {
+    localStorage.setItem("settings", JSON.stringify(settings));
+  } catch {
+    // Storage blocked: the choice still applies until the page closes.
+  }
+}
+
+const optionLabel = (key: Row, value: string) =>
   key === "lang" ? LANGS[value as Lang] : t(`${key === "wheel" ? "size" : "tex"}.${value}` as Key);
 
 // Rebuilds the menu inside `dialog`; call again after a language change.
 export function renderSettings(dialog: HTMLDialogElement, settings: Settings, onChange: (key: keyof Settings) => void) {
   const helpTitle = el("h3"), helpText = el("p", { id: "settings-help" });
-  const showHelp = (key: keyof Settings) => {
+  const showHelp = (key: Row) => {
     helpTitle.textContent = t(`set.${key}`);
     helpText.textContent = t(`set.${key}.help`);
   };
 
-  const rows = KEYS.map((key) => {
+  const rows = ROWS.map((key) => {
     const row = el(
       "fieldset",
       { className: "setting" },
@@ -48,11 +60,7 @@ export function renderSettings(dialog: HTMLDialogElement, settings: Settings, on
           const input = el("input", { type: "radio", name: key, value, checked: settings[key] === value });
           input.onchange = () => {
             (settings as Record<string, string>)[key] = value;
-            try {
-              localStorage.setItem("settings", JSON.stringify(settings));
-            } catch {
-              // Storage blocked: the choice still applies until the page closes.
-            }
+            saveSettings(settings);
             onChange(key);
           };
           return el("label", {}, input, el("span", {}, optionLabel(key, value)));

@@ -1,3 +1,6 @@
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
@@ -5,10 +8,10 @@ import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import {
-  datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
-  type AreaView, type EventFeature, type Layer, type Manifest,
+  ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
+  type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
-import { loadSettings, renderSettings, type Settings } from "./settings";
+import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
 import { createWheel } from "./wheel";
@@ -18,13 +21,23 @@ const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/",
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
+const liveToggle = $<HTMLInputElement>("live-toggle"), liveStatus = $("live-status");
+const liveListEl = $("live-list"), liveMore = $("live-more");
+const LIVE_PAGE = 15;
+let liveLimit = LIVE_PAGE; // rows shown in the "Happening now" list
 
 const settings = loadSettings();
 setLang(settings.lang);
+// Simple mode: plain words and fewer controls. Technical mode: everything the back end sends.
+const simple = () => settings.mode === "simple";
+document.documentElement.dataset.mode = settings.mode;
 
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
+let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
+let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
+let stagger = true; // the area list cascades in while the page loads, not on later updates
 let opened: string[] = []; // area ids open as tabs, newest first
 let entering: string | undefined; // the tab that was just opened, so only it animates in
 const collapsed = new Set<string>();
@@ -78,7 +91,7 @@ function buildFilters() {
         { open: open[n] ?? n === 0 },
         el("summary", {}, dot(g.color), groupLabel(g.id)),
         el("label", { className: "check all" }, all, t("filter.all")),
-        ...boxes.map((box, i) => el("label", { className: "check" }, box, typeLabel(g.items[i]))),
+        ...boxes.map((box, i) => el("label", { className: "check" }, box, simple() ? typeLabel(g.items[i]).replace(/\s*[(:].*/, "") : typeLabel(g.items[i]))),
       );
     }),
   );
@@ -130,7 +143,7 @@ function render() {
   opened = opened.filter((id) => shown.some((a) => a.id === id));
 
   results.replaceChildren(
-    ...shown.map((a) => {
+    ...shown.map((a, n) => {
       const dates = a.events.map((e) => e.date).sort();
       const when = dates.length ? t("list.dates", { from: dates[0], to: dates.at(-1)! }) : t("list.nodates");
       const row = el(
@@ -140,7 +153,9 @@ function render() {
         el("span", { className: "muted" }, a.example ? t("list.example") : `${when} · ${t("list.images", { n: a.layers.length })}`),
       );
       row.setAttribute("aria-pressed", String(opened.includes(a.id)));
-      return el("li", {}, row);
+      const li = el("li", { className: stagger ? "stagger" : "" }, row);
+      li.style.setProperty("--i", String(Math.min(n, 12)));
+      return li;
     }),
   );
   if (!shown.length) results.append(el("li", { className: "muted" }, t("list.none")));
@@ -152,6 +167,12 @@ function render() {
   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
     reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
+  );
+  renderLiveList();
+  globe.setLive(
+    liveToggle.checked
+      ? liveEvents.filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
+      : [],
   );
   globe.keepOverlays(opened);
   cards.replaceChildren(
@@ -167,6 +188,7 @@ function toggle(id: string) {
   const opening = !opened.includes(id);
   opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
   if (opening) {
+    showPanel("detail", true); // an area opened from the globe must not land in a hidden panel
     collapsed.delete(id);
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
@@ -181,7 +203,9 @@ function card(a: AreaView) {
   if (a.example) tags.append(el("span", { className: "tag warn" }, t("tag.example")));
   if (a.synthetic) tags.append(el("span", { className: "tag warn" }, t("tag.synthetic")));
 
-  const timeline = a.events.map((e) =>
+  // Simple mode sums the radar passes up in one sentence and drops the confidence figures.
+  const passes = a.events.filter((e) => e.pols).map((e) => e.date).sort();
+  const timeline = (simple() ? a.events.filter((e) => !e.pols) : a.events).map((e) =>
     el(
       "li",
       {},
@@ -192,7 +216,7 @@ function card(a: AreaView) {
         { className: "muted" },
         e.pols
           ? t("timeline.pols", { list: e.pols.join(", ") })
-          : [e.text, e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
+          : [e.text, !simple() && e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
       ),
     ),
   );
@@ -210,8 +234,9 @@ function card(a: AreaView) {
     tags,
     el("p", {}, a.summary),
     ...radarSection(a),
-    chartSection(a),
-    el("h4", {}, t("card.timeline")),
+    simple() ? el("div") : chartSection(a),
+    el("h4", {}, t(simple() ? "simple.changes" : "card.timeline")),
+    ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
@@ -226,6 +251,8 @@ function radarSection(a: AreaView): Node[] {
   const v = views.get(a.id) ?? { pol: pols[0], date: "", opacity: 1 };
   views.set(a.id, v);
   if (!pols.includes(v.pol)) v.pol = pols[0];
+  // Simple mode picks the most telling picture itself; the technical choice is kept for later.
+  const pol = () => (simple() ? ["Detected change", "Surface type"].find((g) => pols.includes(g)) ?? pols[0] : v.pol);
 
   const info = el("div");
   const dateOut = el("output", {}, v.date);
@@ -234,7 +261,7 @@ function radarSection(a: AreaView): Node[] {
 
   // The slider moves over the available dates only, so it cannot land on a gap.
   const setDates = () => {
-    const dates = datesFor(a.layers, v.pol);
+    const dates = datesFor(a.layers, pol());
     if (!dates.includes(v.date)) v.date = dates.at(-1) ?? "";
     slider.max = String(Math.max(dates.length - 1, 0));
     slider.value = String(dates.indexOf(v.date));
@@ -244,12 +271,12 @@ function radarSection(a: AreaView): Node[] {
   const update = () => {
     dateOut.textContent = v.date;
     slider.setAttribute("aria-valuetext", v.date);
-    const layer = layerAt(a.layers, v.pol, v.date);
+    const layer = layerAt(a.layers, pol(), v.date);
     globe.showOverlay(a.id, layer, BASE, v.opacity);
     info.replaceChildren(...(layer ? layerInfo(layer) : []));
   };
   slider.oninput = () => {
-    v.date = datesFor(a.layers, v.pol)[+slider.value];
+    v.date = datesFor(a.layers, pol())[+slider.value];
     update();
   };
   polSelect.onchange = () => {
@@ -260,6 +287,7 @@ function radarSection(a: AreaView): Node[] {
   opacity.oninput = () => globe.setOpacity(a.id, (v.opacity = +opacity.value));
 
   setDates();
+  if (simple()) return [el("h4", {}, t("simple.picture")), el("label", { htmlFor: slider.id }, t("radar.date"), " ", dateOut), slider, info];
   return [
     el("h4", {}, t("card.radar")),
     el("label", { htmlFor: polSelect.id }, t("radar.layer")), polSelect,
@@ -317,6 +345,7 @@ function layerInfo(l: Layer): Node[] {
     }
     out.push(el("p", { className: "legend" }, el("span", {}, `${min} ${l.units}`), el("span", {}, `${max} ${l.units}`)));
   }
+  if (simple()) return out;
   const p = l.provenance;
   const row = (key: Key, val: Node | string) => [el("dt", {}, t(key)), el("dd", {}, val)];
   out.push(
@@ -408,11 +437,79 @@ async function loadLive() {
     setStatus("status.offline");
   }
   render();
+  stagger = false;
+}
+
+// ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
+
+liveToggle.onchange = render;
+liveMore.onclick = () => {
+  liveLimit += LIVE_PAGE;
+  renderLiveList();
+};
+
+// "Happening now": one row per event, saying what, where and when, newest first.
+function renderLiveList() {
+  const rows = liveToggle.checked ? liveList(liveEvents, ticked, isType) : [];
+  const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
+  const now = Date.now();
+  liveListEl.replaceChildren(
+    ...rows.slice(0, liveLimit).map((f) => {
+      const p = f.properties;
+      const ring = el("span", { className: "ring" });
+      ring.style.color = typeColor(p.category);
+      const short = typeLabel(p.category).replace(/\s*[(:].*/, ""); // "Earthquakes", not the long form
+      return el(
+        "li",
+        {},
+        el(
+          "button",
+          {
+            type: "button", className: "result",
+            onclick: () => {
+              setSpin(false);
+              globe.openLive(p);
+            },
+          },
+          el("strong", {}, ring, p.title),
+          el("span", { className: "where" }, liveWhere(p)),
+          el("span", { className: "muted" }, `${short} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
+        ),
+      );
+    }),
+  );
+  if (liveToggle.checked && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
+  const left = rows.length - liveLimit;
+  liveMore.hidden = left <= 0;
+  liveMore.textContent = t("live.showmore", { n: Math.min(left, LIVE_PAGE) });
+}
+
+function showLiveStatus() {
+  liveStatus.textContent = liveUpdated
+    ? t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) })
+    : t("live.offline");
+}
+
+async function loadLiveFeeds() {
+  try {
+    const res = await fetch(new URL("live.geojson", BASE));
+    if (!res.ok) throw new Error(String(res.status));
+    const doc = await res.json();
+    liveEvents = doc.features ?? [];
+    liveUpdated = doc.generated_at ?? "";
+  } catch {
+    liveEvents = [];
+    liveUpdated = "";
+  }
+  showLiveStatus();
+  render();
 }
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
+events.addEventListener("live", loadLiveFeeds);
+setInterval(loadLiveFeeds, 10 * 60 * 1000); // also refresh when the push stream is gone
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
 
 // ---- View switch, auto-rotate and view wheel ----
@@ -432,6 +529,12 @@ function setSpin(on: boolean) {
 }
 spinBtn.onclick = () => setSpin(spinBtn.getAttribute("aria-pressed") !== "true");
 
+// Zoom slider: follows the map, and the map follows it.
+const zoomSlider = $<HTMLInputElement>("zoom");
+zoomSlider.oninput = () => globe.zoom.set(+zoomSlider.value);
+globe.zoom.onChange((z) => (zoomSlider.value = String(z)));
+zoomSlider.value = String(globe.zoom.get());
+
 const wheel = $("wheel"), wheelBtn = $("wheel-btn");
 const showWheel = (on: boolean) => {
   wheel.hidden = !on;
@@ -444,6 +547,17 @@ const buildWheel = () =>
     wheelBtn.focus();
   });
 
+// ---- Side panels: the arrows on the edges of the globe push them away and pull them back ----
+
+function showPanel(id: "nav" | "detail", on: boolean) {
+  $(id).inert = !on;
+  $(id).parentElement!.classList.toggle(`no-${id}`, !on);
+  $(`${id}-toggle`).setAttribute("aria-expanded", String(on));
+}
+for (const id of ["nav", "detail"] as const) {
+  $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
+}
+
 // ---- Accessibility menu and language ----
 
 const dialog = $<HTMLDialogElement>("settings");
@@ -453,9 +567,28 @@ function applyLanguage() {
   document.documentElement.lang = settings.lang;
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n]")) node.textContent = t(node.dataset.i18n as Key);
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
+  $("mode-seg").replaceChildren(
+    ...(["simple", "technical"] as const).map((mode) => {
+      const input = el("input", { type: "radio", name: "mode", checked: settings.mode === mode });
+      input.onchange = () => {
+        const flip = () => {
+          settings.mode = mode;
+          saveSettings(settings);
+          document.documentElement.dataset.mode = mode;
+          buildFilters();
+          render();
+        };
+        // The two panels cross-fade between modes (see `view-transition-name` in the stylesheet).
+        if (document.startViewTransition) document.startViewTransition(flip);
+        else flip();
+      };
+      return el("label", {}, input, el("span", {}, t(`mode.${mode}`)));
+    }),
+  );
   buildFilters();
   buildWheel();
   showStatus();
+  showLiveStatus();
   render();
   renderSettings(dialog, settings, onSetting);
 }
@@ -476,6 +609,9 @@ $("settings-btn").onclick = () => dialog.showModal();
 wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
+loadLiveFeeds();
+// The Earth turns by itself on arrival; opening an area or the Auto-rotate button stops it.
+setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
 
 // ---- Tour ----
 

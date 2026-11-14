@@ -4,7 +4,7 @@ import { el } from "./ui";
 
 export type Series = { label: string; points: { date: string; value: number }[] };
 
-// Checked with the dataviz palette validator against the card surface (#0f2130, dark):
+// Checked with the dataviz palette validator against the card surface (#031927, dark):
 // lightness band, chroma, colorblind separation and 3:1 contrast all pass.
 // shortcut: three colors, so at most three lines per chart; fold extra series into small
 // multiples if the back end ever sends more per unit.

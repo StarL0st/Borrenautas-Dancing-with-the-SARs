@@ -8,7 +8,7 @@ export const GROUPS: { id: string; color: string; items: string[] }[] = [
     id: "natural",
     color: "#E69F00",
     items: [
-      "earthquakes", "volcanoes", "landslides", "floods", "forecast", "sinkholes", "wildfires", "drought",
+      "earthquakes", "volcanoes", "landslides", "floods", "storms", "forecast", "sinkholes", "wildfires", "drought",
       "marine", "glaciers", "ice-sheets", "sea-ice", "permafrost", "glacial-lakes",
     ],
   },

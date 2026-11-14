@@ -5,7 +5,9 @@ import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
-import type { AreaView, EventFeature, Layer } from "./logic";
+import { typeLabel } from "./filters";
+import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
+import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
 setWorkerUrl(workerUrl);
@@ -21,10 +23,10 @@ const HOME: Record<ViewMode, { center: [number, number]; zoom: number; pitch: nu
 };
 
 // How the Earth is drawn. Each texture is a set of basemap layers switched on together.
-export type Texture = "bluemarble" | "hologram" | "street";
-const BASE_LAYERS = ["bluemarble", "street", "land", "borders", "grid"];
+export type Texture = "sentinel" | "hologram" | "street";
+const BASE_LAYERS = ["sentinel", "street", "land", "borders", "grid"];
 const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string }> = {
-  bluemarble: { show: ["bluemarble", "borders"], ocean: "#02101c", border: "#ffffff" },
+  sentinel: { show: ["sentinel", "borders"], ocean: "#02101c", border: "#ffffff" },
   hologram: { show: ["land", "borders", "grid"], ocean: "#071a26", border: "#5fe3e0" },
   street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
 };
@@ -38,10 +40,12 @@ const style: StyleSpecification = {
   glyphs: `${BASEMAP}font/{fontstack}/{range}.pbf`,
   sources: {
     base: { type: "vector", url: `${BASEMAP}tiles/tiles.json` },
-    // NASA Blue Marble imagery from GIBS (public, no key). It stops at zoom 8 and is stretched beyond.
-    bluemarble: {
-      type: "raster", tileSize: 256, maxzoom: 8, attribution: "Imagery: NASA GIBS, Blue Marble",
-      tiles: ["https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg"],
+    // Sentinel-2 cloudless: a cloud-free mosaic of Copernicus Sentinel-2 images by EOX (public,
+    // no key, CC BY 4.0 for this 2016 edition). Sharp down to zoom 14, stretched beyond.
+    sentinel: {
+      type: "raster", tileSize: 256, maxzoom: 14,
+      tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg"],
+      attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016)',
     },
     // shortcut: the public OpenStreetMap tile server is for light use only; switch to a hosted
     // tile service before sending real traffic to the app.
@@ -53,7 +57,7 @@ const style: StyleSpecification = {
   // Basemap layers start hidden; `setTexture` switches on the chosen set, so unused tiles never load.
   layers: [
     { id: "ocean", type: "background", paint: { "background-color": "#02101c" } },
-    { id: "bluemarble", type: "raster", source: "bluemarble", layout: { visibility: "none" } },
+    { id: "sentinel", type: "raster", source: "sentinel", layout: { visibility: "none" } },
     { id: "street", type: "raster", source: "street", layout: { visibility: "none" } },
     {
       id: "land", type: "fill", source: "base", "source-layer": "countries", layout: { visibility: "none" },
@@ -71,7 +75,7 @@ const style: StyleSpecification = {
 };
 
 export function createGlobe(container: string, texture: Texture, onPick: (id: string) => void) {
-  const map = new Map({ container, style, ...HOME.globe, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
+  const map = new Map({ container, style, ...HOME.globe, zoom: 0.5, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
 
@@ -79,7 +83,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
   let spinFrameId = 0, lastFrame = 0; // auto-rotate: 0 means off
   const overlays = new Set<string>();
-  const marker = new Marker({ color: "#5fe3e0" });
+  const marker = new Marker({ color: "#ef946c" });
 
   const point = ["==", ["geometry-type"], "Point"] as ["==", ["geometry-type"], "Point"];
   // Dots fade out once you are close enough to see the area's outline and radar image.
@@ -96,8 +100,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.addLayer({
         id: "areas-halo", type: "circle", source: "areas", filter: point,
         paint: {
-          "circle-radius": ["case", ["get", "open"], 30, 18],
-          "circle-color": ["get", "color"], "circle-blur": 1, "circle-opacity": fade(0.75),
+          "circle-radius": ["case", ["get", "open"], 16, 12],
+          "circle-color": ["get", "color"], "circle-opacity": fade(0.25),
         },
       });
       map.addLayer({
@@ -114,7 +118,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "text-field": ["get", "title"], "text-font": ["Open Sans Semibold"], "text-size": 12,
           "text-offset": [0, 1.3], "text-anchor": "top",
         },
-        paint: { "text-color": "#e6f1f5", "text-halo-color": "#03060a", "text-halo-width": 1.5 },
+        paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.5 },
       });
       // Detected changes (events.geojson): outlines when close, dots at every zoom.
       const empty = { type: "FeatureCollection" as const, features: [] };
@@ -132,7 +136,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         id: "events-dot", type: "circle", source: "event-points",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
-          "circle-color": ["get", "color"], "circle-stroke-color": "#03060a", "circle-stroke-width": 1,
+          "circle-color": ["get", "color"], "circle-stroke-color": "#010d15", "circle-stroke-width": 1,
         },
       });
       for (const layer of ["events-fill", "events-dot"]) {
@@ -140,10 +144,26 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
+      // Live events (live.geojson): hollow rings, so they never read as radar detections.
+      map.addSource("live", { type: "geojson", data: empty });
+      map.addLayer({
+        id: "live-ring", type: "circle", source: "live",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3.5, 8, 7],
+          "circle-color": ["get", "color"], "circle-opacity": 0.15,
+          "circle-stroke-color": ["get", "color"], "circle-stroke-width": 1.5,
+        },
+      }, "areas-halo");
+      map.on("click", "live-ring", (e) => picking || showLive(e.features![0].properties as LiveFeature["properties"], e.lngLat));
+      map.on("mouseenter", "live-ring", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", "live-ring", () => (map.getCanvas().style.cursor = ""));
       // The halo is the click target so the dots are easy to hit on touch screens.
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = picking ? "crosshair" : ""));
+      map.addLayer(satelliteLayer(map));
+      // The Earth glides in from far away on arrival (MapLibre skips this for reduced motion).
+      map.easeTo({ zoom: HOME.globe.zoom, duration: 1600 });
       resolve();
     }),
   );
@@ -181,14 +201,49 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
-          el("p", { className: "muted" }, t("popup.meta", { from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity })),
+          el(
+            "p",
+            { className: "muted" },
+            // Simple mode leaves out the confidence figure and the data maturity.
+            t(document.documentElement.dataset.mode === "simple" ? "popup.meta.simple" : "popup.meta", {
+              from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity,
+            }),
+          ),
           el("p", {}, p.summary),
         ),
       )
       .addTo(map);
   }
 
+  // Live events name their source and link to it; text is set as text, never as HTML.
+  function showLive(p: LiveFeature["properties"], at: { lng: number; lat: number }) {
+    const link = /^https?:\/\//.test(p.url)
+      ? el("a", { href: p.url, target: "_blank", rel: "noopener noreferrer" }, t("live.more"))
+      : null;
+    popup
+      .setLngLat(at)
+      .setDOMContent(
+        el(
+          "div",
+          { className: "event-popup" },
+          el("strong", {}, p.title),
+          el("p", {}, liveWhere(p)),
+          el("p", { className: "muted" }, `${p.date} · ${typeLabel(p.category)}`),
+          p.detail ? el("p", {}, p.detail) : "",
+          el("p", { className: "muted" }, t("live.source", { source: p.credit })),
+          link ?? "",
+        ),
+      )
+      .addTo(map);
+  }
+
   return {
+    // `shown` already passed the filters and carries its display color.
+    async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
+      await ready;
+      map.getSource<GeoJSONSource>("live")!.setData({ type: "FeatureCollection", features: shown as never });
+    },
+
     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
       await ready;
       map.getSource<GeoJSONSource>("areas")!.setData({
@@ -224,6 +279,13 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async focus(area: AreaView) {
       await ready;
       map.fitBounds(area.bbox, { padding: 48, maxZoom: 14 });
+    },
+
+    // From the "Happening now" list: fly there and open the same popup as a click on the ring.
+    async openLive(p: LiveFeature["properties"]) {
+      await ready;
+      map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 4) });
+      map.once("moveend", () => showLive(p, { lng: p.lon, lat: p.lat }));
     },
 
     async goTo(lng: number, lat: number) {
@@ -278,6 +340,13 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async keepOverlays(areaIds: string[]) {
       await ready;
       for (const id of [...overlays]) if (!areaIds.includes(id)) await this.showOverlay(id, undefined, new URL(location.href), 1);
+    },
+
+    // For the zoom slider: read the zoom, set it, and hear about every change.
+    zoom: {
+      get: () => map.getZoom(),
+      set: (z: number) => map.setZoom(z),
+      onChange: (heard: (z: number) => void) => void map.on("zoom", () => heard(map.getZoom())),
     },
 
     // View wheel tools. Drag tools take the pointer movement in pixels.
