@@ -11,7 +11,7 @@ This file records what is built, what is left, and the time spent, for the proje
 | `main` | docs only | Specs, contracts v0.3.0, references, this file |
 | `backend` | `a9de41c` | Pipeline, API, deployment scripts. Not merged into `main` |
 | `frontend` | `01be133` | Globe viewer. Not merged into `main` |
-| `testing` | `d714fcd` | Backend plus frontend for local checks. Behind `backend` by six commits |
+| `testing` | `d714fcd` | Backend plus frontend for local checks. Behind `backend` by five commits |
 | `contract-0.4` | open | `docs/04` v0.4.0 (`burn_scar` signature). Waits for both lanes to approve |
 | `contract-0.5` | open | `docs/04` v0.5.0 (friendly cards, public lookup, `GET /sites/<id>`, mosaic area). Waits for both lanes to approve |
 
