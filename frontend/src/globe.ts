@@ -81,7 +81,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
 
   let mode: ViewMode = "globe";
-  let onInfra: ((id: string) => void) | undefined; // a click on an infrastructure dot
   let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
   let spinFrameId = 0, lastFrame = 0; // auto-rotate: 0 means off
   const overlays = new Set<string>();
@@ -156,19 +155,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "circle-stroke-color": ["get", "color"], "circle-stroke-width": 1.5,
         },
       }, "areas-halo");
-      // Infrastructure to watch (mexico.ts): small dots colored by status (red moving fast, amber
-      // watch, green stable, gray not measured), drawn under the study areas.
-      map.addSource("infra", { type: "geojson", data: empty });
-      map.addLayer({
-        id: "infra-mark", type: "circle", source: "infra",
-        paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 10, 7],
-          "circle-color": ["get", "color"], "circle-stroke-color": "#010d15", "circle-stroke-width": 1.5,
-        },
-      }, "areas-halo");
-      map.on("click", "infra-mark", (e) => picking || onInfra?.(String(e.features![0].properties.id)));
-      map.on("mouseenter", "infra-mark", () => (map.getCanvas().style.cursor = "pointer"));
-      map.on("mouseleave", "infra-mark", () => (map.getCanvas().style.cursor = ""));
       map.on("click", "live-ring", (e) => picking || showLive(e.features![0].properties as LiveFeature["properties"], e.lngLat));
       map.on("mouseenter", "live-ring", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "live-ring", () => (map.getCanvas().style.cursor = ""));
@@ -253,19 +239,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   }
 
   return {
-    // Infrastructure dots; `pick` hears which one was clicked.
-    async setInfra(points: { id: string; lon: number; lat: number; color: string }[], pick: (id: string) => void) {
-      onInfra = pick;
-      await ready;
-      map.getSource<GeoJSONSource>("infra")!.setData({
-        type: "FeatureCollection",
-        features: points.map((p) => ({
-          type: "Feature" as const, properties: { id: p.id, color: p.color },
-          geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
-        })),
-      });
-    },
-
     // Fly to a place and show a popup built by the caller (DOM nodes, never HTML strings).
     async openInfo(lon: number, lat: number, content: Node, zoom = 6) {
       await ready;

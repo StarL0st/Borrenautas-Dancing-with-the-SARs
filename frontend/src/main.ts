@@ -13,8 +13,7 @@ import {
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import {
-  HISTORY, INFRA, INFRA_THRESHOLDS, LEARN, infraNear, mostDestructive, statusOf, tx, zoneHistory, zoneNote,
-  type HistoryEvent, type Infra, type Source, type Status,
+  HISTORY, mostDestructive, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
 } from "./mexico";
 import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
@@ -147,7 +146,6 @@ $<HTMLFormElement>("coords").onsubmit = (e) => {
   setSpin(false);
   const lon = +$<HTMLInputElement>("lon").value, lat = +$<HTMLInputElement>("lat").value;
   globe.goTo(lon, lat);
-  setInfraFrom([lon, lat], "coords");
 };
 
 // Ask the back end to process the typed place (needs `serve --jobs`). It shows up when ready:
@@ -215,7 +213,6 @@ function render() {
   );
   renderLiveList();
   renderRecent();
-  renderInfra();
   // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
   globe.setLive(
     liveToggle.checked
@@ -237,7 +234,6 @@ function toggle(id: string) {
     // No side panel in Simple mode: a short popup, with a way into the full details.
     setSpin(false);
     globe.openInfo(a.center[0], a.center[1], simpleArea(a), 6);
-    if (infraFrom?.kind !== "you") setInfraFrom(a.center, "area", a.title);
     return;
   }
   const opening = !opened.includes(id);
@@ -248,8 +244,6 @@ function toggle(id: string) {
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
     globe.focus(a);
-    // Infrastructure risks follow the place just opened, unless the user shared their location.
-    if (infraFrom?.kind !== "you") setInfraFrom(a.center, "area", a.title);
   }
   render();
   if (opening) cards.querySelector<HTMLElement>("summary")?.focus();
@@ -703,103 +697,6 @@ function renderRecent() {
   if (!shown.length) recentList.append(el("li", { className: "muted" }, t("list.none")));
 }
 
-// ---- Infrastructure risks near the user (left panel) ----
-
-type From = { pos: [number, number]; kind: "you" | "coords" | "area"; name?: string };
-let infraFrom: From | undefined;
-const infraRadius = $<HTMLInputElement>("infra-radius"), infraList = $("infra-list"), infraStatus = $("infra-status");
-// Always named in text too (status chip), never by color alone.
-const STATUS_COLOR: Record<Status, string> = { fast: "#e5484d", watch: "#f5a524", ok: "#3fb950", unknown: "#8eb1c7" };
-
-function setInfraFrom(pos: [number, number], kind: From["kind"], name?: string) {
-  infraFrom = { pos, kind, name };
-  renderInfra();
-}
-
-function statusChip(st: Status): HTMLElement {
-  const chip = el("span", { className: "status" }, t(`status.${st}` as Key));
-  chip.style.setProperty("--c", STATUS_COLOR[st]);
-  return chip;
-}
-
-function infraBody(site: Infra): Node[] {
-  const measured = site.mmYr !== undefined ? t("infra.rate", { n: Math.abs(site.mmYr) }) : site.reported ? t("infra.reported") : t("infra.nodata");
-  return [
-    el("p", {}, tx(site.note, lang())),
-    el("p", { className: "muted" }, `${measured} ${t("infra.threshold", { n: INFRA_THRESHOLDS[site.kind][1] })}`),
-    el("details", {}, el("summary", {}, t("infra.learn")), el("p", {}, tx(LEARN[site.kind], lang()))),
-    sourceList(site.sources),
-  ];
-}
-
-function openInfra(id: string) {
-  const site = INFRA.find((s) => s.id === id);
-  if (!site) return;
-  setSpin(false);
-  globe.openInfo(
-    site.lon, site.lat,
-    el("div", { className: "event-popup" }, el("strong", {}, site.name), el("p", {}, statusChip(statusOf(site)), " ", t(`kind.${site.kind}` as Key)), ...infraBody(site)),
-    7,
-  );
-}
-
-function renderInfra() {
-  const r = +infraRadius.value;
-  const value = t("infra.radius.value", { n: r });
-  $("infra-radius-out").textContent = value;
-  infraRadius.setAttribute("aria-valuetext", value);
-  globe.setInfra(INFRA.map((s) => ({ id: s.id, lon: s.lon, lat: s.lat, color: STATUS_COLOR[statusOf(s)] })), openInfra);
-  if (!infraFrom) {
-    infraStatus.textContent = t("infra.pick");
-    infraList.replaceChildren();
-    return;
-  }
-  const place = infraFrom.kind === "you" ? t("infra.place.you") : infraFrom.kind === "coords" ? t("infra.place.coords") : t("infra.place.area", { name: infraFrom.name ?? "" });
-  infraStatus.textContent = t("infra.from", { place });
-  const near = infraNear(INFRA, infraFrom.pos, r).slice(0, simple() ? 5 : 12);
-  infraList.replaceChildren(
-    ...near.map(({ site, km }) =>
-      el(
-        "li",
-        {},
-        el(
-          "details",
-          { className: "infra-item" },
-          el(
-            "summary",
-            {},
-            statusChip(statusOf(site)),
-            el("strong", {}, site.name),
-            el("span", { className: "muted" }, `${t(`kind.${site.kind}` as Key)} · ${t("infra.km", { n: Math.round(km) })}`),
-          ),
-          ...infraBody(site),
-        ),
-      ),
-    ),
-  );
-  if (!near.length) infraList.append(el("li", { className: "muted" }, t("infra.none", { n: r })));
-}
-
-infraRadius.oninput = renderInfra;
-// The browser asks the user first; nothing is stored or sent anywhere.
-$("infra-locate").onclick = () => {
-  if (!navigator.geolocation) {
-    infraStatus.textContent = t("infra.denied");
-    return;
-  }
-  infraStatus.textContent = t("infra.locating");
-  navigator.geolocation.getCurrentPosition(
-    (p) => {
-      const pos: [number, number] = [p.coords.longitude, p.coords.latitude];
-      setInfraFrom(pos, "you");
-      setSpin(false);
-      globe.goTo(pos[0], pos[1]);
-    },
-    () => (infraStatus.textContent = t("infra.denied")),
-    { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
-  );
-};
-
 // ---- Live data from the back end (optional: the app works without it) ----
 
 async function loadLive() {
@@ -840,19 +737,8 @@ liveMore.onclick = () => {
   renderLiveList();
 };
 
-// Live events are worldwide and from the last 24 hours; one slider picks how dangerous.
-const liveLevel = $<HTMLInputElement>("live-level");
-const liveView = () => ({ now: Date.now(), days: 1, minSeverity: +liveLevel.value });
-function showLiveControls() {
-  const level = t(`level.${liveLevel.value}` as Key);
-  $("live-level-out").textContent = level;
-  liveLevel.setAttribute("aria-valuetext", level);
-}
-liveLevel.oninput = () => {
-  liveLimit = livePage();
-  showLiveControls();
-  render();
-};
+// Live events are worldwide and from the last 24 hours.
+const liveView = () => ({ now: Date.now(), days: 1 });
 
 // One row: what, where, type, how long ago, who reported it, and how dangerous when serious.
 function liveRow(f: LiveFeature, now: number, fmt: Intl.RelativeTimeFormat): HTMLElement {
@@ -884,8 +770,8 @@ function renderLiveList() {
   const on = liveToggle.checked;
   const rows = on ? liveFiltered(liveEvents, ticked, isType, view) : [];
   const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
-  // "Most dangerous right now" follows the filters and the time window, whatever the danger slider says.
-  const top = on ? topLive(liveFiltered(liveEvents, ticked, isType, { ...view, minSeverity: 0 })) : [];
+  // "Most dangerous right now": the worst of the events that pass the filters.
+  const top = on ? topLive(rows) : [];
   $("live-top").hidden = !on || !liveUpdated;
   $("live-top-list").replaceChildren(...(top.length ? top.map((f) => liveRow(f, view.now, fmt)) : [el("li", { className: "muted" }, t("live.top.none"))]));
   liveListEl.replaceChildren(...rows.slice(0, liveLimit).map((f) => liveRow(f, view.now, fmt)));
@@ -994,7 +880,6 @@ function applyLanguage() {
   buildWheel();
   showStatus();
   showLiveStatus();
-  showLiveControls();
   render();
   renderSettings(dialog, settings, onSetting);
 }

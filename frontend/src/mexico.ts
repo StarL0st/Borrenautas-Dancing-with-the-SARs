@@ -1,5 +1,5 @@
-// Mexico context data (jopa-testing): remarkable past events, infrastructure to watch, and notes
-// on what changed in each study zone. Pure data and helpers, no DOM, so `node --test` can load it.
+// Mexico context data (jopa-testing): remarkable past events and notes on what changed in each
+// study zone. Pure data and helpers, no DOM, so `node --test` can load it.
 //
 // Text is in English and Spanish ({ en, es }); German falls back to English. Every entry names
 // its sources. Figures are kept to well-documented ones, and stated as ranges where sources
@@ -278,208 +278,10 @@ export const HISTORY: HistoryEvent[] = [
   },
 ];
 
-// ---- Infrastructure to watch ----
-
-export type InfraKind = "dam" | "levee" | "subsidence" | "tailings" | "pipeline" | "bridge" | "road" | "wells" | "energy" | "slope";
-
-export type Infra = {
-  id: string;
-  kind: InfraKind;
-  name: string; // proper name, not translated
-  lon: number;
-  lat: number;
-  note: Text;
-  // Measured ground motion in mm per year (negative = sinking) from a cited study, when there is
-  // one. NISAR time series will fill this per structure; see INFRA_THRESHOLDS.
-  mmYr?: number;
-  // When a study reports fast motion without a single figure ("several cm per year").
-  reported?: "fast" | "watch";
-  sources: Source[];
-};
-
-// Ground motion (absolute mm per year) that turns a site amber, then red. Illustrative values
-// for the prototype, not engineering limits: a dam or levee should not move at all, while
-// whole cities sink slowly. They follow the NISAR applications documents' idea of flagging
-// "unusually large localized movement".
-export const INFRA_THRESHOLDS: Record<InfraKind, [number, number]> = {
-  dam: [3, 10], levee: [5, 15], tailings: [3, 10], bridge: [3, 10], energy: [3, 10],
-  pipeline: [5, 20], road: [10, 30], slope: [10, 30], wells: [10, 30], subsidence: [10, 20],
-};
-
-export type Status = "fast" | "watch" | "ok" | "unknown";
-
-export function statusOf(site: Pick<Infra, "kind" | "mmYr" | "reported">): Status {
-  if (site.mmYr === undefined) return site.reported ?? "unknown";
-  const [amber, red] = INFRA_THRESHOLDS[site.kind];
-  const v = Math.abs(site.mmYr);
-  return v >= red ? "fast" : v >= amber ? "watch" : "ok";
-}
-
 const CHAUSSARD: Source = {
   name: "Chaussard et al. (2014), Land subsidence in central Mexico detected by ALOS InSAR time-series, Remote Sensing of Environment 140",
   url: "https://doi.org/10.1016/j.rse.2013.08.038",
 };
-const CONAGUA_DAMS: Source = { name: "CONAGUA (Mexico's national water commission), dam inventory", url: "https://www.gob.mx/conagua" };
-
-export const INFRA: Infra[] = [
-  // Subsidence: fast-sinking cities measured by satellite radar (InSAR).
-  {
-    id: "cdmx-subsidence", kind: "subsidence", name: "Mexico City (old lakebed)", lon: -99.13, lat: 19.43, mmYr: -350,
-    note: {
-      en: "Pumping groundwater from the clay of the old lake makes parts of the city sink by up to about 30–50 cm a year. It bends Metro lines, breaks water and drainage pipes, tilts buildings and makes floods worse.",
-      es: "Extraer agua del subsuelo arcilloso del antiguo lago hace que partes de la ciudad se hundan hasta unos 30–50 cm al año. Deforma líneas del Metro, rompe tuberías de agua y drenaje, inclina edificios y empeora las inundaciones.",
-    },
-    sources: [CHAUSSARD, EO],
-  },
-  {
-    id: "gran-canal", kind: "levee", name: "Gran Canal del Desagüe, Mexico City", lon: -99.06, lat: 19.5, reported: "fast",
-    note: {
-      en: "The main drainage canal lost much of its slope as the ground under it sank, so water no longer flows out by gravity and must be pumped; deep tunnels were built to replace it.",
-      es: "El principal canal de drenaje perdió gran parte de su pendiente al hundirse el suelo, así que el agua ya no sale por gravedad y hay que bombearla; se construyeron túneles profundos para sustituirlo.",
-    },
-    sources: [CHAUSSARD, CONAGUA],
-  },
-  ...(
-    [
-      ["toluca", "Toluca", -99.66, 19.29],
-      ["celaya", "Celaya", -100.81, 20.52],
-      ["queretaro", "Querétaro", -100.39, 20.59],
-      ["morelia", "Morelia", -101.19, 19.7],
-      ["aguascalientes", "Aguascalientes", -102.29, 21.88],
-      ["irapuato", "Irapuato", -101.35, 20.68],
-    ] as [string, string, number, number][]
-  ).map(([id, name, lon, lat]): Infra => ({
-    id: `${id}-subsidence`, kind: "subsidence", name, lon, lat, reported: "fast",
-    note: {
-      en: "Sinking by about 5–10 cm a year where aquifers are overpumped; cracks (faults) open across streets, homes and pipes along the edges of the sinking zone.",
-      es: "Se hunde unos 5–10 cm al año donde los acuíferos están sobreexplotados; se abren grietas en calles, casas y tuberías en los bordes de la zona que se hunde.",
-    },
-    sources: [CHAUSSARD],
-  })),
-  // Dams and reservoirs (CONAGUA inventory). Not measured yet: NISAR can watch their crest and slopes.
-  ...(
-    [
-      ["chicoasen", "Presa Chicoasén (Manuel Moreno Torres), Chiapas", -93.1, 16.94, "Mexico's tallest dam (about 260 m) on the Grijalva river; its reservoir feeds the dams downstream that protect Tabasco.", "La presa más alta de México (unos 260 m), sobre el río Grijalva; su embalse alimenta las presas río abajo que protegen a Tabasco."],
-      ["malpaso", "Presa Malpaso (Nezahualcóyotl), Chiapas", -93.6, 17.18, "Large reservoir on the Grijalva; how much water it releases decides how high rivers run in Villahermosa.", "Gran embalse sobre el Grijalva; lo que desfoga decide qué tan alto corren los ríos en Villahermosa."],
-      ["penitas", "Presa Peñitas, Chiapas", -93.46, 17.45, "Last dam before Tabasco. In 2007 a landslide upstream blocked the Grijalva and had to be cut through to avoid a flood wave.", "Última presa antes de Tabasco. En 2007 un deslave río arriba tapó el Grijalva y hubo que abrirle paso para evitar una ola de inundación."],
-      ["infiernillo", "Presa El Infiernillo, Michoacán–Guerrero", -101.89, 18.27, "Large hydroelectric dam on the Balsas river, in an earthquake zone near the Pacific coast.", "Gran presa hidroeléctrica sobre el río Balsas, en zona sísmica cerca de la costa del Pacífico."],
-      ["aguamilpa", "Presa Aguamilpa, Nayarit", -104.8, 21.84, "Concrete-faced rockfill dam on the Santiago river; reservoir slopes are watched for landslides.", "Presa de enrocado con cara de concreto sobre el río Santiago; las laderas del embalse se vigilan por deslizamientos."],
-      ["valle-bravo", "Presa Valle de Bravo (Sistema Cutzamala), State of Mexico", -100.13, 19.19, "Main reservoir of the Cutzamala system, which brings water uphill to Mexico City; very low during the 2023–2024 drought.", "Principal embalse del Sistema Cutzamala, que sube agua a la Ciudad de México; muy bajo durante la sequía de 2023–2024."],
-      ["zimapan", "Presa Zimapán, Hidalgo–Querétaro", -99.5, 20.66, "Arch dam in a narrow canyon of the Moctezuma river.", "Presa de arco en un cañón estrecho del río Moctezuma."],
-      ["cuchillo", "Presa El Cuchillo, Nuevo León", -99.29, 25.73, "Supplies Monterrey; its level drops sharply in droughts.", "Abastece a Monterrey; su nivel baja mucho en las sequías."],
-      ["temascal", "Presa Temascal (Miguel Alemán), Oaxaca", -96.4, 18.24, "Large reservoir in the Papaloapan basin, built after the 1944 floods.", "Gran embalse en la cuenca del Papaloapan, construido tras las inundaciones de 1944."],
-    ] as [string, string, number, number, string, string][]
-  ).map(([id, name, lon, lat, en, es]): Infra => ({ id: `${id}-dam`, kind: "dam", name, lon, lat, note: { en, es }, sources: [CONAGUA_DAMS] })),
-  {
-    id: "villahermosa-levees", kind: "levee", name: "Villahermosa river embankments (Grijalva–Carrizal)", lon: -92.93, lat: 17.99,
-    note: {
-      en: "Earth embankments and walls hold the Grijalva and Carrizal rivers back from the city; they were overtopped in 2007. Seepage, settlement and slips can weaken them unseen.",
-      es: "Bordos y muros de tierra contienen a los ríos Grijalva y Carrizal frente a la ciudad; se desbordaron en 2007. La filtración, el asentamiento y los deslizamientos pueden debilitarlos sin que se note.",
-    },
-    sources: [CENAPRED, CONAGUA],
-  },
-  {
-    id: "buenavista-tailings", kind: "tailings", name: "Buenavista del Cobre tailings, Cananea, Sonora", lon: -110.3, lat: 30.98,
-    note: {
-      en: "One of the world's largest copper mines; its 2014 spill poisoned the Sonora river. Tailings dams can deform for months before they fail, which radar can see.",
-      es: "Una de las minas de cobre más grandes del mundo; su derrame de 2014 contaminó el río Sonora. Las presas de jales pueden deformarse durante meses antes de fallar, y el radar lo puede ver.",
-    },
-    sources: [{ name: "SEMARNAT / PROFEPA", url: "https://www.gob.mx/semarnat" }],
-  },
-  {
-    id: "tula-pipelines", kind: "pipeline", name: "Tula refinery and Tuxpan–Tula pipelines, Hidalgo", lon: -99.23, lat: 20.1,
-    note: {
-      en: "Fuel pipelines cross farmland toward the Tula refinery. Ground motion can bend them, and illegal taps caused the deadly 2019 Tlahuelilpan explosion.",
-      es: "Ductos de combustible cruzan zonas de cultivo hacia la refinería de Tula. El movimiento del suelo puede doblarlos, y las tomas clandestinas causaron la explosión mortal de Tlahuelilpan en 2019.",
-    },
-    sources: [CENAPRED],
-  },
-  {
-    id: "cantarell-wells", kind: "wells", name: "Cantarell oil field, Bay of Campeche", lon: -92.2, lat: 19.38,
-    note: {
-      en: "Once one of the world's largest offshore oil fields. Pumping oil and gas out of a reservoir can make the ground above it sink and, sometimes, trigger small earthquakes.",
-      es: "Fue uno de los yacimientos marinos más grandes del mundo. Sacar petróleo y gas de un yacimiento puede hundir el suelo encima y, a veces, provocar sismos pequeños.",
-    },
-    sources: [{ name: "Petróleos Mexicanos (Pemex)", url: "https://www.pemex.com/" }],
-  },
-  {
-    id: "laguna-verde", kind: "energy", name: "Laguna Verde nuclear power plant, Veracruz", lon: -96.41, lat: 19.72,
-    note: {
-      en: "Mexico's only nuclear plant, on the Gulf coast in hurricane country. Its site and coastline are watched for ground movement and erosion.",
-      es: "La única central nuclear de México, en la costa del Golfo, zona de huracanes. Su terreno y su litoral se vigilan por movimiento del suelo y erosión.",
-    },
-    sources: [{ name: "Comisión Federal de Electricidad", url: "https://www.cfe.gob.mx/" }],
-  },
-  {
-    id: "metro12-bridge", kind: "bridge", name: "Metro Line 12 elevated section, Mexico City", lon: -99.05, lat: 19.3, reported: "watch",
-    note: {
-      en: "The overpass that collapsed in 2021 runs over sinking ground in Tláhuac. Radar can measure if supports settle unevenly before cracks show.",
-      es: "El tramo elevado que colapsó en 2021 pasa sobre suelo que se hunde en Tláhuac. El radar puede medir si los apoyos se asientan de forma desigual antes de que aparezcan grietas.",
-    },
-    sources: [CHAUSSARD],
-  },
-  {
-    id: "autopista-sol", kind: "road", name: "Autopista del Sol (Mexico City–Acapulco), Guerrero", lon: -99.5, lat: 17.55,
-    note: {
-      en: "The mountain stretch near Chilpancingo is cut by landslides after big storms, as in 2013 and 2023.",
-      es: "El tramo de montaña cerca de Chilpancingo queda cortado por deslaves tras grandes tormentas, como en 2013 y 2023.",
-    },
-    sources: [CENAPRED],
-  },
-  {
-    id: "grijalva-slope", kind: "slope", name: "Grijalva river slopes, Juan de Grijalva, Chiapas", lon: -93.4, lat: 17.4,
-    note: {
-      en: "In November 2007 a hillside fell into the river between two dams, damming it and burying a village. Slow slope motion like this is what InSAR measures.",
-      es: "En noviembre de 2007 una ladera cayó al río entre dos presas, lo represó y sepultó un poblado. El movimiento lento de laderas como este es lo que mide InSAR.",
-    },
-    sources: [CENAPRED],
-  },
-];
-
-// What can go wrong, per kind, with real cases (the brief's examples and Mexican ones).
-export const LEARN: Record<InfraKind, Text> = {
-  dam: {
-    en: "Overtopping or breach (Derna, Libya, 2023: two dams failed after Storm Daniel and thousands died), spillway failure (Oroville, California, 2017: about 190,000 people evacuated), and landslides into the reservoir. InSAR can measure millimeters of movement on the dam and its slopes.",
-    es: "Desbordamiento o rotura (Derna, Libia, 2023: dos presas fallaron tras la tormenta Daniel y murieron miles de personas), falla del vertedor (Oroville, California, 2017: unas 190,000 personas evacuadas) y deslaves hacia el embalse. InSAR mide milímetros de movimiento en la cortina y sus laderas.",
-  },
-  levee: {
-    en: "Breaches during floods (New Orleans, Hurricane Katrina, 2005: about 80% of the city flooded), seepage and internal erosion that cannot be seen from outside, and settlement that leaves the crest too low. Radar shows settling, slips and wet spots.",
-    es: "Rupturas durante inundaciones (Nueva Orleans, huracán Katrina, 2005: cerca del 80% de la ciudad inundada), filtración y erosión interna que no se ven desde fuera, y asentamiento que deja la corona demasiado baja. El radar muestra asentamientos, deslizamientos y zonas húmedas.",
-  },
-  subsidence: {
-    en: "Pumping too much groundwater makes the ground sink, damaging metro lines, buildings, drainage and water pipes, bending canals, roads and rails, and making future floods worse (NISAR applications documents). Mexico City is one of the fastest-sinking cities in the world.",
-    es: "Extraer demasiada agua subterránea hunde el suelo, daña líneas del metro, edificios, drenaje y tuberías, deforma canales, calles y vías, y empeora las inundaciones futuras (documentos de aplicaciones de NISAR). La Ciudad de México es una de las ciudades que más rápido se hunden en el mundo.",
-  },
-  tailings: {
-    en: "Mine waste dams can collapse and release toxic mud (Brumadinho, Brazil, 2019). Studies with InSAR later found signs of deformation before the collapse.",
-    es: "Las presas de jales mineros pueden colapsar y liberar lodo tóxico (Brumadinho, Brasil, 2019). Estudios con InSAR encontraron después señales de deformación antes del colapso.",
-  },
-  pipeline: {
-    en: "Ground movement can bend or break oil and gas pipelines, causing spills or fires.",
-    es: "El movimiento del suelo puede doblar o romper ductos de petróleo y gas, causando derrames o incendios.",
-  },
-  bridge: {
-    en: "Bridges can shift for years before they fail: radar analyses of the Morandi Bridge in Genoa, Italy (2018) found the structure was already moving before it collapsed.",
-    es: "Los puentes pueden moverse durante años antes de fallar: análisis de radar del puente Morandi en Génova, Italia (2018) encontraron que la estructura ya se movía antes de colapsar.",
-  },
-  road: {
-    en: "Roads in the mountains are cut by landslides, often after hurricanes and heavy rain.",
-    es: "Las carreteras de montaña quedan cortadas por deslaves, a menudo tras huracanes y lluvias intensas.",
-  },
-  wells: {
-    en: "Taking oil, gas or water out of the ground can make the surface sink and can trigger earthquakes (induced seismicity).",
-    es: "Sacar petróleo, gas o agua del subsuelo puede hundir la superficie y provocar sismos (sismicidad inducida).",
-  },
-  energy: {
-    en: "Power plants and their surroundings are checked for ground movement, coastal erosion and storm damage.",
-    es: "Las centrales eléctricas y su entorno se revisan por movimiento del suelo, erosión costera y daños por tormentas.",
-  },
-  slope: {
-    en: "Hillsides above rivers, roads and reservoirs can creep slowly for a long time before they fall; InSAR measures that slow creep.",
-    es: "Las laderas sobre ríos, carreteras y embalses pueden moverse lentamente mucho tiempo antes de caer; InSAR mide ese movimiento lento.",
-  },
-};
-
 // ---- What changed in each study zone, including plants and animals ----
 
 export type ZoneNote = { center: [number, number]; changes: Text; nature: Text; sources: Source[] };
@@ -566,13 +368,6 @@ export const mostDestructive = (events: HistoryEvent[], fromYear: number, n: num
     .filter((e) => +e.date.slice(0, 4) >= fromYear)
     .sort((a, b) => b.severity - a.severity || b.date.localeCompare(a.date))
     .slice(0, n);
-
-/** Infrastructure within `km` of a point, nearest first, with its distance. */
-export const infraNear = (sites: Infra[], from: [number, number], km: number) =>
-  sites
-    .map((site) => ({ site, km: distanceKm(from, [site.lon, site.lat]) }))
-    .filter((x) => x.km <= km)
-    .sort((a, b) => a.km - b.km);
 
 /** The zone note for an area: by id, else the nearest zone within 100 km of its center. */
 export function zoneNote(id: string, center: [number, number]): ZoneNote | undefined {

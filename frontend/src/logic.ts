@@ -178,17 +178,16 @@ export const severityOf = (f: LiveFeature) => f.properties.severity ?? 1;
 
 const timeOf = (date: string) => Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
 
-export type LiveView = { now: number; days: number; minSeverity: number; region?: [number, number, number, number] };
+export type LiveView = { now: number; days: number; region?: [number, number, number, number] };
 
-// What the "Happening now" list and the globe show: the filters, plus the time window, the
-// danger slider and (for older files that are worldwide) the Mexico region.
+// What the "Happening now" list and the globe show: the filters, plus the time window and an
+// optional region.
 export const liveFiltered = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: (id: string) => boolean, v: LiveView) =>
   liveList(fs, ticked, known).filter((f) => {
     const p = f.properties;
     const [w, s, e, n] = v.region ?? [-180, -90, 180, 90];
     return (
       v.now - timeOf(p.date) <= v.days * 86400000 &&
-      severityOf(f) >= v.minSeverity &&
       p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n
     );
   });
