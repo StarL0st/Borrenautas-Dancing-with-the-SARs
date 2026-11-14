@@ -186,7 +186,7 @@ def test_collect_keeps_going_when_a_feed_fails(tmp_path, monkeypatch):
             raise OSError("offline")
         return payloads[url]
 
-    doc = lf.write(tmp_path, lf.fetchers(get), region=None)  # the fixtures are worldwide
+    doc = lf.write(tmp_path, lf.fetchers(get), region=None, hours=None)  # old, worldwide fixtures
     status = {s["id"]: s for s in doc["sources"]}
     assert status["usgs"]["ok"] and status["usgs"]["count"] == 1
     assert not status["gdacs"]["ok"] and "offline" in status["gdacs"]["error"]
@@ -281,3 +281,25 @@ def test_region_keeps_mexico_only():
     doc = {"features": [inside, outside]}
     assert [f["properties"]["id"] for f in lf.in_region(doc, lf.REGION_BBOX)["features"]] == ["usgs-a"]
     assert len(lf.in_region(doc, None)["features"]) == 2
+
+
+def test_last_24_hours_only():
+    from datetime import UTC, datetime
+    now = datetime(2026, 11, 14, 12, 0, tzinfo=UTC)
+    fs = [
+        lf.feature("usgs", "new", "earthquakes", "M5", "2026-11-14T03:00Z", 0, 0),
+        lf.feature("usgs", "old", "earthquakes", "M5", "2026-11-13T09:00Z", 0, 0),
+        lf.feature("eonet", "today", "wildfires", "Fire", "2026-11-14", 0, 0),  # no time: whole day
+        lf.feature("eonet", "yday", "wildfires", "Fire", "2026-11-13", 0, 0),  # ends 23:59, in window
+        lf.feature("eonet", "week", "wildfires", "Fire", "2026-11-07", 0, 0),
+    ]
+    kept = [f["properties"]["id"] for f in lf.recent({"features": fs}, 24, now)["features"]]
+    assert kept == ["usgs-new", "eonet-today", "eonet-yday"]
+    assert len(lf.recent({"features": fs}, None, now)["features"]) == 5
+
+
+def test_region_defaults_to_world(monkeypatch):
+    monkeypatch.delenv("LIVE_REGION", raising=False)
+    assert lf._region_env() is None
+    monkeypatch.setenv("LIVE_REGION", "mexico")
+    assert lf._region_env() == lf.REGION_BBOX

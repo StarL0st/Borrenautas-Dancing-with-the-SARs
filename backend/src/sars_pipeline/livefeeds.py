@@ -16,8 +16,9 @@ NISAR detections: every feature names its source and carries that source's credi
 
 A feed that fails or has no key is listed with `ok: false` and its reason; the others still load.
 
-Scope (jopa-testing): the app covers Mexico only. `write` keeps the events inside `LIVE_REGION`
-(default: Mexico and the seas around it, where its hurricanes form); `LIVE_REGION=world` keeps all.
+Scope (jopa-testing): live events are worldwide and from the last day. `write` keeps events whose
+latest update is within `LIVE_HOURS` (default 24) and, if `LIVE_REGION` is set ("w,s,e,n", or
+"mexico" for Mexico and its seas), only those inside it. `poll` records `refresh_minutes`.
 Every event carries `severity` 0-3 (3 = most dangerous) so the app can rank what matters most.
 """
 
@@ -37,6 +38,9 @@ log = logging.getLogger(__name__)
 FILE = "live.geojson"
 USER_AGENT = "sars-pipeline live feeds (NASA Space Apps 2026 prototype)"
 MEXICO_BBOX = (-118.5, 14.0, -86.0, 33.0)
+WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
+FIRMS_MAX = 1500  # worldwide, one day of fire detections is tens of thousands: keep the newest
+                  # high-confidence ones so the map and the list stay usable
 # Mexico plus the Eastern Pacific, Gulf of Mexico and western Caribbean, where the storms that hit
 # it form and travel. Live events outside are left out (the app is about Mexico).
 REGION_BBOX = (-125.0, 8.0, -78.0, 34.0)
@@ -89,13 +93,13 @@ SOURCES = {
     "eonet": {
         "name": "EONET (Earth Observatory Natural Event Tracker)",
         "owner": "NASA Earth Observatory, Goddard Space Flight Center",
-        "url": "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=30",
+        "url": "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=2",
         "credit": "NASA EONET, https://eonet.gsfc.nasa.gov/ (each event credits its own source)",
     },
     "usgs": {
-        "name": "USGS earthquakes, magnitude 2.5+, last 7 days",
+        "name": "USGS earthquakes, magnitude 2.5+, past day",
         "owner": "U.S. Geological Survey, Earthquake Hazards Program (ANSS)",
-        "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+        "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
         "credit": "U.S. Geological Survey, Earthquake Hazards Program, ANSS ComCat",
     },
     "gdacs": {
@@ -347,7 +351,7 @@ def _get(url: str, timeout: float = 40) -> bytes:
 
 def _bbox_env() -> tuple:
     raw = os.environ.get("FIRMS_BBOX")
-    return tuple(float(v) for v in raw.split(",")) if raw else MEXICO_BBOX
+    return tuple(float(v) for v in raw.split(",")) if raw else WORLD_BBOX
 
 
 def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[dict]]]:
@@ -360,7 +364,7 @@ def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[
         for types, pages in (("TC;FL;VO;DR", 5), ("WF", GDACS_FIRE_PAGES)):
             for page in range(1, pages + 1):
                 q = (
-                    f"?eventlist={types}&fromDate={today - timedelta(days=14)}&toDate={today}"
+                    f"?eventlist={types}&fromDate={today - timedelta(days=2)}&toDate={today}"
                     f"&alertlevel=Green;Orange;Red&pagesize={GDACS_PAGE}&pagenumber={page}"
                 )
                 got = json.loads(get(SOURCES["gdacs"]["url"] + q)).get("features", [])
@@ -383,7 +387,8 @@ def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[
         out = []
         for src in ("VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT"):
             out += parse_firms(get(f"{SOURCES['firms']['url']}{key}/{src}/{bbox}/1").decode(), src)
-        return out
+        sure = [f for f in out if "confidence high" in f["properties"]["detail"]]
+        return sorted(sure, key=lambda f: f["properties"]["date"], reverse=True)[:FIRMS_MAX]
 
     return {
         "usgs": lambda: parse_usgs(json.loads(get(SOURCES["usgs"]["url"]))),
@@ -419,10 +424,37 @@ def collect(feeds: dict[str, Callable[[], list[dict]]] | None = None) -> dict:
 
 
 def _region_env() -> tuple | None:
-    raw = os.environ.get("LIVE_REGION", "").strip()
-    if raw.lower() == "world":
+    raw = os.environ.get("LIVE_REGION", "").strip().lower()
+    if raw in ("", "world"):
+        return None  # worldwide (default)
+    if raw == "mexico":
+        return REGION_BBOX
+    return tuple(float(v) for v in raw.split(","))
+
+
+def _hours_env() -> float | None:
+    raw = os.environ.get("LIVE_HOURS", "24").strip().lower()
+    return None if raw in ("", "all", "0") else float(raw)
+
+
+def _when(date: str) -> datetime | None:
+    """A feed date as UTC. A date without a time counts as the end of that day, so an event the
+    feed dates "today" is not dropped just because it has no clock time."""
+    try:
+        if "T" in date:
+            return datetime.fromisoformat(date.replace("Z", "+00:00")).astimezone(UTC)
+        return datetime.fromisoformat(date).replace(tzinfo=UTC) + timedelta(hours=23, minutes=59)
+    except ValueError:
         return None
-    return tuple(float(v) for v in raw.split(",")) if raw else REGION_BBOX
+
+
+def recent(doc: dict, hours: float | None, now: datetime | None = None) -> dict:
+    """Keep events updated within the last `hours`; None keeps everything."""
+    if hours is None:
+        return doc
+    cut = (now or datetime.now(UTC)) - timedelta(hours=hours)
+    kept = [f for f in doc["features"] if (t := _when(f["properties"]["date"])) and t >= cut]
+    return {**doc, "features": kept, "hours": hours}
 
 
 def in_region(doc: dict, region: tuple | None) -> dict:
@@ -437,8 +469,14 @@ def in_region(doc: dict, region: tuple | None) -> dict:
     return {**doc, "features": kept, "region": list(region)}
 
 
-def write(data_dir: Path, feeds=None, region: tuple | None | str = "env") -> dict:
+def write(
+    data_dir: Path, feeds=None, region: tuple | None | str = "env", hours: float | None | str = "env",
+    refresh_minutes: float | None = None,
+) -> dict:
     doc = in_region(collect(feeds), _region_env() if region == "env" else region)
+    doc = recent(doc, _hours_env() if hours == "env" else hours)
+    if refresh_minutes:
+        doc["refresh_minutes"] = refresh_minutes  # the page says how often it is refreshed
     path = Path(data_dir) / FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -451,7 +489,7 @@ def poll(data_dir: Path, minutes: float) -> None:
     """Refresh live.geojson forever (run in a daemon thread by `serve --live-minutes`)."""
     while True:
         try:
-            doc = write(data_dir)
+            doc = write(data_dir, refresh_minutes=minutes)
             log.info("live feeds: %d events", len(doc["features"]))
         except Exception:
             log.exception("live feeds failed")
