@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dancing with the SARs</title>
+    <style>
+      html, body, #map { margin: 0; height: 100%; }
+      #banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1;
+        padding: 4px 12px; background: #b45309; color: #fff; font: 14px system-ui; border-radius: 4px; }
+      #banner[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="banner" role="status" hidden>Synthetic data: not a real place</div>
+    <div id="map"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
