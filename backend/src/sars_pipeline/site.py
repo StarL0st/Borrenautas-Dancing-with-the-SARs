@@ -1075,7 +1075,14 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
         "errors": errors,
     }
     area["friendly"] = f"areas/{site_id}/friendly.json"
-    cards = friendly.cards(area, run.events, _bbox_km2(site["bbox"]))
+    km2 = _bbox_km2(site["bbox"])
+    if site.get("clip"):  # shares of the country, not of the box around it
+        from pyproj import Geod
+
+        from .national import border
+
+        km2 = abs(Geod(ellps="WGS84").geometry_area_perimeter(border(site["clip"]))[0]) / 1e6
+    cards = friendly.cards(area, run.events, km2)
     _write_json(data_dir / area["friendly"], {"contract_version": CONTRACT_VERSION, **cards})
     manifest = load_manifest(data_dir)
     old = {a["id"] for a in manifest["areas"] if a.get("site") == site_id or a["id"] == site_id}

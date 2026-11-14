@@ -168,6 +168,10 @@ There is no push from ASF, so "live" is polling: `refresh` (or `serve --jobs --w
 | Site | GCOV | GUNW | SME2 | Events |
 |---|---|---|---|---|
 | `cdmx` Mexico City | 6 PROVISIONAL, t19 f11 asc, 2026-08-14 to 10-13 | 12 pairs, 2026-05-10 to 10-13 | 12 dates | 14: a 222 km2 sinking bowl over the old lakebed at about 14 cm/yr (line of sight), 3 smaller sinking areas, 7 vegetation losses on the western hills, 2 farmland areas |
+| `chapala` Lake Chapala | 10 PROVISIONAL, t48 f12 asc, 2026-06-17 to 10-15 | 9 pairs | 24 dates | 224: wildfires 91 (37 burn scars not regrown also count as deforestation), agriculture 71, deforestation 55, floods 20, urban 10 |
+| `yucatan` Hopelchén | 9 PROVISIONAL, t127 f79 desc, 2026-06-23 to 10-21 | 8 pairs | 24 dates | 443: agriculture 239, wildfires 172, deforestation 64 (62 are burn scars not regrown), urban 21 |
+| `villahermosa` | 10 PROVISIONAL, t62 f11 asc, 2026-06-18 to 10-16 | 9 pairs | 19 dates | 64: floods 5 (0.4 km2, thin: data ends mid-October) |
+| `mexico` (mosaic) | none | none | 496 granules, two cycles, 2026-09-28 to 10-21 | 7 drying regions inside the border; fire layer from FIRMS, last 10 days |
 | `sf` San Francisco (test) | 6 PROVISIONAL, t135 f21 asc | 12 pairs | 12 dates | 14: mostly new or changed structures on the waterfront |
 
 Known limits:
