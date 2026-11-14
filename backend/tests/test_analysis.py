@@ -138,6 +138,11 @@ def test_choose_never_mixes_maturity_and_prefers_series():
     assert pick["maturity"] == "PROVISIONAL" and pick["frame"] == 1
     assert [g["id"] for g in pick["granules"]][-1] == "G_1_2026-09-27_002"
     assert choose(rows, min_dates=2)["maturity"] == "VALIDATED"
+    # A frame that only touches a corner of the site loses, even with more dates.
+    corner = [
+        {**row(f"2026-0{m}-15", "PROVISIONAL", frame=3), "coverage": 0.02} for m in range(4, 10)
+    ]
+    assert choose(rows + corner)["frame"] == 1
     assert choose([]) is None
 
 

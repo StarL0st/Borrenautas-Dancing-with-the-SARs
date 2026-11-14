@@ -59,7 +59,7 @@ Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa`
 ## Pipeline, per site
 
 **Select** (`selection.py`). One `asf_search` per product over the last 180 days. Never mixes maturities within a product.
-- GCOV: one track/frame/direction (same viewing geometry), latest 6 dates; prefers 4+ dates (time-series rules need them), then the highest maturity.
+- GCOV: one track/frame/direction (same viewing geometry), latest 6 dates; prefers frames that cover 90%+ of the site, then 4+ dates (time-series rules need them), then the highest maturity.
 - GUNW: the longest chain of consecutive pairs (each pair's second date is the next one's first), latest 12.
 - SME2: any track (shared global grid), latest 12 dates.
 - Saved to `data/selected/<site>.json` (committed for curated sites, so runs repeat).
