@@ -160,3 +160,40 @@ export function ticks(min: number, max: number, n = 4): number[] {
   for (let v = Math.floor(min / step) * step; v <= max + step * 0.999; v += step) out.push(+v.toFixed(10));
   return out;
 }
+
+// ---- Live events (live.geojson from the back end's livefeeds.py; not NISAR detections) ----
+
+export type LiveFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: {
+    id: string; source: string; source_name: string; credit: string; category: string;
+    title: string; place?: string; date: string; detail: string; url: string; lon: number; lat: number;
+  };
+};
+
+// A live event shows when its category is ticked; categories the filters do not know always show.
+export const liveShown = (f: LiveFeature, ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
+  !known(f.properties.category) || ticked.has(f.properties.category);
+
+// Where: the feed's own words, or coordinates when it gives none (fire detections, some storms).
+export const liveWhere = (p: LiveFeature["properties"]) =>
+  p.place?.trim() ||
+  `${Math.abs(p.lat).toFixed(2)}° ${p.lat >= 0 ? "N" : "S"}, ${Math.abs(p.lon).toFixed(2)}° ${p.lon >= 0 ? "E" : "W"}`;
+
+// The list under "Happening now": what passes the filters, newest first.
+export const liveList = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
+  fs.filter((f) => liveShown(f, ticked, known)).sort((a, b) => (a.properties.date < b.properties.date ? 1 : -1));
+
+// "3 hours ago" in the largest whole unit, for Intl.RelativeTimeFormat. Dates without a time are midnight UTC.
+export function ago(date: string, now: number): [number, "minute" | "hour" | "day"] {
+  const t = Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
+  const minutes = Math.max(0, Math.round((now - t) / 60000));
+  if (minutes < 60) return [-minutes, "minute"];
+  if (minutes < 48 * 60) return [-Math.round(minutes / 60), "hour"];
+  return [-Math.round(minutes / 1440), "day"];
+}
+
+export const SOURCE_SHORT: Record<string, string> = {
+  usgs: "USGS", eonet: "NASA EONET", gdacs: "GDACS", nhc: "NOAA NHC", firms: "NASA FIRMS",
+};

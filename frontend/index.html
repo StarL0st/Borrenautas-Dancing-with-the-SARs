@@ -20,6 +20,11 @@
       <nav id="nav" data-i18n-label="nav.label">
         <h3 data-i18n="h.filters"></h3>
         <div id="filters"></div>
+        <h3 data-i18n="h.live"></h3>
+        <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
+        <p id="live-status" class="muted" role="status"></p>
+        <ul id="live-list" data-i18n-label="live.list"></ul>
+        <button type="button" id="live-more" class="link" hidden></button>
         <h3 class="tech" data-i18n="h.coords"></h3>
         <form id="coords" class="tech">
           <label for="lat" data-i18n="coords.lat"></label>
@@ -42,6 +47,7 @@
           <button type="button" id="view-closeup" aria-pressed="false" data-i18n="view.closeup"></button>
           <button type="button" id="spin-btn" aria-pressed="false" data-i18n="view.spin"></button>
           <button type="button" id="wheel-btn" aria-pressed="true" data-i18n="view.wheel"></button>
+          <div class="zoom"><input type="range" id="zoom" min="0.5" max="16" step="0.1" data-i18n-label="wheel.zoom" /></div>
         </div>
         <div id="wheel" role="group" data-i18n-label="view.wheel"></div>
         <button type="button" class="panel-toggle" id="nav-toggle" aria-controls="nav" aria-expanded="true" data-i18n-label="panel.nav"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>

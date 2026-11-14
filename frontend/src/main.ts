@@ -8,8 +8,8 @@ import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import {
-  datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
-  type AreaView, type EventFeature, type Layer, type Manifest,
+  ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
+  type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
@@ -21,6 +21,10 @@ const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/",
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
+const liveToggle = $<HTMLInputElement>("live-toggle"), liveStatus = $("live-status");
+const liveListEl = $("live-list"), liveMore = $("live-more");
+const LIVE_PAGE = 15;
+let liveLimit = LIVE_PAGE; // rows shown in the "Happening now" list
 
 const settings = loadSettings();
 setLang(settings.lang);
@@ -30,6 +34,8 @@ document.documentElement.dataset.mode = settings.mode;
 
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
+let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
+let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
 let stagger = true; // the area list cascades in while the page loads, not on later updates
 let opened: string[] = []; // area ids open as tabs, newest first
@@ -110,7 +116,7 @@ $("process").onclick = async () => {
     const res = await fetch(new URL("sites", BASE), {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
     });
-    if (res.status === 202) setStatus("status.accepted");
+    if (res.status === 202 || res.status === 200) setStatus("status.accepted"); // 200: cached (contract 0.5)
     else if (res.status === 404 || res.status === 405) setStatus("status.unsupported");
     else if (res.status === 401) setStatus("status.token");
     else setStatus("status.refused", { code: res.status });
@@ -161,6 +167,12 @@ function render() {
   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
     reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
+  );
+  renderLiveList();
+  globe.setLive(
+    liveToggle.checked
+      ? liveEvents.filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
+      : [],
   );
   globe.keepOverlays(opened);
   cards.replaceChildren(
@@ -428,9 +440,76 @@ async function loadLive() {
   stagger = false;
 }
 
+// ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
+
+liveToggle.onchange = render;
+liveMore.onclick = () => {
+  liveLimit += LIVE_PAGE;
+  renderLiveList();
+};
+
+// "Happening now": one row per event, saying what, where and when, newest first.
+function renderLiveList() {
+  const rows = liveToggle.checked ? liveList(liveEvents, ticked, isType) : [];
+  const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
+  const now = Date.now();
+  liveListEl.replaceChildren(
+    ...rows.slice(0, liveLimit).map((f) => {
+      const p = f.properties;
+      const ring = el("span", { className: "ring" });
+      ring.style.color = typeColor(p.category);
+      const short = typeLabel(p.category).replace(/\s*[(:].*/, ""); // "Earthquakes", not the long form
+      return el(
+        "li",
+        {},
+        el(
+          "button",
+          {
+            type: "button", className: "result",
+            onclick: () => {
+              setSpin(false);
+              globe.openLive(p);
+            },
+          },
+          el("strong", {}, ring, p.title),
+          el("span", { className: "where" }, liveWhere(p)),
+          el("span", { className: "muted" }, `${short} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
+        ),
+      );
+    }),
+  );
+  if (liveToggle.checked && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
+  const left = rows.length - liveLimit;
+  liveMore.hidden = left <= 0;
+  liveMore.textContent = t("live.showmore", { n: Math.min(left, LIVE_PAGE) });
+}
+
+function showLiveStatus() {
+  liveStatus.textContent = liveUpdated
+    ? t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) })
+    : t("live.offline");
+}
+
+async function loadLiveFeeds() {
+  try {
+    const res = await fetch(new URL("live.geojson", BASE));
+    if (!res.ok) throw new Error(String(res.status));
+    const doc = await res.json();
+    liveEvents = doc.features ?? [];
+    liveUpdated = doc.generated_at ?? "";
+  } catch {
+    liveEvents = [];
+    liveUpdated = "";
+  }
+  showLiveStatus();
+  render();
+}
+
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
+events.addEventListener("live", loadLiveFeeds);
+setInterval(loadLiveFeeds, 10 * 60 * 1000); // also refresh when the push stream is gone
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
 
 // ---- View switch, auto-rotate and view wheel ----
@@ -449,6 +528,12 @@ function setSpin(on: boolean) {
   spinBtn.setAttribute("aria-pressed", String(on));
 }
 spinBtn.onclick = () => setSpin(spinBtn.getAttribute("aria-pressed") !== "true");
+
+// Zoom slider: follows the map, and the map follows it.
+const zoomSlider = $<HTMLInputElement>("zoom");
+zoomSlider.oninput = () => globe.zoom.set(+zoomSlider.value);
+globe.zoom.onChange((z) => (zoomSlider.value = String(z)));
+zoomSlider.value = String(globe.zoom.get());
 
 const wheel = $("wheel"), wheelBtn = $("wheel-btn");
 const showWheel = (on: boolean) => {
@@ -503,6 +588,7 @@ function applyLanguage() {
   buildFilters();
   buildWheel();
   showStatus();
+  showLiveStatus();
   render();
   renderSettings(dialog, settings, onSetting);
 }
@@ -523,6 +609,7 @@ $("settings-btn").onclick = () => dialog.showModal();
 wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
+loadLiveFeeds();
 // The Earth turns by itself on arrival; opening an area or the Auto-rotate button stops it.
 setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
 

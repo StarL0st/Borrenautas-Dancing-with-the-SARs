@@ -1,7 +1,7 @@
 /* Team palette: Ink Black #031927, Powder Blue #8eb1c7, White #fefdff, Tangerine Dream #ef946c,
-   Brick Ember #ba1200. Ink is the surface (the other surface tones are steps of it), white is
-   text, powder blue is secondary text and lines, tangerine marks what is on or primary, brick
-   carries warnings (always as a fill under white text: as text on ink it is too dark to read). */
+   Ebony #6b654b. Ink is the surface (the other surface tones are steps of it), white is
+   text, powder blue is secondary text and lines, tangerine marks what is on or primary, ebony
+   carries notices (always as a fill under white text: as text on ink it is too dark to read). */
 :root {
   --bg: #010d15;
   --panel: #031927;
@@ -12,7 +12,7 @@
   --muted: #8eb1c7;
   --ink: #031927; /* text on a light fill */
   --accent: #ef946c;
-  --brick: #ba1200;
+  --ebony: #6b654b;
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -77,7 +77,7 @@ time, output, td, .legend, .axis, .chart-tip, #coords input { font-family: var(-
 .muted { color: var(--muted); font-size: 0.93rem; }
 .error { color: var(--accent); font-weight: 600; }
 
-#banner { flex-basis: 100%; padding: 3px 10px; border-radius: 4px; background: var(--brick); color: var(--text); font-size: 0.93rem; }
+#banner { flex-basis: 100%; padding: 3px 10px; border-radius: 4px; background: var(--ebony); color: var(--text); font-size: 0.93rem; }
 #banner[hidden] { display: none; }
 
 .app {
@@ -161,6 +161,13 @@ output { color: var(--text); }
 
 #results { list-style: none; padding: 0; }
 #results li + li { border-top: 1px solid var(--line); }
+/* Live events: what is happening and where, newest first. */
+#live-list { list-style: none; padding: 0; max-height: 320px; overflow-y: auto; }
+#live-list li + li { border-top: 1px solid var(--line); }
+#live-list .result strong { display: flex; align-items: baseline; }
+#live-list .ring { display: inline-block; flex: none; width: 8px; height: 8px; margin-right: 8px; border: 1.5px solid; border-radius: 50%; }
+#live-list .where { display: block; }
+button.link { margin-top: 6px; padding: 4px 8px; }
 .result { display: block; width: 100%; padding: 8px; text-align: left; background: none; border: 0; border-radius: 0; font-weight: 400; }
 .result strong { display: block; font-weight: 600; }
 /* An open area keeps its row marked; the row is a list entry, not a filled button. */
@@ -173,7 +180,7 @@ output { color: var(--text); }
 }
 
 .tag { display: inline-block; margin: 0 6px 4px 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; font-size: 0.86rem; color: var(--muted); }
-.tag.warn { border-color: var(--brick); background: var(--brick); color: var(--text); }
+.tag.warn { border-color: var(--ebony); background: var(--ebony); color: var(--text); }
 
 /* ---- Globe, toolbar, view wheel ---- */
 
@@ -183,6 +190,9 @@ output { color: var(--text); }
 .toolbar { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 70px); }
 .toolbar button { font-size: 0.93rem; background: var(--panel); }
 .toolbar button[aria-pressed="true"] { background: var(--accent); }
+
+.zoom { display: flex; align-items: center; padding: 0 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+#zoom { width: 96px; }
 
 /* Arrows on the edges of the globe that push a side panel away and pull it back. */
 .panel-toggle { position: absolute; top: 50%; translate: 0 -50%; width: 22px; height: 64px; padding: 0; background: var(--panel); }
@@ -217,6 +227,7 @@ output { color: var(--text); }
 .stage .maplibregl-popup .maplibregl-popup-tip { border-top-color: var(--panel); border-bottom-color: var(--panel); }
 .stage .maplibregl-popup-close-button { color: var(--text); background: none; border: 0; font-size: 18px; }
 .event-popup p { margin: 6px 0 0; }
+.event-popup a { display: inline-block; margin-top: 6px; color: var(--text); }
 
 /* ---- Open areas ---- */
 

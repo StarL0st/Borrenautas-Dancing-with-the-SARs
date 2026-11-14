@@ -5,7 +5,8 @@ import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
-import type { AreaView, EventFeature, Layer } from "./logic";
+import { typeLabel } from "./filters";
+import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
 import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
@@ -143,6 +144,19 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
+      // Live events (live.geojson): hollow rings, so they never read as radar detections.
+      map.addSource("live", { type: "geojson", data: empty });
+      map.addLayer({
+        id: "live-ring", type: "circle", source: "live",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3.5, 8, 7],
+          "circle-color": ["get", "color"], "circle-opacity": 0.15,
+          "circle-stroke-color": ["get", "color"], "circle-stroke-width": 1.5,
+        },
+      }, "areas-halo");
+      map.on("click", "live-ring", (e) => picking || showLive(e.features![0].properties as LiveFeature["properties"], e.lngLat));
+      map.on("mouseenter", "live-ring", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", "live-ring", () => (map.getCanvas().style.cursor = ""));
       // The halo is the click target so the dots are easy to hit on touch screens.
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
@@ -201,7 +215,35 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       .addTo(map);
   }
 
+  // Live events name their source and link to it; text is set as text, never as HTML.
+  function showLive(p: LiveFeature["properties"], at: { lng: number; lat: number }) {
+    const link = /^https?:\/\//.test(p.url)
+      ? el("a", { href: p.url, target: "_blank", rel: "noopener noreferrer" }, t("live.more"))
+      : null;
+    popup
+      .setLngLat(at)
+      .setDOMContent(
+        el(
+          "div",
+          { className: "event-popup" },
+          el("strong", {}, p.title),
+          el("p", {}, liveWhere(p)),
+          el("p", { className: "muted" }, `${p.date} · ${typeLabel(p.category)}`),
+          p.detail ? el("p", {}, p.detail) : "",
+          el("p", { className: "muted" }, t("live.source", { source: p.credit })),
+          link ?? "",
+        ),
+      )
+      .addTo(map);
+  }
+
   return {
+    // `shown` already passed the filters and carries its display color.
+    async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
+      await ready;
+      map.getSource<GeoJSONSource>("live")!.setData({ type: "FeatureCollection", features: shown as never });
+    },
+
     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
       await ready;
       map.getSource<GeoJSONSource>("areas")!.setData({
@@ -237,6 +279,13 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async focus(area: AreaView) {
       await ready;
       map.fitBounds(area.bbox, { padding: 48, maxZoom: 14 });
+    },
+
+    // From the "Happening now" list: fly there and open the same popup as a click on the ring.
+    async openLive(p: LiveFeature["properties"]) {
+      await ready;
+      map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 4) });
+      map.once("moveend", () => showLive(p, { lng: p.lon, lat: p.lat }));
     },
 
     async goTo(lng: number, lat: number) {
@@ -291,6 +340,13 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async keepOverlays(areaIds: string[]) {
       await ready;
       for (const id of [...overlays]) if (!areaIds.includes(id)) await this.showOverlay(id, undefined, new URL(location.href), 1);
+    },
+
+    // For the zoom slider: read the zoom, set it, and hear about every change.
+    zoom: {
+      get: () => map.getZoom(),
+      set: (z: number) => map.setZoom(z),
+      onChange: (heard: (z: number) => void) => void map.on("zoom", () => heard(map.getZoom())),
     },
 
     // View wheel tools. Drag tools take the pointer movement in pixels.
