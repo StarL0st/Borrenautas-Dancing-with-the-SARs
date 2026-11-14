@@ -1,4 +1,37 @@
-# Deploy to Google Cloud
+# Deploy
+
+Two scripted options share one image (`backend/deploy/Dockerfile`): **Azure** (`azure.sh`, the current choice) and Google Cloud (`gcp.sh`, below). Neither has been run against a live account yet.
+
+## Azure
+
+| Piece | Azure service | Does |
+|---|---|---|
+| API + refresh | Container App `sars-api`, one replica | `serve --jobs --watch-hours 12`: contract files, `/query`, `/events` (SSE), `POST /sites`, and every 12 h a catalog check per site (only sites with new granules are processed). No separate job or scheduler |
+| Data | Storage account file share `data`, mounted at `/data` | `selected/`, `interim/`, `processed/`, `sites.json` survive restarts and redeploys |
+| Image | Container Registry (Basic) | Built in the cloud by `az acr build` from committed files only (`git archive`), so `.env` and `data/` never leave the machine |
+| Site | Static Web App `sars-site` (Free) | The frontend, built with `VITE_DATA_BASE=<API URL>/` |
+
+Once:
+1. Install the Azure CLI (https://learn.microsoft.com/cli/azure/install-azure-cli), then `az login` and, if you have several, `az account set --subscription <id>`. Add a budget alert (Cost Management > Budgets).
+2. `backend/.env` holds `ASF_EARTH_DATA_TOKEN=...` and, for the wildfire case study, `FIRMS_MAP_KEY=...`.
+3. From the repo root of an up-to-date checkout, in Git Bash:
+   ```
+   export AZ_PREFIX=<short lowercase name>   # names the registry <prefix>sars and storage <prefix>sarsdata
+   backend/deploy/azure.sh setup
+   backend/deploy/azure.sh build
+   backend/deploy/azure.sh seed     # uploads data/selected and data/processed so the API starts with data
+   backend/deploy/azure.sh api      # prints the API URL
+   backend/deploy/azure.sh site     # from a checkout with the frontend integration (testing branch); prints the site URL
+   ```
+Each change: `build`, then `api` (new revision). `seed` again only to push locally processed outputs.
+
+Notes:
+- `api` keeps the replica always on (background processing and the 12 h refresh need it), so it costs while idle, unlike the scale-to-zero Google setup. Check the Container Apps pricing page for your region before leaving it running.
+- Secrets (Earthdata token, FIRMS key, admin token, registry password) are Container App secrets. The generated `app.yaml` holds them and is deleted when the script exits.
+- `POST /sites` needs the admin token (`az containerapp secret show -g sars -n sars-api --secret-name admin-token --query value -o tsv`), so the public site's "Process this place" button answers "needs an access token". Opening it to everyone means removing `SARS_ADMIN_TOKEN`; the request size limits stay, but anyone could queue downloads.
+- Logs: `az containerapp logs show -g sars -n sars-api --follow`.
+
+## Google Cloud
 
 One container image (`backend/deploy/Dockerfile`) runs both halves of the backend:
 
