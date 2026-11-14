@@ -1,0 +1,168 @@
+:root {
+  --bg: #03060a;
+  --panel: #0b1722;
+  --line: #1d3442;
+  --text: #e6f1f5;
+  --muted: #a3b8c2;
+  --accent: #5fe3e0;
+  --warn: #ffb454;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+h1 { margin: 0; font-size: 18px; letter-spacing: 0.04em; }
+h2 { margin: 12px 0 4px; font-size: 17px; }
+h4 { margin: 14px 0 4px; font-size: 13px; color: var(--accent); }
+h3 { margin: 20px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+p { margin: 6px 0; }
+ul, ol { margin: 6px 0; padding-left: 20px; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.error { color: var(--warn); font-weight: 600; }
+
+#banner {
+  flex: 1;
+  min-width: 240px;
+  padding: 3px 10px;
+  border: 1px solid var(--warn);
+  border-radius: 4px;
+  color: var(--warn);
+  font-size: 13px;
+}
+#banner[hidden] { display: none; }
+
+.app {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 300px 1fr 340px;
+}
+
+.app > nav, .app > aside {
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: var(--panel);
+}
+.app > nav { border-right: 1px solid var(--line); }
+.app > aside { border-left: 1px solid var(--line); }
+
+.stage { position: relative; min-height: 0; }
+/* Space behind the globe */
+#map { position: absolute; inset: 0; background: radial-gradient(circle at center, #0c2536 0, var(--bg) 70%); }
+
+.toolbar { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 70px); }
+.toolbar button { font-size: 13px; padding: 4px 10px; }
+button[aria-pressed="true"] { border-color: var(--accent); background: #17394a; font-weight: 600; }
+
+#wheel { position: absolute; left: 10px; bottom: 30px; width: 190px; touch-action: none; user-select: none; }
+#wheel[hidden] { display: none; }
+#wheel svg { display: block; width: 100%; }
+#wheel g { cursor: grab; outline: none; }
+#wheel path { fill: #12283ae6; stroke: var(--accent); stroke-width: 1; }
+#wheel g:hover path, #wheel g:focus-visible path { fill: #1f5a6b; }
+#wheel g:focus-visible path { stroke-width: 3; }
+#wheel text { fill: var(--text); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+#wheel p { margin: 4px 0 0; padding: 2px 6px; min-height: 2.9em; background: #03060acc; border-radius: 4px; font-size: 12px; }
+.wheel-close { position: absolute; top: -4px; right: -4px; padding: 0 7px; border-radius: 50%; }
+
+button, select {
+  font: inherit;
+  color: var(--text);
+  background: #12283a;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); color: #03060a; border-color: var(--accent); font-weight: 600; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#filters details { margin-bottom: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+#filters summary { color: var(--text); font-weight: 600; }
+.check { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; color: var(--text); cursor: pointer; }
+.check.all { color: var(--muted); }
+.check input { flex: none; margin-top: 3px; accent-color: var(--accent); }
+
+#coords input { width: 100%; padding: 6px 8px; font: inherit; color: var(--text); background: #12283a; border: 1px solid var(--line); border-radius: 6px; }
+#coords button { margin-top: 10px; }
+
+.dot { display: inline-block; flex: none; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+
+#results { list-style: none; padding: 0; }
+.result { display: block; width: 100%; margin-bottom: 6px; text-align: left; }
+.result strong { display: block; }
+
+.card { margin-bottom: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #0f2130; }
+.card > summary { color: var(--text); font-size: 16px; font-weight: 600; }
+.actions { display: flex; gap: 6px; }
+.actions button { font-size: 13px; padding: 3px 10px; }
+
+.tag { display: inline-block; margin: 0 6px 0 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 400; color: var(--muted); }
+strong .tag { margin-left: 8px; }
+.tag.warn { border-color: var(--warn); color: var(--warn); }
+
+label { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+input[type="range"], select { width: 100%; accent-color: var(--accent); }
+output { color: var(--text); font-weight: 600; }
+
+.ramp { height: 12px; margin-top: 10px; border: 1px solid var(--line); background: linear-gradient(to right, #000, #fff); }
+.legend { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+details { margin-top: 10px; }
+summary { cursor: pointer; color: var(--accent); }
+dt { margin-top: 8px; font-size: 12px; color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+
+.timeline { list-style: none; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+.timeline li { position: relative; margin-bottom: 12px; }
+.timeline li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.timeline time { display: block; font-size: 12px; color: var(--muted); }
+
+.tour {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: min(440px, calc(100vw - 32px));
+  padding: 14px 16px;
+  background: #12283a;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px #000a;
+}
+.tour h2 { margin-top: 0; }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.tour-actions .muted { margin-right: auto; }
+.tour-target { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* Phones and narrow windows: globe on top, panels below, the page scrolls. */
+@media (max-width: 900px) {
+  body { height: auto; }
+  .app { display: flex; flex-direction: column; }
+  .stage { order: -1; flex: none; height: 60dvh; }
+  #wheel { width: 150px; }
+  .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
+}
