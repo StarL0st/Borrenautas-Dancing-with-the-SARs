@@ -93,6 +93,10 @@ def choose(rows: list[dict], max_dates: int = 6, min_dates: int = 4, product: st
 
 
 def select_site(site_id: str, site: dict, out: Path, days: int = 180) -> dict:
+    if site.get("kind") == "mosaic":
+        from .national import select  # imports this module
+
+        return select(site_id, site, out)
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
     window = (start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))

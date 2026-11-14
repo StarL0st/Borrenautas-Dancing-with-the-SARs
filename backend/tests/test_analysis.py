@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sars_pipeline import categorize, classify, firms, gunw, live, remote
+from sars_pipeline.export import load_manifest
 from sars_pipeline.granule import GRIDS, IDENT, open_granule, read_window, to_db
 from sars_pipeline.selection import choose
 from sars_pipeline.server import contains, create_app
@@ -433,3 +434,65 @@ def test_persistence_rejects_changes_that_vanish():
     assert classify.persists("hv_drop", r["mask"], before, stays, CFG)
     assert not classify.persists("hv_drop", r["mask"], before, gone, CFG)
     assert classify.persists("darkening_both", r["mask"], before, gone, CFG)  # floods recede
+
+
+def test_mosaic_cells_average_and_line_up():
+    from sars_pipeline import national
+
+    cell = national.CELL
+    # 20 x 20 fine pixels covering exactly 2 x 2 coarse cells north-east of the grid origin.
+    x = (np.arange(20) + 0.5) * cell / 10
+    y = -(np.arange(20) + 0.5) * cell / 10 + 2 * cell
+    sm = np.full((20, 20), 0.3, "float32")
+    sm[:10, :10] = np.nan  # a whole cell without readings
+    sm[10:, :5] = np.nan  # half a cell: still enough pixels
+    r0, c0, grid = national.coarsen(x, y, sm, min_fine=30)
+    assert (r0, c0) == (-2, 0) and grid.shape == (2, 2)
+    assert np.isnan(grid[0, 0]) and np.allclose(grid[[0, 1, 1], [1, 0, 1]], 0.3)
+    both = national.paste(
+        [(0, 0, np.full((2, 2), 0.2)), (1, 1, np.full((2, 2), 0.4))], 0, 0, (3, 3)
+    )
+    assert np.isclose(both[1, 1], 0.3) and both[0, 0] == 0.2 and np.isnan(both[0, 2])
+    rows = national.mercator_rows(14.4, 32.8, 1000, 0)
+    assert (np.diff(rows) >= 0).all()  # north to south, never backwards
+    # Equal-area rows get thinner toward the pole, so Mercator rows reuse them more in the north.
+    assert np.diff(rows[:100]).mean() < np.diff(rows[-100:]).mean()
+
+
+def test_mosaic_site_writes_layers_and_drying_event(tmp_path, monkeypatch):
+    from sars_pipeline import national
+    from sars_pipeline.site import run_site
+
+    bbox = [-104.0, 19.0, -100.0, 22.0]
+    cfg = {"title": "T", "summary": "s", "kind": "mosaic", "bbox": bbox, "change_types": ["other"]}
+    to_grid = national.Transformer.from_crs(4326, national.EPSG, always_xy=True)
+    x, y = to_grid.transform(bbox[0], bbox[3])
+    r0, c0 = int(-y // national.CELL), int(x // national.CELL)
+    wet = np.full((120, 150), 0.30)
+    dry = wet.copy()
+    dry[40:70, 50:90] = 0.15  # a 60 x 80 km block dries out
+    tiles = {"A": (r0, c0, wet), "B": (r0, c0, dry)}
+    monkeypatch.setattr(national, "cached_coarse", lambda row, *a: tiles[row["id"]])
+    monkeypatch.setattr(national.firms, "hotspots", lambda *a: None)
+    sel = {
+        "products": {
+            "SME2": {
+                "maturity": "PROVISIONAL",
+                "cycles": [["2026-09-27", "2026-10-09"], ["2026-10-09", "2026-10-21"]],
+                "granules": [{"id": "A", "date": "2026-10-01"}, {"id": "B", "date": "2026-10-15"}],
+            }
+        }
+    }
+    out = tmp_path / "processed"
+    result = run_site("mx", cfg, out, tmp_path / "interim", sel)
+    assert result["errors"] == {} and result["categories"] == {"drought": 1}
+    area = load_manifest(out)["areas"][0]
+    assert [layer["id"] for layer in area["layers"]] == [
+        "soil-moisture-2026-10-09",
+        "soil-moisture-2026-10-21",
+        "soil-moisture-change",
+    ]
+    event = json.loads((out / "events.json").read_text())["events"][0]
+    lon, lat = event["centroid"]
+    assert -103.2 < lon < -102.0 and 20.4 < lat < 21.3  # where the dry block is
+    assert event["evidence"]["drop_m3_m3"] == 0.15

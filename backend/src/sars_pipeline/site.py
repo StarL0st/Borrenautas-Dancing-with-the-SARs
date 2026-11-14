@@ -643,6 +643,8 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
     unburned = (cover == categorize.VEGETATION) & ~ndimage.binary_dilation(burned, iterations=3 * r)
     if not burned.any():
         return
+    if firms.CREDIT not in run.credits:
+        run.credits.append(firms.CREDIT)
 
     colors = np.zeros((*cover.shape, 4), "uint8")
     colors[burned] = (230, 85, 13, 200)
@@ -669,6 +671,7 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
             "source_granules": [],
             "steps": ["NASA FIRMS VIIRS S-NPP detections", "grown to 375 m footprints"],
             "params": {"fire_season": season, "detections": len(spots)},
+            "attribution": firms.CREDIT,
         },
     )
 
@@ -1002,7 +1005,12 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
     run = Run(site_id, site, data_dir, interim)
     products = selection.get("products", {})
     errors = {}
-    for name, fn in (("GCOV", run_gcov), ("GUNW", run_gunw), ("SME2", run_sme2)):
+    runners = (("GCOV", run_gcov), ("GUNW", run_gunw), ("SME2", run_sme2))
+    if site.get("kind") == "mosaic":
+        from .national import run_mosaic  # imports this module
+
+        runners = (("SME2", run_mosaic),)
+    for name, fn in runners:
         if name in products and products[name]["granules"]:
             try:
                 fn(run, products[name], cfg)
