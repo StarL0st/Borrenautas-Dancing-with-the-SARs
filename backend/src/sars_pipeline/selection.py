@@ -96,7 +96,7 @@ def select_site(site_id: str, site: dict, out: Path, days: int = 180) -> dict:
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
     window = (start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
-    limits = {"GCOV": 6, "GUNW": 12, "SME2": 12}
+    limits = {"GCOV": 6, "GUNW": 12, "SME2": 12, **site.get("max_dates", {})}
     picked = {"site": site_id, "bbox": site["bbox"], "window": list(window), "products": {}}
     for product in site.get("products", PRODUCTS):
         # GUNW is read over the site plus its stable reference area.

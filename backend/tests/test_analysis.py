@@ -83,6 +83,9 @@ def test_decision_table():
     assert categorize.decide("hv_drop", V, B, fires=3) == ["wildfires", "deforestation"]
     assert categorize.decide("hv_drop", B, B) == ["agriculture"]
     assert categorize.decide("brightening", B, U) == ["urban"]
+    assert categorize.decide("brightening", B, B) == ["agriculture"]  # crops, wet soil
+    assert categorize.decide("brightening", V, V, hh_minus_hv_db=4) == ["floods"]  # double bounce
+    assert categorize.decide("brightening", V, V, hh_minus_hv_db=1) == ["other"]
     assert categorize.decide("sinking", U, U) == ["subsidence", "groundwater"]
     assert categorize.decide("soil_drying", 0, 0) == ["drought"]
     assert categorize.decide("strong_change", V, V) == ["other"]
@@ -254,6 +257,8 @@ def test_run_site_writes_flood_event_and_geojson(flood_site):
     assert set(event["layer_ids"]) <= {layer["id"] for layer in area["layers"]}
     for layer in area["layers"]:
         assert (out / layer["url"]).exists() and layer["group"]
+    water = json.loads((out / "areas/synth/timeseries/water-area.json").read_text())
+    assert [p["value"] for p in water["points"]] == [0.0, 6.25]  # 16x16 of 64x64 flooded
     geo = json.loads((out / "events.geojson").read_text())
     [feature] = geo["features"]
     assert feature["properties"]["category"] == "floods"

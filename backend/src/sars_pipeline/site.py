@@ -170,7 +170,8 @@ WHY = {
     "which reflects radar away like a mirror.",
     "hv_drop": "HV, which comes mostly from leaves and branches, dropped much more than HH. "
     "Clearing and burning look like this, but so can harvest or plants drying out.",
-    "brightening": "HH got much brighter: new walls and roofs bounce radar straight back.",
+    "brightening": "HH got much brighter. New walls and roofs, taller crops, wetter soil, or "
+    "water standing under plants can all bounce more radar straight back.",
     "strong_change": "The radar signal changed strongly but matches none of our specific patterns.",
     "seasonal_cycle": "HV rose and fell across the passes, the pattern of crops growing and "
     "being harvested.",
@@ -385,6 +386,37 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
             )
         )
 
+    # Open water per date (floods spreading, a lake rising): same water rule as the surface type.
+    # Contract C4 has no area statistic, so this is the mean of a 0/100 water flag: % of the site.
+    covers = [categorize.cover_map(d["HH"], d["HV"], cfg) for d in db]
+    water = [c == categorize.WATER for c in covers]
+    ok = [c > 0 for c in covers]
+    run.series.append(
+        write_timeseries(
+            run.data_dir,
+            run.site_id,
+            {
+                "series_id": "water-area",
+                "title": "Open water, share of the site",
+                "units": "%",
+                "polarization": "HH/HV",
+                "statistic": "mean",
+                "region": _bbox_polygon(bbox),
+                "points": [
+                    {
+                        "date": w.granule.date,
+                        "value": round(100 * float(m[valid].mean()), 2) if valid.any() else None,
+                        "n_pixels": int(valid.sum()),
+                        "granule": w.granule.granule_id,
+                    }
+                    for w, m, valid in zip(windows, water, ok, strict=True)
+                ],
+                "maturity": maturity,
+                "synthetic": run.synthetic,
+            },
+        )
+    )
+
     def region_series(mask):
         return {
             pol: [
@@ -468,7 +500,9 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
             after = categorize.majority(cover_b, r["mask"])
             shape = outline(r["mask"], b.x, b.y, b.granule.epsg)
             fires = firms.count_in(spots, shape["bbox"]) if spots is not None else None
-            cats = decide(r["signature"], before, after, fires or 0)
+            cats = decide(
+                r["signature"], before, after, fires or 0, r["mean_d_hh"] - r["mean_d_hv"]
+            )
             if not cats or (cats == ["other"] and r["confidence"] < cfg["other_min_confidence"]):
                 continue
             # Land change must still be there on the next pass; the latest pair cannot be
@@ -481,6 +515,7 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
             if persistent is False:
                 continue
             conf = r["confidence"] if persistent else round(r["confidence"] * 0.7, 2)
+            flooded_veg = r["signature"] == "brightening" and cats == ["floods"]
             run.event(
                 "GCOV",
                 i,
@@ -516,6 +551,10 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
                     t
                     for t in (
                         f"NASA FIRMS saw {fires} fire detections there." if fires else "",
+                        f"HH rose {r['mean_d_hh'] - r['mean_d_hv']:.1f} dB more than HV: the "
+                        "double bounce of standing water under vegetation."
+                        if flooded_veg
+                        else "",
                         "Still visible on the next pass."
                         if persistent
                         else "Latest pass: not yet confirmed by a later one."
@@ -660,7 +699,9 @@ def run_gunw(run: Run, sel: dict, cfg: dict) -> None:
         provenance={"source_granules": granules, "steps": steps, "params": params},
     )
 
-    sinking = (rate_cm > cfg["sinking_cm_yr"]) & site_mask
+    # Without a checked stable reference area, the rate is relative to the scene median, and wet
+    # air (troposphere) can look like centimetres of motion: map only, no events.
+    sinking = (rate_cm > cfg["sinking_cm_yr"]) & site_mask & bool(ref_bbox)
     for i, m in enumerate(classify.components(sinking, cfg["min_pixels"])):
         n = int(m.sum())
         mean_rate = float(np.nanmean(rate_cm[m]))

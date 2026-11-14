@@ -71,7 +71,14 @@ CHANGE_TYPE = {
 }
 
 
-def decide(signature: str, before: int, after: int, fires: int = 0) -> list[str]:
+# Flooded vegetation: water under trees or crops makes a double bounce (water surface, then stems),
+# so HH rises much more than HV. Plain wet leaves or growth raise both about equally.
+DOUBLE_BOUNCE_DB = 3.0
+
+
+def decide(
+    signature: str, before: int, after: int, fires: int = 0, hh_minus_hv_db: float = 0.0
+) -> list[str]:
     """The decision table (docs/04 C7, backend/README). First category is the primary one."""
     if signature == "darkening_both":
         return ["floods"] if before != WATER else []  # water that stays water is not a flood
@@ -84,7 +91,11 @@ def decide(signature: str, before: int, after: int, fires: int = 0) -> list[str]
             return ["agriculture"]  # harvest or ploughing
         return ["other"]
     if signature == "brightening":
-        return ["urban"] if after == URBAN or before == BARE else ["other"]
+        if before == VEGETATION and hh_minus_hv_db >= DOUBLE_BOUNCE_DB:
+            return ["floods"]  # flooded vegetation
+        if after == URBAN:
+            return ["urban"]
+        return ["agriculture"] if before == BARE else ["other"]  # crops growing, soil wetting
     if signature == "seasonal_cycle":
         return ["agriculture"]
     if signature == "sinking":
