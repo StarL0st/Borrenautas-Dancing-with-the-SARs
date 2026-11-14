@@ -234,12 +234,15 @@ def flood_site(tmp_path, monkeypatch):
     }
     out = tmp_path / "out"
     sel = {"products": {"GCOV": {"maturity": "OTHER", "granules": rows}}}
-    result = run_site("synth", site, out, tmp_path / "interim", sel)
-    return out, result
+
+    def run():
+        return run_site("synth", site, out, tmp_path / "interim", sel)
+
+    return out, run(), run
 
 
 def test_run_site_writes_flood_event_and_geojson(flood_site):
-    out, result = flood_site
+    out, result, _ = flood_site
     assert result["events"] == 1 and result["categories"] == {"floods": 1}
     [event] = json.loads((out / "events.json").read_text())["events"]
     assert EVENT <= event.keys() and event["categories"] == ["floods"]
@@ -257,8 +260,16 @@ def test_run_site_writes_flood_event_and_geojson(flood_site):
     assert feature["properties"]["lon"] == event["centroid"][0]
 
 
+def test_rerun_gives_same_events(flood_site):
+    """Same granules in, same events out (second run reads the interim cache)."""
+    out, first, run = flood_site
+    before = json.loads((out / "events.json").read_text())["events"]
+    assert run() == first
+    assert json.loads((out / "events.json").read_text())["events"] == before
+
+
 def test_query_finds_event_at_point_and_by_category(flood_site):
-    out, _ = flood_site
+    out, _, _ = flood_site
     [event] = json.loads((out / "events.json").read_text())["events"]
     lon, lat = event["centroid"]
     e = event["bbox"][2]
