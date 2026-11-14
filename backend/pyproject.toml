@@ -1,0 +1,26 @@
+[project]
+name = "sars-pipeline"
+version = "0.1.0"
+description = "NISAR data pull and processing backend"
+readme = "README.md"
+authors = [
+    { name = "StarL0st", email = "65464466+StarL0st@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "asf-search>=14.1.0",
+    "python-dotenv>=1.2.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
