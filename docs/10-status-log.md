@@ -47,7 +47,6 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 - NISAR has no GCOV over the sites from 2026-01-20 to 2026-06-16 (the fire season), so fires and clearing are seen only by what the ground looks like afterwards.
 - Two rules are not validated against optical imagery: a burn scar that stays bare counts as deforestation; brightening counts as urban only next to built-up ground.
 - Friendly card thresholds (1% and 5% of the area) are judgment calls.
-- The Mexico box also covers south Texas and Guatemala.
 - Lookup limits are kept in memory and reset when the server restarts.
 
 ## 3. To do

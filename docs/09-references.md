@@ -39,6 +39,7 @@ Use the same pattern with each collection's title and DOI.
 | RADARSAT Constellation Mission (RCM), Canadian Space Agency (C-band, current) | **VERIFY** (EODMS terms) | candidate (from the challenge resource list) | EODMS registration needed; coverage over Mexico unknown |
 | CSA SAR Python tutorial | n/a (tutorial) | candidate (from the challenge resource list) | Reference for reading RCM/RADARSAT products |
 | MapLibre demo tiles (basemap, `https://demotiles.maplibre.org/`) | **VERIFY** | used (frontend) | Check the tile data license and attribution before submission; switch to a NASA basemap (for example GIBS) if unclear |
+| Natural Earth, 1:10m Admin 0 Countries (https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/), fetched 2026-11-14 from https://github.com/nvkelso/natural-earth-vector | Public domain ([terms of use](https://www.naturalearthdata.com/about/terms-of-use/)); no credit required, given anyway | used (backend, since 2026-11-14) | Mexico outline only, simplified, in `backend/src/sars_pipeline/borders/mexico.geojson`: clips the country mosaic to the border. Borders are Natural Earth's de facto lines, not an official statement |
 | ESA WorldCover 10 m (land cover) | **VERIFY** before use | candidate | Only if no NASA land cover is fine enough |
 | JRC Global Surface Water | **VERIFY** before use | candidate | Prefer OPERA DSWx (NASA) |
 | Copernicus DEM | **VERIFY** before use | candidate | Prefer NASADEM (NASA) |
