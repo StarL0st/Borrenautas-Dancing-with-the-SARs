@@ -1,8 +1,10 @@
 // EXAMPLE LOCATIONS. Real places that are widely known examples of each filter type, so the
-// globe has something to mark before the back end delivers areas. They carry no radar images
+// globe has something to mark while no back end is connected. They are hidden as soon as real
+// areas load. They carry no radar images
 // and no reports, and the app shows a notice while any is listed.
 // Replace with back-end data once the contract carries filter types and reports.
 import { typeLabel } from "./filters";
+import { t } from "./i18n";
 import type { AreaView } from "./logic";
 
 // [filter type id, place, longitude, latitude]
@@ -32,16 +34,19 @@ const PLACES: [string, string, number, number][] = [
   ["agriculture", "Punjab, India", 75.85, 30.9],
 ];
 
-export const EXAMPLE_AREAS: AreaView[] = PLACES.map(([type, title, lon, lat]) => ({
-  id: `example-${type}`,
-  title,
-  summary: `Example location for “${typeLabel(type)}”. Radar images and reports for this place will come from the back end.`,
-  types: [type],
-  center: [lon, lat],
-  bbox: [lon - 0.5, lat - 0.5, lon + 0.5, lat + 0.5],
-  synthetic: false,
-  example: true,
-  events: [],
-  layers: [],
-  credits: [],
-}));
+// A function, not a constant: the summary is in the current language.
+export const exampleAreas = (): AreaView[] =>
+  PLACES.map(([type, title, lon, lat]) => ({
+    id: `example-${type}`,
+    title,
+    summary: t("example.summary", { type: typeLabel(type) }),
+    types: [type],
+    center: [lon, lat],
+    bbox: [lon - 0.5, lat - 0.5, lon + 0.5, lat + 0.5],
+    synthetic: false,
+    example: true,
+    events: [],
+    layers: [],
+    series: [],
+    credits: [],
+  }));

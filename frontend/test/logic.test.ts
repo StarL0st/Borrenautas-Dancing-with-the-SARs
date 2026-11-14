@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { datesFor, inFilter, layerAt, supportedVersion, toAreaView, type Layer } from "../src/logic.ts";
+import { STRINGS } from "../src/i18n.ts";
+import { datesFor, inFilter, layerAt, supportedVersion, ticks, toAreaView, type Layer } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -49,5 +50,27 @@ test("contract 0.3: categories drive filters, groups drive the picker, events fi
   assert.deepEqual(datesFor(area.layers, "HH change"), ["2026-01-13"]);
   assert.deepEqual(datesFor(area.layers, "HH backscatter"), ["2026-01-01"]);
   assert.deepEqual(area.events.map((e) => e.title), ["Ground sinking"]);
-  assert.match(area.events[0].text, /Confidence 50%/);
+  assert.equal(area.events[0].confidence, 0.5);
+});
+
+test("a radar pass row lists its polarizations", () => {
+  const passes = toAreaView({ id: "p", title: "P", summary: "", change_types: [], layers }).events;
+  assert.deepEqual(passes[0], { date: "2026-01-01", pols: ["HH"] });
+});
+
+test("axis ticks are round and cover the data", () => {
+  assert.deepEqual(ticks(-19.4, -11.2), [-20, -15, -10]);
+  assert.deepEqual(ticks(0.11, 0.34), [0.1, 0.2, 0.3, 0.4]);
+  assert.deepEqual(ticks(5, 5), [5]);
+});
+
+test("every language has every text, with the same placeholders", () => {
+  const holes = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort().join();
+  for (const [lang, strings] of Object.entries(STRINGS)) {
+    assert.deepEqual(Object.keys(strings).sort(), Object.keys(STRINGS.en).sort(), lang);
+    for (const [key, text] of Object.entries(strings)) {
+      assert.ok(text.trim(), `${lang} ${key} is empty`);
+      assert.equal(holes(text), holes(STRINGS.en[key as keyof typeof STRINGS.en]), `${lang} ${key}`);
+    }
+  }
 });

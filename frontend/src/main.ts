@@ -1,11 +1,14 @@
 import "./style.css";
-import { EXAMPLE_AREAS } from "./example-areas";
-import { GROUPS, typeLabel } from "./filters";
+import { chart, type Series } from "./chart";
+import { exampleAreas } from "./example-areas";
+import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
+import { setLang, t, type Key } from "./i18n";
 import {
   datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type Manifest,
 } from "./logic";
+import { loadSettings, renderSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
 import { createWheel } from "./wheel";
@@ -16,20 +19,24 @@ const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/",
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
 
+const settings = loadSettings();
+setLang(settings.lang);
+
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
-const ticked = new Set(GROUPS.flatMap((g) => g.items.map((i) => i.id))); // filter types switched on
+const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
 let opened: string[] = []; // area ids open as tabs, newest first
+let entering: string | undefined; // the tab that was just opened, so only it animates in
 const collapsed = new Set<string>();
 const views = new Map<string, { pol: string; date: string; opacity: number }>(); // radar settings per area
+const seriesCache = new Map<string, Promise<[string, Series[]][]>>(); // chart data per area, by unit
 
-const areas = () => [...live, ...EXAMPLE_AREAS];
-const colorOf = (a: AreaView) =>
-  GROUPS.find((g) => g.items.some((i) => ticked.has(i.id) && a.types.includes(i.id)))?.color ?? "#e6f1f5";
-const categoryColor = (c: string) => GROUPS.find((g) => g.items.some((i) => i.id === c))?.color ?? "#e6f1f5";
+// Example places stand in only while there are no real areas.
+const areas = () => (live.length ? live : exampleAreas());
+const colorOf = (a: AreaView) => typeColor(a.types.find((id) => ticked.has(id)) ?? "");
 // Like areas: an event whose categories are not filters ("other") is always shown.
 const eventShown = (e: EventFeature) => {
-  const cats = e.properties.categories.split(",").filter((c) => GROUPS.some((g) => g.items.some((i) => i.id === c)));
+  const cats = e.properties.categories.split(",").filter(isType);
   return !cats.length || cats.some((c) => ticked.has(c));
 };
 const dot = (color: string) => {
@@ -38,40 +45,42 @@ const dot = (color: string) => {
   return d;
 };
 
-const globe = createGlobe("map", toggle);
+const globe = createGlobe("map", settings.texture, toggle);
 
 // ---- Left panel: filters ----
 
-for (const g of GROUPS) {
-  const all = el("input", { type: "checkbox", checked: true });
-  const boxes = g.items.map((item) => {
-    const box = el("input", { type: "checkbox", checked: true });
-    box.onchange = () => {
-      if (box.checked) ticked.add(item.id);
-      else ticked.delete(item.id);
-      const n = boxes.filter((b) => b.checked).length;
-      all.checked = n === boxes.length;
-      all.indeterminate = n > 0 && n < boxes.length;
-      render();
-    };
-    return box;
-  });
-  all.onchange = () => {
-    for (const [i, box] of boxes.entries()) {
-      box.checked = all.checked;
-      if (all.checked) ticked.add(g.items[i].id);
-      else ticked.delete(g.items[i].id);
-    }
-    render();
-  };
-  filters.append(
-    el(
-      "details",
-      { open: g === GROUPS[0] },
-      el("summary", {}, dot(g.color), g.label),
-      el("label", { className: "check all" }, all, "Select all"),
-      ...boxes.map((box, i) => el("label", { className: "check" }, box, g.items[i].label)),
-    ),
+function buildFilters() {
+  const open = [...filters.children].map((d) => (d as HTMLDetailsElement).open);
+  filters.replaceChildren(
+    ...GROUPS.map((g, n) => {
+      const all = el("input", { type: "checkbox" });
+      const boxes = g.items.map((id) => el("input", { type: "checkbox", checked: ticked.has(id) }));
+      const syncAll = () => {
+        const count = boxes.filter((b) => b.checked).length;
+        all.checked = count === boxes.length;
+        all.indeterminate = count > 0 && count < boxes.length;
+      };
+      const set = (id: string, on: boolean) => (on ? ticked.add(id) : ticked.delete(id));
+      for (const [i, box] of boxes.entries()) {
+        box.onchange = () => {
+          set(g.items[i], box.checked);
+          syncAll();
+          render();
+        };
+      }
+      all.onchange = () => {
+        for (const [i, box] of boxes.entries()) set(g.items[i], (box.checked = all.checked));
+        render();
+      };
+      syncAll();
+      return el(
+        "details",
+        { open: open[n] ?? n === 0 },
+        el("summary", {}, dot(g.color), groupLabel(g.id)),
+        el("label", { className: "check all" }, all, t("filter.all")),
+        ...boxes.map((box, i) => el("label", { className: "check" }, box, typeLabel(g.items[i]))),
+      );
+    }),
   );
 }
 
@@ -79,6 +88,7 @@ for (const g of GROUPS) {
 
 $<HTMLFormElement>("coords").onsubmit = (e) => {
   e.preventDefault(); // the browser has already checked both numbers are present and in range
+  setSpin(false);
   globe.goTo(+$<HTMLInputElement>("lon").value, +$<HTMLInputElement>("lat").value);
 };
 
@@ -88,21 +98,30 @@ $("process").onclick = async () => {
   const form = $<HTMLFormElement>("coords");
   if (!form.reportValidity()) return;
   const lat = +$<HTMLInputElement>("lat").value, lon = +$<HTMLInputElement>("lon").value;
-  status.className = "muted";
-  status.textContent = "Asking the radar data server to process this place...";
+  setStatus("status.asking");
   try {
     const res = await fetch(new URL("sites", BASE), {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
     });
-    status.textContent =
-      res.status === 202 ? "Processing this place. It appears on the globe when ready (a few minutes)."
-      : res.status === 404 ? "This radar data server does not process new places."
-      : res.status === 401 ? "Processing new places needs an access token on this server."
-      : `The server could not take the request (${res.status}).`;
+    if (res.status === 202) setStatus("status.accepted");
+    else if (res.status === 404 || res.status === 405) setStatus("status.unsupported");
+    else if (res.status === 401) setStatus("status.token");
+    else setStatus("status.refused", { code: res.status });
   } catch {
-    status.textContent = "Radar data server not connected.";
+    setStatus("status.noserver");
   }
 };
+
+// The status line remembers what it says, not the words, so it can change language.
+let statusNow: { key: Key; vars?: Record<string, string | number>; error?: boolean } | undefined;
+function setStatus(key: Key, vars?: Record<string, string | number>, error = false) {
+  statusNow = { key, vars, error };
+  showStatus();
+}
+function showStatus() {
+  status.className = statusNow?.error ? "error" : "muted";
+  status.textContent = statusNow ? t(statusNow.key, statusNow.vars) : "";
+}
 
 // ---- Area list, dots and open tabs ----
 
@@ -112,42 +131,33 @@ function render() {
 
   results.replaceChildren(
     ...shown.map((a) => {
-      const dates = a.events.map((e) => e.date);
+      const dates = a.events.map((e) => e.date).sort();
+      const when = dates.length ? t("list.dates", { from: dates[0], to: dates.at(-1)! }) : t("list.nodates");
       const row = el(
         "button",
         { type: "button", className: "result", onclick: () => toggle(a.id) },
         el("strong", {}, dot(colorOf(a)), a.title),
-        el(
-          "span",
-          { className: "muted" },
-          a.example
-            ? "Example location · no data yet"
-            : `${dates.length ? `${dates[0]} to ${dates.at(-1)}` : "No dates yet"} · ${a.layers.length} radar images`,
-        ),
+        el("span", { className: "muted" }, a.example ? t("list.example") : `${when} · ${t("list.images", { n: a.layers.length })}`),
       );
       row.setAttribute("aria-pressed", String(opened.includes(a.id)));
       return el("li", {}, row);
     }),
   );
-  if (!shown.length) results.append(el("li", { className: "muted" }, "No areas match the ticked filters."));
+  if (!shown.length) results.append(el("li", { className: "muted" }, t("list.none")));
 
-  const notes = [
-    shown.some((a) => a.example) && "Example locations are real places with no radar data or reports loaded yet.",
-    shown.some((a) => a.synthetic) && "Radar images shown are synthetic test data, not real observations.",
-  ].filter(Boolean);
+  const notes = [shown.some((a) => a.example) && t("banner.example"), shown.some((a) => a.synthetic) && t("banner.synthetic")].filter(Boolean);
   banner.hidden = !notes.length;
   banner.textContent = notes.join(" ");
 
   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
-    reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: categoryColor(e.properties.category) } })),
+    reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
   globe.keepOverlays(opened);
   cards.replaceChildren(
-    ...(opened.length
-      ? opened.map((id) => card(shown.find((a) => a.id === id)!))
-      : [el("p", { className: "muted" }, "Click a dot on the globe, or an area in the list, to open it here. Click it again to close it.")]),
+    ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : [el("p", { className: "muted" }, t("cards.empty"))]),
   );
+  entering = undefined;
 }
 
 // Clicking a dot or a list row opens the area as a tab; clicking again closes it.
@@ -158,6 +168,8 @@ function toggle(id: string) {
   opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
   if (opening) {
     collapsed.delete(id);
+    entering = id;
+    setSpin(false); // or the globe would drift away from the area just opened
     globe.focus(a);
   }
   render();
@@ -165,35 +177,50 @@ function toggle(id: string) {
 }
 
 function card(a: AreaView) {
-  const tags = el("p", {}, ...a.types.map((t) => el("span", { className: "tag" }, typeLabel(t))));
-  if (a.example) tags.append(el("span", { className: "tag warn" }, "example location"));
-  if (a.synthetic) tags.append(el("span", { className: "tag warn" }, "synthetic test data"));
+  const tags = el("p", {}, ...a.types.map((id) => el("span", { className: "tag" }, typeLabel(id))));
+  if (a.example) tags.append(el("span", { className: "tag warn" }, t("tag.example")));
+  if (a.synthetic) tags.append(el("span", { className: "tag warn" }, t("tag.synthetic")));
+
+  const timeline = a.events.map((e) =>
+    el(
+      "li",
+      {},
+      el("time", { dateTime: e.date }, e.date),
+      el("strong", {}, e.title ?? t("timeline.pass")),
+      el(
+        "p",
+        { className: "muted" },
+        e.pols
+          ? t("timeline.pols", { list: e.pols.join(", ") })
+          : [e.text, e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
+      ),
+    ),
+  );
 
   const box = el(
     "details",
-    { className: "card", open: !collapsed.has(a.id) },
+    { className: a.id === entering ? "card enter" : "card", open: !collapsed.has(a.id) },
     el("summary", {}, dot(colorOf(a)), a.title),
     el(
       "p",
       { className: "actions" },
-      el("button", { type: "button", onclick: () => globe.focus(a) }, "Show on globe"),
-      el("button", { type: "button", onclick: () => toggle(a.id) }, "Close"),
+      el("button", { type: "button", onclick: () => globe.focus(a) }, t("card.show")),
+      el("button", { type: "button", onclick: () => toggle(a.id) }, t("card.close")),
     ),
     tags,
     el("p", {}, a.summary),
     ...radarSection(a),
-    el("h4", {}, "Timeline"),
-    a.events.length
-      ? el("ol", { className: "timeline" }, ...a.events.map((e) => el("li", {}, el("time", { dateTime: e.date }, e.date), el("strong", {}, e.title), el("p", { className: "muted" }, e.text))))
-      : el("p", { className: "muted" }, "No reports yet. They will come from the back end."),
-    ...(a.credits.length ? [el("h4", {}, "Credits"), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
+    chartSection(a),
+    el("h4", {}, t("card.timeline")),
+    timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
+    ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
   box.ontoggle = () => (box.open ? collapsed.delete(a.id) : collapsed.add(a.id));
   return box;
 }
 
 function radarSection(a: AreaView): Node[] {
-  if (!a.layers.length) return [el("h4", {}, "Radar images"), el("p", { className: "muted" }, "No radar images for this area yet.")];
+  if (!a.layers.length) return [el("h4", {}, t("card.radar")), el("p", { className: "muted" }, t("card.noradar"))];
 
   const pols = polarizations(a.layers);
   const v = views.get(a.id) ?? { pol: pols[0], date: "", opacity: 1 };
@@ -234,26 +261,51 @@ function radarSection(a: AreaView): Node[] {
 
   setDates();
   return [
-    el("h4", {}, "Radar images"),
-    el("label", { htmlFor: polSelect.id }, "Layer (radar image per polarization, detected change, ground motion, soil moisture)"), polSelect,
-    el("label", { htmlFor: slider.id }, "Date: ", dateOut), slider,
-    el("label", { htmlFor: opacity.id }, "Image opacity"), opacity,
+    el("h4", {}, t("card.radar")),
+    el("label", { htmlFor: polSelect.id }, t("radar.layer")), polSelect,
+    el("label", { htmlFor: slider.id }, t("radar.date"), " ", dateOut), slider,
+    el("label", { htmlFor: opacity.id }, t("radar.opacity")), opacity,
     info,
   ];
 }
 
-// The colors the back end paints into its images (backend/src/sars_pipeline/site.py), from the
-// low end of `value_range` to the high end. Keep in step with the back end.
-// shortcut: "classes" has no color bar because the contract does not list its classes; the
-// layer description names the colors. Add swatches if the contract gains a class list.
+// The colors the back end paints into its images (backend/src/sars_pipeline/site.py and
+// categorize.py). Keep in step with the back end.
+// Color bars run from the low end of `value_range` to the high end.
 const RAMPS: Record<string, string> = {
   gray: "#000, #fff",
   rdbu: "rgb(215 48 39), transparent, rgb(40 110 220)",
   brbg: "rgb(166 97 26), rgb(1 133 113)",
 };
+// shortcut: "classes" layers are matched by their group label because the contract does not
+// list their classes; replace with the contract's class list if it gains one.
+const CLASSES: Record<string, [string, Key][]> = {
+  "Surface type": [
+    ["rgb(33 113 181)", "class.water"], ["rgb(200 60 60)", "class.built"],
+    ["rgb(49 163 84)", "class.vegetation"], ["rgb(217 180 120)", "class.bare"],
+  ],
+  "Detected change": [
+    ["rgb(33 113 181)", "class.darkening"], ["rgb(230 85 13)", "class.hvdrop"],
+    ["rgb(200 60 160)", "class.brightening"], ["rgb(150 150 150)", "class.strong"],
+  ],
+};
 
 function layerInfo(l: Layer): Node[] {
   const out: Node[] = [el("p", {}, l.description)];
+  const classes = l.colormap === "classes" && CLASSES[l.group ?? ""];
+  if (classes) {
+    out.push(
+      el(
+        "ul",
+        { className: "swatches" },
+        ...classes.map(([color, key]) => {
+          const s = el("span", { className: "swatch" });
+          s.style.background = color;
+          return el("li", {}, s, t(key));
+        }),
+      ),
+    );
+  }
   if (l.value_range) {
     const [min, max] = l.value_range;
     const stops = RAMPS[l.colormap ?? ""];
@@ -266,32 +318,73 @@ function layerInfo(l: Layer): Node[] {
     out.push(el("p", { className: "legend" }, el("span", {}, `${min} ${l.units}`), el("span", {}, `${max} ${l.units}`)));
   }
   const p = l.provenance;
-  const row = (k: string, val: Node | string) => [el("dt", {}, k), el("dd", {}, val)];
+  const row = (key: Key, val: Node | string) => [el("dt", {}, t(key)), el("dd", {}, val)];
   out.push(
     el(
       "details",
       {},
-      el("summary", {}, "Where this comes from"),
+      el("summary", {}, t("prov.summary")),
       el(
         "dl",
         {},
-        ...row("Product", l.product),
-        ...row("Polarization", l.polarization ?? "none"),
-        ...row("Data maturity", l.maturity),
-        ...row("Source granules", p.source_granules.join(", ") || "none (synthetic)"),
-        ...row("Processing steps", el("ol", {}, ...p.steps.map((s) => el("li", {}, s)))),
-        ...row("Parameters", JSON.stringify(p.params)),
-        ...row("Software", JSON.stringify(p.software)),
-        ...row("Credit", p.attribution),
+        ...row("prov.product", l.product),
+        ...row("prov.pol", l.polarization ?? t("prov.none")),
+        ...row("prov.maturity", l.maturity),
+        ...row("prov.granules", p.source_granules.join(", ") || t("prov.nogranules")),
+        ...row("prov.steps", el("ol", {}, ...p.steps.map((s) => el("li", {}, s)))),
+        ...row("prov.params", JSON.stringify(p.params)),
+        ...row("prov.software", JSON.stringify(p.software)),
+        ...row("prov.credit", p.attribution),
       ),
     ),
   );
   return out;
 }
 
+// ---- Change over time (contract C4 time series files) ----
+
+// One chart per unit, so lines that share a chart share a scale.
+function loadSeries(a: AreaView) {
+  let pending = seriesCache.get(a.id);
+  if (!pending) {
+    pending = Promise.all(
+      a.series.map(async (ref) => {
+        try {
+          const file = await (await fetch(new URL(ref.url, BASE))).json();
+          const points = (file.points as { date: string; value: number }[]).filter((p) => p.date && Number.isFinite(p.value));
+          return points.length ? { units: String(file.units), label: String(file.polarization ?? file.title ?? ref.title), points } : undefined;
+        } catch {
+          return undefined; // a missing or broken file drops that line, not the tab
+        }
+      }),
+    ).then((files) => {
+      const byUnit = new Map<string, Series[]>();
+      for (const f of files) if (f) byUnit.set(f.units, [...(byUnit.get(f.units) ?? []), { label: f.label, points: f.points }]);
+      return [...byUnit];
+    });
+    seriesCache.set(a.id, pending);
+  }
+  return pending;
+}
+
+function chartSection(a: AreaView): Node {
+  const box = el("div");
+  if (a.series.length) {
+    loadSeries(a).then((groups) => {
+      if (!groups.length) return;
+      box.replaceChildren(
+        el("h4", {}, t("chart.title")),
+        ...groups.map(([units, series]) => chart(series, { caption: t("chart.caption", { units }), table: t("chart.table"), date: t("chart.date"), units })),
+      );
+    });
+  }
+  return box;
+}
+
 // ---- Live data from the back end (optional: the app works without it) ----
 
 async function loadLive() {
+  seriesCache.clear();
   try {
     const res = await fetch(new URL("manifest.json", BASE));
     if (!res.ok) throw new Error(String(res.status));
@@ -303,31 +396,26 @@ async function loadLive() {
         .then((g) => g.features ?? [])
         .catch(() => []);
       live = manifest.areas.map((a) => toAreaView(a, reports));
-      status.className = "muted";
-      status.textContent = `Radar data connected: ${live.length} area(s), ${reports.length} detected change(s).`;
+      setStatus("status.connected", { areas: live.length, events: reports.length });
     } else {
       live = [];
-      status.className = "error";
-      status.textContent = `The radar data is in a newer format (version ${manifest.contract_version}) that this app cannot read, so it is not shown.`;
+      reports = [];
+      setStatus("status.version", { version: manifest.contract_version }, true);
     }
   } catch {
     live = [];
     reports = [];
-    status.className = "muted";
-    status.textContent = "Radar data server not connected. Showing example locations only.";
+    setStatus("status.offline");
   }
   render();
 }
-
-render();
-loadLive();
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
 
-// ---- View switch and view wheel ----
+// ---- View switch, auto-rotate and view wheel ----
 
 const viewButtons: Record<ViewMode, HTMLElement> = { globe: $("view-globe"), closeup: $("view-closeup") };
 for (const [mode, button] of Object.entries(viewButtons) as [ViewMode, HTMLElement][]) {
@@ -337,16 +425,57 @@ for (const [mode, button] of Object.entries(viewButtons) as [ViewMode, HTMLEleme
   };
 }
 
+const spinBtn = $("spin-btn");
+function setSpin(on: boolean) {
+  globe.setSpin(on);
+  spinBtn.setAttribute("aria-pressed", String(on));
+}
+spinBtn.onclick = () => setSpin(spinBtn.getAttribute("aria-pressed") !== "true");
+
 const wheel = $("wheel"), wheelBtn = $("wheel-btn");
 const showWheel = (on: boolean) => {
   wheel.hidden = !on;
   wheelBtn.setAttribute("aria-pressed", String(on));
 };
 wheelBtn.onclick = () => showWheel(!!wheel.hidden);
-createWheel(wheel, globe.tools, () => {
-  showWheel(false);
-  wheelBtn.focus();
-});
+const buildWheel = () =>
+  createWheel(wheel, globe.tools, () => {
+    showWheel(false);
+    wheelBtn.focus();
+  });
+
+// ---- Accessibility menu and language ----
+
+const dialog = $<HTMLDialogElement>("settings");
+
+// Everything that holds interface text, rebuilt in the current language.
+function applyLanguage() {
+  document.documentElement.lang = settings.lang;
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n]")) node.textContent = t(node.dataset.i18n as Key);
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
+  buildFilters();
+  buildWheel();
+  showStatus();
+  render();
+  renderSettings(dialog, settings, onSetting);
+}
+
+function onSetting(key: keyof Settings) {
+  if (key === "wheel") wheel.dataset.size = settings.wheel;
+  if (key === "texture") globe.setTexture(settings.texture);
+  if (key === "lang") {
+    setLang(settings.lang);
+    applyLanguage();
+    // The menu was rebuilt in the new language; put the keyboard back where it was.
+    dialog.querySelector<HTMLElement>('input[name="lang"]:checked')?.focus();
+  }
+}
+
+$("settings-btn").onclick = () => dialog.showModal();
+
+wheel.dataset.size = settings.wheel;
+applyLanguage();
+loadLive();
 
 // ---- Tour ----
 
