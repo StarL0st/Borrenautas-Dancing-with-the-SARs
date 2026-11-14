@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import math
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 from itertools import pairwise
@@ -20,6 +21,7 @@ from .granule import open_granule
 from .sites import add_site, bbox_around
 
 log = logging.getLogger(__name__)
+mimetypes.add_type("application/geo+json", ".geojson")  # events.geojson, live.geojson
 
 # Public lookups (serve --public). Points snap to a grid so nearby lookups share one cached cell.
 CELL_DEG = 0.2  # about 22 km
@@ -118,6 +120,7 @@ def create_app(
 
     async def watch():
         manifest, last, failed = data_dir / "manifest.json", None, {}
+        live_file, live_last = data_dir / "live.geojson", None
         while True:
             if inbox:
                 await asyncio.to_thread(scan_inbox, inbox, data_dir, failed)
@@ -127,6 +130,12 @@ def create_app(
                 last = mtime
                 for q in clients:
                     q.put_nowait({"type": "manifest", "url": "manifest.json"})
+            # Live disaster feeds (livefeeds.py) have their own push event.
+            live_mtime = live_file.stat().st_mtime_ns if live_file.exists() else None
+            if live_mtime != live_last:
+                live_last = live_mtime
+                for q in clients:
+                    q.put_nowait({"type": "live", "url": "live.geojson"})
             await asyncio.sleep(poll_seconds)
 
     @asynccontextmanager
