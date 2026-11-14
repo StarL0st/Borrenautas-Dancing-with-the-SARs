@@ -9,19 +9,37 @@
     <header>
       <h1>Dancing with the SARs</h1>
       <button type="button" id="tour-btn">Tutorial</button>
-      <div id="banner" role="status" hidden>Sample data: placeholder areas and reports, not real observations</div>
+      <div id="banner" role="status" hidden></div>
     </header>
     <main class="app">
-      <nav aria-label="Themes and areas">
-        <h3>Themes</h3>
-        <div id="tabs" role="group" aria-label="Filter areas by theme"></div>
-        <div id="topics"></div>
+      <nav aria-label="Filters and areas">
+        <h3>Filters</h3>
+        <div id="filters"></div>
+        <h3>Go to coordinates</h3>
+        <form id="coords">
+          <label for="lat">Latitude (-90 to 90)</label>
+          <input id="lat" type="number" min="-90" max="90" step="any" required placeholder="19.43" />
+          <label for="lon">Longitude (-180 to 180)</label>
+          <input id="lon" type="number" min="-180" max="180" step="any" required placeholder="-99.13" />
+          <button type="submit" class="primary">Go</button>
+        </form>
         <h3>Areas</h3>
         <p id="status" class="muted" role="status"></p>
         <ul id="results"></ul>
       </nav>
-      <div id="map" role="region" aria-label="Globe of radar study areas"></div>
-      <aside id="detail" aria-label="Selected area"></aside>
+      <div class="stage" id="stage">
+        <div id="map" role="region" aria-label="Globe of radar study areas"></div>
+        <div class="toolbar" id="toolbar" role="group" aria-label="View">
+          <button type="button" id="view-globe" aria-pressed="true">Globe view</button>
+          <button type="button" id="view-closeup" aria-pressed="false">Close-up view</button>
+          <button type="button" id="wheel-btn" aria-pressed="true">View wheel</button>
+        </div>
+        <div id="wheel" role="group" aria-label="View wheel"></div>
+      </div>
+      <aside id="detail" aria-label="Open areas">
+        <h2>Open areas</h2>
+        <div id="cards"></div>
+      </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

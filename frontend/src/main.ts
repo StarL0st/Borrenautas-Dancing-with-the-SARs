@@ -1,169 +1,211 @@
 import "./style.css";
-import { CATEGORIES } from "./categories";
-import { createGlobe } from "./globe";
+import { EXAMPLE_AREAS } from "./example-areas";
+import { GROUPS, typeLabel } from "./filters";
+import { createGlobe, type ViewMode } from "./globe";
 import {
-  datesFor, inCategory, layerAt, polarizations, supportedVersion, toAreaView,
+  datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
   type AreaView, type Layer, type Manifest,
 } from "./logic";
-import { SAMPLE_AREAS } from "./sample-areas";
 import { startTour } from "./tour";
 import { el } from "./ui";
+import { createWheel } from "./wheel";
 
 // Live backend by default; set VITE_DATA_BASE=./data/ for the static build (contract C6).
 const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/", location.href);
 
-const $ = (id: string) => document.getElementById(id)!;
-const tabs = $("tabs"), topics = $("topics"), results = $("results"), status = $("status"), detail = $("detail");
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
 
 let live: AreaView[] = [];
-let cat = "all";
-let selected: AreaView | undefined;
-const view = { pol: "", date: "", opacity: 1 };
+const ticked = new Set(GROUPS.flatMap((g) => g.items.map((i) => i.id))); // filter types switched on
+let opened: string[] = []; // area ids open as tabs, newest first
+const collapsed = new Set<string>();
+const views = new Map<string, { pol: string; date: string; opacity: number }>(); // radar settings per area
 
-const areas = () => [...live, ...SAMPLE_AREAS];
-const category = (id: string) => CATEGORIES.find((c) => c.id === id);
-const colorOf = (a: AreaView) => category(cat === "all" ? a.categories[0] : cat)?.color ?? "#e6f1f5";
+const areas = () => [...live, ...EXAMPLE_AREAS];
+const colorOf = (a: AreaView) =>
+  GROUPS.find((g) => g.items.some((i) => ticked.has(i.id) && a.types.includes(i.id)))?.color ?? "#e6f1f5";
+const dot = (color: string) => {
+  const d = el("span", { className: "dot" });
+  d.style.background = color;
+  return d;
+};
 
-const globe = createGlobe("map", (id) => select(areas().find((a) => a.id === id)));
+const globe = createGlobe("map", toggle);
 
-// ---- Left panel: themes and the list of areas ----
+// ---- Left panel: filters ----
 
-for (const c of [{ id: "all", label: "All themes", color: "#e6f1f5" }, ...CATEGORIES]) {
-  const dot = el("span", { className: "dot" });
-  dot.style.background = c.color;
-  const tab = el("button", { type: "button", onclick: () => setCategory(c.id) }, dot, c.label);
-  tab.dataset.cat = c.id;
-  tabs.append(tab);
-}
-
-function setCategory(id: string) {
-  cat = id;
-  if (selected && !inCategory(selected, cat)) select(undefined, false);
-  else renderBrowser();
-  const first = areas().find((a) => inCategory(a, cat));
-  if (!selected && first && cat !== "all") globe.lookAt(first);
-}
-
-function renderBrowser() {
-  for (const tab of tabs.children) tab.setAttribute("aria-pressed", String((tab as HTMLElement).dataset.cat === cat));
-
-  const c = category(cat);
-  topics.replaceChildren(
-    ...(c
-      ? [el("p", { className: "muted" }, `${c.label} covers:`), el("ul", {}, ...c.topics.map((t) => el("li", {}, t)))]
-      : [el("p", { className: "muted" }, "Pick a theme to light up only its areas.")]),
+for (const g of GROUPS) {
+  const all = el("input", { type: "checkbox", checked: true });
+  const boxes = g.items.map((item) => {
+    const box = el("input", { type: "checkbox", checked: true });
+    box.onchange = () => {
+      if (box.checked) ticked.add(item.id);
+      else ticked.delete(item.id);
+      const n = boxes.filter((b) => b.checked).length;
+      all.checked = n === boxes.length;
+      all.indeterminate = n > 0 && n < boxes.length;
+      render();
+    };
+    return box;
+  });
+  all.onchange = () => {
+    for (const [i, box] of boxes.entries()) {
+      box.checked = all.checked;
+      if (all.checked) ticked.add(g.items[i].id);
+      else ticked.delete(g.items[i].id);
+    }
+    render();
+  };
+  filters.append(
+    el(
+      "details",
+      { open: g === GROUPS[0] },
+      el("summary", {}, dot(g.color), g.label),
+      el("label", { className: "check all" }, all, "Select all"),
+      ...boxes.map((box, i) => el("label", { className: "check" }, box, g.items[i].label)),
+    ),
   );
+}
 
-  const shown = areas().filter((a) => inCategory(a, cat));
+// ---- Left panel: coordinates ----
+
+$<HTMLFormElement>("coords").onsubmit = (e) => {
+  e.preventDefault(); // the browser has already checked both numbers are present and in range
+  globe.goTo(+$<HTMLInputElement>("lon").value, +$<HTMLInputElement>("lat").value);
+};
+
+// ---- Area list, dots and open tabs ----
+
+function render() {
+  const shown = areas().filter((a) => inFilter(a, ticked));
+  opened = opened.filter((id) => shown.some((a) => a.id === id));
+
   results.replaceChildren(
     ...shown.map((a) => {
       const dates = a.events.map((e) => e.date);
-      const dot = el("span", { className: "dot" });
-      dot.style.background = colorOf(a);
       const row = el(
         "button",
-        { type: "button", className: "result", onclick: () => select(a) },
-        el("strong", {}, dot, a.title, ...(a.synthetic ? [el("span", { className: "tag" }, "sample")] : [])),
+        { type: "button", className: "result", onclick: () => toggle(a.id) },
+        el("strong", {}, dot(colorOf(a)), a.title),
         el(
           "span",
           { className: "muted" },
-          `${dates.length ? `${dates[0]} to ${dates.at(-1)}` : "No dates yet"} · ${a.events.length} reports · ${a.layers.length} radar images`,
+          a.example
+            ? "Example location · no data yet"
+            : `${dates.length ? `${dates[0]} to ${dates.at(-1)}` : "No dates yet"} · ${a.layers.length} radar images`,
         ),
       );
-      if (a.id === selected?.id) row.setAttribute("aria-current", "true");
+      row.setAttribute("aria-pressed", String(opened.includes(a.id)));
       return el("li", {}, row);
     }),
   );
-  if (!shown.length) results.append(el("li", { className: "muted" }, "No areas for this theme yet."));
+  if (!shown.length) results.append(el("li", { className: "muted" }, "No areas match the ticked filters."));
 
-  $("banner").hidden = !shown.some((a) => a.synthetic);
-  globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), selected?.id);
-}
+  const notes = [
+    shown.some((a) => a.example) && "Example locations are real places with no radar data or reports loaded yet.",
+    shown.some((a) => a.synthetic) && "Radar images shown are synthetic test data, not real observations.",
+  ].filter(Boolean);
+  banner.hidden = !notes.length;
+  banner.textContent = notes.join(" ");
 
-// ---- Right panel: one area ----
-
-function select(a: AreaView | undefined, moveFocus = true) {
-  selected = a;
-  view.pol = a ? (polarizations(a.layers)[0] ?? "") : "";
-  view.date = a ? (datesFor(a.layers, view.pol).at(-1) ?? "") : "";
-  renderBrowser();
-  renderDetail();
-  globe.focus(a);
-  if (moveFocus) detail.querySelector<HTMLElement>("h2")?.focus();
-}
-
-function renderDetail() {
-  const a = selected;
-  if (!a) {
-    globe.showOverlay(undefined, BASE, 1);
-    detail.replaceChildren(
-      el("h2", { tabIndex: -1 }, "Pick an area"),
-      el("p", { className: "muted" }, "Choose a glowing dot on the globe, or an area from the list, to see its timeline and radar images."),
-    );
-    return;
-  }
-
-  const heading = el("h2", { tabIndex: -1 }, a.title);
-  const chips = el("p", {}, ...a.categories.map((id) => el("span", { className: "tag" }, category(id)?.label ?? id)));
-  if (a.synthetic) chips.append(el("span", { className: "tag warn" }, "sample data"));
-
-  detail.replaceChildren(
-    el("button", { type: "button", onclick: () => select(undefined) }, "← Back to the globe"),
-    heading,
-    chips,
-    el("p", {}, a.summary),
-    ...radarSection(a),
-    el("h3", {}, "Timeline"),
-    a.events.length
-      ? el("ol", { className: "timeline" }, ...a.events.map((e) => el("li", {}, el("time", { dateTime: e.date }, e.date), el("strong", {}, e.title), el("p", { className: "muted" }, e.text))))
-      : el("p", { className: "muted" }, "No reports yet."),
-    ...(a.credits.length ? [el("h3", {}, "Credits"), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
+  globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
+  globe.keepOverlays(opened);
+  cards.replaceChildren(
+    ...(opened.length
+      ? opened.map((id) => card(shown.find((a) => a.id === id)!))
+      : [el("p", { className: "muted" }, "Click a dot on the globe, or an area in the list, to open it here. Click it again to close it.")]),
   );
 }
 
-function radarSection(a: AreaView): Node[] {
-  if (!a.layers.length) {
-    globe.showOverlay(undefined, BASE, 1);
-    return [el("h3", {}, "Radar images"), el("p", { className: "muted" }, "No radar images for this area yet.")];
+// Clicking a dot or a list row opens the area as a tab; clicking again closes it.
+function toggle(id: string) {
+  const a = areas().find((x) => x.id === id);
+  if (!a) return;
+  const opening = !opened.includes(id);
+  opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
+  if (opening) {
+    collapsed.delete(id);
+    globe.focus(a);
   }
+  render();
+  if (opening) cards.querySelector<HTMLElement>("summary")?.focus();
+}
+
+function card(a: AreaView) {
+  const tags = el("p", {}, ...a.types.map((t) => el("span", { className: "tag" }, typeLabel(t))));
+  if (a.example) tags.append(el("span", { className: "tag warn" }, "example location"));
+  if (a.synthetic) tags.append(el("span", { className: "tag warn" }, "synthetic test data"));
+
+  const box = el(
+    "details",
+    { className: "card", open: !collapsed.has(a.id) },
+    el("summary", {}, dot(colorOf(a)), a.title),
+    el(
+      "p",
+      { className: "actions" },
+      el("button", { type: "button", onclick: () => globe.focus(a) }, "Show on globe"),
+      el("button", { type: "button", onclick: () => toggle(a.id) }, "Close"),
+    ),
+    tags,
+    el("p", {}, a.summary),
+    ...radarSection(a),
+    el("h4", {}, "Timeline"),
+    a.events.length
+      ? el("ol", { className: "timeline" }, ...a.events.map((e) => el("li", {}, el("time", { dateTime: e.date }, e.date), el("strong", {}, e.title), el("p", { className: "muted" }, e.text))))
+      : el("p", { className: "muted" }, "No reports yet. They will come from the back end."),
+    ...(a.credits.length ? [el("h4", {}, "Credits"), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
+  );
+  box.ontoggle = () => (box.open ? collapsed.delete(a.id) : collapsed.add(a.id));
+  return box;
+}
+
+function radarSection(a: AreaView): Node[] {
+  if (!a.layers.length) return [el("h4", {}, "Radar images"), el("p", { className: "muted" }, "No radar images for this area yet.")];
+
+  const pols = polarizations(a.layers);
+  const v = views.get(a.id) ?? { pol: pols[0], date: "", opacity: 1 };
+  views.set(a.id, v);
+  if (!pols.includes(v.pol)) v.pol = pols[0];
+
   const info = el("div");
-  const dateOut = el("output", {}, view.date);
-  const slider = el("input", { type: "range", id: "date", min: "0", step: "1" });
-  const polSelect = el("select", { id: "pol" }, ...polarizations(a.layers).map((p) => el("option", { value: p, selected: p === view.pol }, p)));
+  const dateOut = el("output", {}, v.date);
+  const slider = el("input", { type: "range", id: `date-${a.id}`, min: "0", step: "1" });
+  const polSelect = el("select", { id: `pol-${a.id}` }, ...pols.map((p) => el("option", { value: p, selected: p === v.pol }, p)));
 
   // The slider moves over the available dates only, so it cannot land on a gap.
   const setDates = () => {
-    const dates = datesFor(a.layers, view.pol);
-    if (!dates.includes(view.date)) view.date = dates.at(-1) ?? "";
+    const dates = datesFor(a.layers, v.pol);
+    if (!dates.includes(v.date)) v.date = dates.at(-1) ?? "";
     slider.max = String(Math.max(dates.length - 1, 0));
-    slider.value = String(dates.indexOf(view.date));
+    slider.value = String(dates.indexOf(v.date));
     slider.disabled = dates.length < 2;
     update();
   };
   const update = () => {
-    dateOut.textContent = view.date;
-    slider.setAttribute("aria-valuetext", view.date);
-    const layer = layerAt(a.layers, view.pol, view.date);
-    globe.showOverlay(layer, BASE, view.opacity);
+    dateOut.textContent = v.date;
+    slider.setAttribute("aria-valuetext", v.date);
+    const layer = layerAt(a.layers, v.pol, v.date);
+    globe.showOverlay(a.id, layer, BASE, v.opacity);
     info.replaceChildren(...(layer ? layerInfo(layer) : []));
   };
   slider.oninput = () => {
-    view.date = datesFor(a.layers, view.pol)[+slider.value];
+    v.date = datesFor(a.layers, v.pol)[+slider.value];
     update();
   };
   polSelect.onchange = () => {
-    view.pol = polSelect.value;
+    v.pol = polSelect.value;
     setDates();
   };
-  const opacity = el("input", { type: "range", id: "opacity", min: "0", max: "1", step: "0.05", value: String(view.opacity) });
-  opacity.oninput = () => globe.setOpacity((view.opacity = +opacity.value));
+  const opacity = el("input", { type: "range", id: `opacity-${a.id}`, min: "0", max: "1", step: "0.05", value: String(v.opacity) });
+  opacity.oninput = () => globe.setOpacity(a.id, (v.opacity = +opacity.value));
 
   setDates();
   return [
-    el("h3", {}, "Radar images"),
-    el("label", { htmlFor: "pol" }, "Polarization (how the radar wave is sent and received)"), polSelect,
-    el("label", { htmlFor: "date" }, "Date: ", dateOut), slider,
-    el("label", { htmlFor: "opacity" }, "Image opacity"), opacity,
+    el("h4", {}, "Radar images"),
+    el("label", { htmlFor: polSelect.id }, "Polarization (how the radar wave is sent and received)"), polSelect,
+    el("label", { htmlFor: slider.id }, "Date: ", dateOut), slider,
+    el("label", { htmlFor: opacity.id }, "Image opacity"), opacity,
     info,
   ];
 }
@@ -177,7 +219,7 @@ function layerInfo(l: Layer): Node[] {
     out.push(el("p", { className: "legend" }, el("span", {}, `${min} ${l.units}`), el("span", {}, `${max} ${l.units}`)));
   }
   const p = l.provenance;
-  const row = (k: string, v: Node | string) => [el("dt", {}, k), el("dd", {}, v)];
+  const row = (k: string, val: Node | string) => [el("dt", {}, k), el("dd", {}, val)];
   out.push(
     el(
       "details",
@@ -219,21 +261,39 @@ async function loadLive() {
   } catch {
     live = [];
     status.className = "muted";
-    status.textContent = "Radar data server not connected. Showing sample areas only.";
+    status.textContent = "Radar data server not connected. Showing example locations only.";
   }
-  // Keep the open area open across refreshes, without stealing keyboard focus.
-  if (selected) select(areas().find((a) => a.id === selected!.id), false);
-  else renderBrowser();
+  render();
 }
 
-renderBrowser();
-renderDetail();
+render();
 loadLive();
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
+
+// ---- View switch and view wheel ----
+
+const viewButtons: Record<ViewMode, HTMLElement> = { globe: $("view-globe"), closeup: $("view-closeup") };
+for (const [mode, button] of Object.entries(viewButtons) as [ViewMode, HTMLElement][]) {
+  button.onclick = () => {
+    globe.setView(mode);
+    for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === mode));
+  };
+}
+
+const wheel = $("wheel"), wheelBtn = $("wheel-btn");
+const showWheel = (on: boolean) => {
+  wheel.hidden = !on;
+  wheelBtn.setAttribute("aria-pressed", String(on));
+};
+wheelBtn.onclick = () => showWheel(!!wheel.hidden);
+createWheel(wheel, globe.tools, () => {
+  showWheel(false);
+  wheelBtn.focus();
+});
 
 // ---- Tour ----
 

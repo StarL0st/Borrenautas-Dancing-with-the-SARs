@@ -3,29 +3,44 @@ import { el } from "./ui";
 
 const STEPS: { target: string; title: string; text: string }[] = [
   {
-    target: "#map",
+    target: "#stage",
     title: "The globe",
-    text: "Each glowing dot is an area being watched by radar. Drag to spin the globe, scroll or pinch to zoom, or use the arrow keys.",
+    text: "Each glowing dot is an area. Drag to spin the globe, scroll or pinch to zoom, or use the arrow keys.",
   },
   {
-    target: "#tabs",
-    title: "Themes",
-    text: "Pick a theme, such as Agriculture or Wildland Fires, and only the areas for that theme stay lit.",
+    target: "#filters",
+    title: "Filters",
+    text: "Open a group and tick the kinds of change you care about. Only areas of those kinds stay marked on the globe.",
+  },
+  {
+    target: "#coords",
+    title: "Go to coordinates",
+    text: "Type a latitude and longitude to fly straight to that spot. A pin marks it.",
   },
   {
     target: "#results",
     title: "Area list",
-    text: "The same areas as a list, with their dates. Choose one here or click its dot on the globe.",
+    text: "The marked areas as a list. Click one here, or its dot on the globe, to open it. Click again to close it.",
   },
   {
     target: "#detail",
-    title: "Area details",
-    text: "The globe zooms in to the area. Here you get its timeline of past reports and, when radar images exist, a date slider to watch the surface change.",
+    title: "Open areas",
+    text: "Every area you open stacks up here as a tab you can scroll through, with its timeline and, when radar images exist, a date slider to watch the surface change.",
+  },
+  {
+    target: "#toolbar",
+    title: "Views",
+    text: "Switch between the whole globe and a close-up view that skims low over the surface with the horizon ahead.",
+  },
+  {
+    target: "#wheel",
+    title: "View wheel",
+    text: "Hold a button and drag: Zoom, Orbit, Pan, Walk, Look, Up/Down. Center puts the point you click next in the middle. Home brings the whole Earth back.",
   },
   {
     target: "#banner",
-    title: "Sample data",
-    text: "While this banner shows, some of what you see is placeholder data, not real observations. Real radar layers list their source under “Where this comes from”.",
+    title: "What is real",
+    text: "This notice tells you when you are looking at example places or test data instead of real observations. Real radar images list their source under “Where this comes from”.",
   },
 ];
 

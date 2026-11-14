@@ -20,17 +20,21 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
-A globe home screen that zooms into a map (one MapLibre map, `globe` projection).
+A globe that zooms into a map (one MapLibre map, `globe` projection).
 
-- **Themes:** seven filters (Agriculture, Climate Resilience, Disasters, Ecological Conservation, Health & Air Quality, Water Resources, Wildland Fires) plus "All". Picking one lights only its areas and spins the globe to the first. Defined in `src/categories.ts`.
-- **Area list:** the same areas as a keyboard-friendly list with dates and counts.
-- **Area details:** timeline of reports, and for areas with radar images a polarization picker, a date slider over the available dates, opacity, a legend, and the full provenance (C3).
-- **Tutorial:** a five-step tour (`src/tour.ts`), shown on first visit and from the Tutorial button.
+- **Filters:** three groups in the left sidebar (Natural disasters, Disasters caused by humans, Land use), each opening to a checklist of subdivisions with "Select all". Only areas matching a ticked subdivision are marked. Defined in `src/filters.ts`.
+- **Dots as tabs:** clicking a dot (or its row in the area list) opens that area as a tab in the right panel; clicking again closes it. Open tabs stack in a scrollable list, each with its timeline and, when radar images exist, a polarization picker, a date slider over the available dates, opacity, a legend, and the full provenance (C3).
+- **Go to coordinates:** latitude and longitude inputs fly to that point and drop a pin.
+- **Views:** "Globe view" (whole Earth) and "Close-up view" (low, tilted camera with the horizon in view).
+- **View wheel** (`src/wheel.ts`): Zoom, Orbit, Pan, Center, Walk, Look, Up/Down, and Home (centers the whole Earth). Hold a button and drag, or focus it and use the arrow keys.
+- **Tutorial:** a step-by-step tour (`src/tour.ts`), shown on first visit and from the Tutorial button.
 - **Manifest:** loaded from the data base URL; an unsupported major `contract_version` shows an error and the app keeps working. Refetches on each `manifest` event from the live server.
 
-### Placeholder data
+### Example locations
 
-`src/sample-areas.ts` holds 14 invented areas with invented reports, because the contract has no themed areas or past reports yet. They are flagged synthetic and a banner shows whenever one is listed. Replace them when the back end provides this data. Contract change types map to themes in `src/logic.ts` (`THEMES`); `other` maps to none, so those areas appear only under "All".
+`src/example-areas.ts` lists 23 real places, one per filter subdivision (none for "Forecast"), so the globe has something to mark before the back end delivers areas. They carry no radar images and no reports, and a notice shows whenever one is listed. Replace them when the back end provides areas.
+
+The contract has no field for filter subdivisions yet. `src/logic.ts` (`TYPES`) guesses them from `change_types`; areas it cannot classify (`other`, `deformation`) are always shown.
 
 ### Not done yet (from `specs/F04`)
 

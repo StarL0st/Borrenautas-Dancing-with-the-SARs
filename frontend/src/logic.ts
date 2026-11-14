@@ -50,34 +50,34 @@ export type AreaView = {
   id: string;
   title: string;
   summary: string;
-  categories: string[];
+  types: string[]; // filter type ids (filters.ts)
   center: [number, number];
   bbox: Bbox;
   synthetic: boolean;
+  example?: boolean; // a real place shown as an example, with no data behind it yet
   events: TimelineEvent[];
   layers: Layer[];
   credits: string[];
 };
 
-// Contract change types -> the app's seven themes (ids in categories.ts). "other" maps to none,
-// so those areas only appear under "All".
-const THEMES: Record<string, string[]> = {
-  flood_wetland: ["disasters", "water"],
-  forest_loss: ["ecology"],
-  wildfire: ["fires", "disasters"],
+// Contract change types -> the app's filter types (ids in filters.ts). The contract has no field
+// for these yet, so this is a best guess; "other" and "deformation" map to none.
+const TYPES: Record<string, string[]> = {
+  flood_wetland: ["floods"],
+  forest_loss: ["logging", "deforestation"],
+  wildfire: ["wildfires"],
   agriculture: ["agriculture"],
-  soil_moisture: ["agriculture", "water"],
-  glacier_ice: ["climate"],
-  deformation: ["disasters"],
+  soil_moisture: ["drought", "agriculture"],
+  glacier_ice: ["glaciers"],
 };
 
 export const supportedVersion = (v: unknown) => typeof v === "string" && /^0\.\d+\.\d+/.test(v);
 
-export const categoriesFor = (changeTypes: string[]) => [
-  ...new Set(changeTypes.flatMap((t) => THEMES[t] ?? [])),
-];
+export const typesFor = (changeTypes: string[]) => [...new Set(changeTypes.flatMap((t) => TYPES[t] ?? []))];
 
-export const inCategory = (a: AreaView, cat: string) => cat === "all" || a.categories.includes(cat);
+// Areas with no type cannot be filtered out, otherwise they could never be seen.
+export const inFilter = (a: AreaView, ticked: ReadonlySet<string>) =>
+  !a.types.length || a.types.some((t) => ticked.has(t));
 
 export const layerDate = (l: Layer) => l.date ?? l.date_range?.[1] ?? "";
 
@@ -101,7 +101,7 @@ export function toAreaView(a: ManifestArea): AreaView {
     id: a.id,
     title: a.title,
     summary: a.summary,
-    categories: categoriesFor(a.change_types ?? []),
+    types: typesFor(a.change_types ?? []),
     center: a.center ?? [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2],
     bbox,
     synthetic: layers.some((l) => l.synthetic),

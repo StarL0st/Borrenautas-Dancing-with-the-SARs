@@ -1,6 +1,6 @@
 // The globe and the zoomed-in map are one MapLibre map: the "globe" projection turns flat on
 // its own as you zoom in.
-import { Map, NavigationControl, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
+import { Map, Marker, NavigationControl, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
 // MapLibre cannot find its worker file by itself once Vite bundles it, so hand it the URL.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -9,7 +9,14 @@ import type { AreaView, Layer } from "./logic";
 setWorkerUrl(workerUrl);
 
 const BASEMAP = "https://demotiles.maplibre.org/";
-const HOME = { center: [-40, 20] as [number, number], zoom: 1.4 };
+const MAX_PITCH = 80;
+
+export type ViewMode = "globe" | "closeup";
+// Whole Earth seen from far away, or a low tilted camera with the curved horizon in view.
+const HOME: Record<ViewMode, { center: [number, number]; zoom: number; pitch: number; bearing: number }> = {
+  globe: { center: [-40, 20], zoom: 1.4, pitch: 0, bearing: 0 },
+  closeup: { center: [-40, 20], zoom: 3.6, pitch: 70, bearing: 0 },
+};
 
 // The background layer is local, so if the basemap tiles fail the globe and overlays still draw.
 const style: StyleSpecification = {
@@ -33,9 +40,14 @@ const style: StyleSpecification = {
 };
 
 export function createGlobe(container: string, onPick: (id: string) => void) {
-  const map = new Map({ container, style, ...HOME, attributionControl: { compact: true } });
+  const map = new Map({ container, style, ...HOME.globe, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
+
+  let mode: ViewMode = "globe";
+  let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
+  const overlays = new Set<string>();
+  const marker = new Marker({ color: "#5fe3e0" });
 
   const point = ["==", ["geometry-type"], "Point"] as ["==", ["geometry-type"], "Point"];
   // Dots fade out once you are close enough to see the area's outline and radar image.
@@ -52,7 +64,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
       map.addLayer({
         id: "areas-halo", type: "circle", source: "areas", filter: point,
         paint: {
-          "circle-radius": ["case", ["get", "selected"], 30, 18],
+          "circle-radius": ["case", ["get", "open"], 30, 18],
           "circle-color": ["get", "color"], "circle-blur": 1, "circle-opacity": fade(0.75),
         },
       });
@@ -61,7 +73,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
         paint: {
           "circle-radius": 5, "circle-color": ["get", "color"], "circle-opacity": fade(1),
           "circle-stroke-color": "#ffffff", "circle-stroke-opacity": fade(1),
-          "circle-stroke-width": ["case", ["get", "selected"], 2.5, 0.5],
+          "circle-stroke-width": ["case", ["get", "open"], 2.5, 0.5],
         },
       });
       map.addLayer({
@@ -73,21 +85,23 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
         paint: { "text-color": "#e6f1f5", "text-halo-color": "#03060a", "text-halo-width": 1.5 },
       });
       // The halo is the click target so the dots are easy to hit on touch screens.
-      map.on("click", "areas-halo", (e) => onPick(e.features![0].properties.id));
+      map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
-      map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = ""));
+      map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = picking ? "crosshair" : ""));
       resolve();
     }),
   );
 
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
   return {
-    async setAreas(shown: { area: AreaView; color: string }[], selectedId?: string) {
+    async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
       await ready;
       map.getSource<GeoJSONSource>("areas")!.setData({
         type: "FeatureCollection",
         features: shown.flatMap(({ area, color }) => {
           const [w, s, e, n] = area.bbox;
-          const properties = { id: area.id, title: area.title, color, selected: area.id === selectedId };
+          const properties = { id: area.id, title: area.title, color, open: openIds.includes(area.id) };
           return [
             { type: "Feature" as const, properties, geometry: { type: "Point" as const, coordinates: area.center } },
             {
@@ -99,41 +113,86 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
       });
     },
 
-    // MapLibre skips the flight animation by itself when the user prefers reduced motion.
-    async focus(area?: AreaView) {
+    // MapLibre skips flight animations by itself when the user prefers reduced motion.
+    async focus(area: AreaView) {
       await ready;
-      if (area) map.fitBounds(area.bbox, { padding: 48, maxZoom: 14 });
-      else map.flyTo(HOME);
+      map.fitBounds(area.bbox, { padding: 48, maxZoom: 14 });
     },
 
-    // Spin the globe so an area on the far side comes into view.
-    async lookAt(area: AreaView) {
+    async goTo(lng: number, lat: number) {
       await ready;
-      map.flyTo({ center: area.center, zoom: HOME.zoom });
+      marker.setLngLat([lng, lat]).addTo(map);
+      map.flyTo({ center: [lng, lat], zoom: 8 });
     },
 
-    async showOverlay(layer: Layer | undefined, base: URL, opacity: number) {
+    setView(next: ViewMode) {
+      mode = next;
+      const { zoom, pitch } = HOME[mode];
+      // Keep looking at the same place; only the camera height and tilt change.
+      map.easeTo({ pitch, bearing: 0, zoom: mode === "closeup" ? Math.max(map.getZoom(), zoom) : Math.min(map.getZoom(), zoom) });
+    },
+
+    // One radar image per open area. `undefined` removes that area's image.
+    async showOverlay(areaId: string, layer: Layer | undefined, base: URL, opacity: number) {
       await ready;
-      if (map.getLayer("overlay")) map.removeLayer("overlay");
-      if (map.getSource("overlay")) map.removeSource("overlay");
+      const id = `overlay-${areaId}`;
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getSource(id)) map.removeSource(id);
+      overlays.delete(areaId);
       if (!layer?.bounds) return;
       const [w, s, e, n] = layer.bounds;
-      map.addSource("overlay", {
+      map.addSource(id, {
         type: "image",
         url: new URL(layer.url, base).href,
         coordinates: [[w, n], [e, n], [e, s], [w, s]],
       });
-      map.addLayer(
-        { id: "overlay", type: "raster", source: "overlay", paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } },
-        "areas-box",
-      );
+      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } }, "areas-box");
+      overlays.add(areaId);
     },
 
-    async setOpacity(opacity: number) {
+    async setOpacity(areaId: string, opacity: number) {
       await ready;
-      if (map.getLayer("overlay")) map.setPaintProperty("overlay", "raster-opacity", opacity);
+      if (map.getLayer(`overlay-${areaId}`)) map.setPaintProperty(`overlay-${areaId}`, "raster-opacity", opacity);
     },
 
-    resize: () => map.resize(),
+    async keepOverlays(areaIds: string[]) {
+      await ready;
+      for (const id of [...overlays]) if (!areaIds.includes(id)) await this.showOverlay(id, undefined, new URL(location.href), 1);
+    },
+
+    // View wheel tools. Drag tools take the pointer movement in pixels.
+    tools: {
+      zoom: (_dx: number, dy: number) => map.setZoom(map.getZoom() - dy * 0.02),
+      // Circle the camera around the Earth: sideways changes longitude, up and down latitude.
+      orbit: (dx: number, dy: number) => {
+        const degPerPx = 360 / (512 * 2 ** map.getZoom()), c = map.getCenter();
+        map.setCenter([c.lng - dx * degPerPx, clamp(c.lat + dy * degPerPx, -85, 85)]);
+      },
+      pan: (dx: number, dy: number) => map.panBy([-dx, -dy], { animate: false }),
+      // Turn and tilt the camera without moving the spot it looks at.
+      look: (dx: number, dy: number) =>
+        map.jumpTo({ bearing: map.getBearing() + dx * 0.4, pitch: clamp(map.getPitch() - dy * 0.3, 0, MAX_PITCH) }),
+      // Tip the camera up toward the horizon or down toward the ground.
+      updown: (_dx: number, dy: number) => map.setPitch(clamp(map.getPitch() - dy * 0.4, 0, MAX_PITCH)),
+      // Move forward or back in the direction the camera faces; sideways drag turns.
+      walk: (dx: number, dy: number) => {
+        map.setBearing(map.getBearing() + dx * 0.4);
+        map.panBy([0, dy], { animate: false });
+      },
+      // The next click on the globe becomes the middle of the view.
+      center: () => {
+        picking = true;
+        map.getCanvas().style.cursor = "crosshair";
+        map.once("click", (e) => {
+          picking = false;
+          map.getCanvas().style.cursor = "";
+          map.easeTo({ center: e.lngLat });
+        });
+      },
+      // Replaces Revit's Rewind: bring the whole Earth back to the middle.
+      home: () => map.flyTo(HOME[mode]),
+    },
   };
 }
+
+export type Globe = ReturnType<typeof createGlobe>;
