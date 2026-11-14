@@ -144,6 +144,20 @@ class Window:
         return _wgs84_bounds(self.granule.epsg, self.x, self.y)
 
 
+def window_slices(x, y, epsg: int, bbox, name: str = "") -> tuple[slice, slice]:
+    """Row and column slices of a projected grid (pixel-center coordinates) inside a WGS84 bbox."""
+    x0, y0, x1, y1 = Transformer.from_crs(4326, epsg, always_xy=True).transform_bounds(*bbox)
+    cols = np.flatnonzero((x >= x0) & (x <= x1))
+    rows = np.flatnonzero((y >= y0) & (y <= y1))
+    if cols.size == 0 or rows.size == 0:
+        raise ValueError(f"{name}: bbox {bbox} does not overlap the grid")
+    return slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1)
+
+
+def wgs84_bounds(epsg: int, x: np.ndarray, y: np.ndarray) -> tuple[float, ...]:
+    return _wgs84_bounds(epsg, x, y)
+
+
 def read_window(f: h5py.File, g: Granule, bbox, looks: int = 4, terms=None) -> Window:
     """Read only the pixels inside a WGS84 bbox [w, s, e, n], then multilook.
 
@@ -151,13 +165,7 @@ def read_window(f: h5py.File, g: Granule, bbox, looks: int = 4, terms=None) -> W
     """
     grids = f[GRIDS]
     x, y = grids["xCoordinates"][()], grids["yCoordinates"][()]
-    t = Transformer.from_crs(4326, g.epsg, always_xy=True)
-    x0, y0, x1, y1 = t.transform_bounds(*bbox)
-    cols = np.flatnonzero((x >= x0) & (x <= x1))
-    rows = np.flatnonzero((y >= y0) & (y <= y1))
-    if cols.size == 0 or rows.size == 0:
-        raise ValueError(f"{g.granule_id}: bbox {bbox} does not overlap the granule grid")
-    r, c = slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1)
+    r, c = window_slices(x, y, g.epsg, bbox, g.granule_id)
     power = {
         term: multilook(grids[term][r, c].astype("float32"), looks) for term in (terms or g.terms)
     }

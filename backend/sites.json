@@ -15,7 +15,7 @@
   },
   "cdmx": {
     "title": "Mexico City",
-    "summary": "Mexico City and its surroundings: dense city, lakebed, and farmland at the edges. Radar backscatter and what changed between the latest passes.",
+    "summary": "Mexico City: dense city on an old lakebed that is sinking as groundwater is pumped out, with farmland at the edges. Radar backscatter, ground motion, and soil moisture.",
     "bbox": [
       -99.22526,
       19.34017,
@@ -23,8 +23,16 @@
       19.51983
     ],
     "change_types": [
+      "deformation",
       "other"
     ],
-    "looks": 4
+    "looks": 4,
+    "reference_bbox": [
+      -99.32,
+      19.3,
+      -99.26,
+      19.4
+    ],
+    "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
   }
 }

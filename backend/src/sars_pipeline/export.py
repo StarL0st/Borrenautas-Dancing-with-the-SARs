@@ -15,23 +15,32 @@ from PIL import Image
 
 from .granule import Granule, open_granule, read_db
 
-CONTRACT_VERSION = "0.2.0"
+CONTRACT_VERSION = "0.3.0"
 ATTRIBUTION = "NISAR data: NASA/JPL/NISAR, distributed by NASA ASF DAAC"
-# Collection citations from the Earthdata catalog and CMR (docs/09-references.md).
+# Collection titles and DOIs (Earthdata catalog / CMR; each DOI checked to resolve on doi.org).
+# CMR lists GUNW as 10.5067/NIL1GUNW-P1, which does not resolve; the DOI inside the granules,
+# 10.5067/NIL2GUNW-P1, does (docs/09-references.md).
+PRODUCT_TITLES = {
+    "GCOV": "Geocoded Polarimetric Covariance Product",
+    "GUNW": "Geocoded Unwrapped Interferogram Product",
+    "SME2": "Soil Moisture",
+}
 CITATIONS = {
-    "BETA": ("Beta", "10.5067/NIL2GCOV-B1"),
-    "PROVISIONAL": ("Provisional", "10.5067/NIL2GCOV-P1"),
-    "VALIDATED": ("Validated", "10.5067/NIL2GCOV-V1"),
+    ("GCOV", "BETA"): "10.5067/NIL2GCOV-B1",
+    ("GCOV", "PROVISIONAL"): "10.5067/NIL2GCOV-P1",
+    ("GCOV", "VALIDATED"): "10.5067/NIL2GCOV-V1",
+    ("GUNW", "PROVISIONAL"): "10.5067/NIL2GUNW-P1",
+    ("SME2", "PROVISIONAL"): "10.5067/NIL3SME2-P1",
 }
 
 
-def attribution(maturity: str) -> str:
-    """Credit line for GCOV-derived data of one maturity; generic for synthetic or other data."""
-    if maturity not in CITATIONS:
+def attribution(maturity: str, product: str = "GCOV") -> str:
+    """Credit line for data of one product and maturity; generic for synthetic or other data."""
+    doi = CITATIONS.get((product, maturity))
+    if not doi:
         return ATTRIBUTION
-    name, doi = CITATIONS[maturity]
     return (
-        f"NASA/JPL/NISAR (2026). NISAR {name} Geocoded Polarimetric Covariance Product "
+        f"NASA/JPL/NISAR (2026). NISAR {maturity.title()} {PRODUCT_TITLES[product]} "
         f"(Version 1). NASA Alaska Satellite Facility DAAC. https://doi.org/{doi}"
     )
 
@@ -98,11 +107,46 @@ def load_events(data_dir: Path) -> dict:
 
 
 def write_events(data_dir: Path, area_id: str, events: list[dict]) -> None:
-    """Replace this area's events (C7), keep every other area's."""
+    """Replace this area's events (C7), keep every other area's. Also writes events.geojson, the
+    same events as a GeoJSON FeatureCollection that MapLibre can load directly."""
     doc = load_events(data_dir)
     doc["contract_version"] = CONTRACT_VERSION
     doc["events"] = [e for e in doc["events"] if e["area_id"] != area_id] + events
     _write_json(Path(data_dir) / "events.json", doc)
+    features = [
+        {
+            "type": "Feature",
+            "id": i,
+            "geometry": e["geometry"],
+            # MapLibre feature properties must be flat; the full record stays in events.json.
+            "properties": {
+                "id": e["id"],
+                "area_id": e["area_id"],
+                "category": e.get("categories", ["other"])[0],
+                "categories": ",".join(e.get("categories", [])),
+                "title": e["title"],
+                "summary": e["summary"],
+                "from": e["date_range"][0],
+                "to": e["date_range"][1],
+                "confidence": e["confidence"],
+                "area_km2": e["area_km2"],
+                "maturity": e["maturity"],
+                "lon": e.get("centroid", [None, None])[0],
+                "lat": e.get("centroid", [None, None])[1],
+            },
+        }
+        for i, e in enumerate(doc["events"])
+    ]
+    _write_json(
+        Path(data_dir) / "events.geojson", {"type": "FeatureCollection", "features": features}
+    )
+
+
+def write_timeseries(data_dir: Path, area_id: str, series: dict) -> dict:
+    """Write one C4 time series; return its manifest reference {id, title, url}."""
+    url = f"areas/{area_id}/timeseries/{series['series_id']}.json"
+    _write_json(Path(data_dir) / url, {"area_id": area_id, **series})
+    return {"id": series["series_id"], "title": series["title"], "url": url}
 
 
 def load_manifest(data_dir: Path) -> dict:

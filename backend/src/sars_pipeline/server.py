@@ -7,15 +7,25 @@ from contextlib import asynccontextmanager
 from itertools import pairwise
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from .export import CONTRACT_VERSION, ingest, ingested_ids, load_events, load_manifest
 from .granule import open_granule
+from .sites import add_site, bbox_around
 
 log = logging.getLogger(__name__)
+
+
+class SiteRequest(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    km: float = Field(20, gt=1, le=30)  # on-demand sites stay small: they stream on request
+    title: str | None = Field(None, max_length=80)
+    id: str | None = Field(None, pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")
 
 
 def scan_inbox(inbox: Path, data_dir: Path, failed: dict) -> list[str]:
@@ -59,7 +69,9 @@ def _overlaps(a, b) -> bool:
     return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
 
 
-def query(data_dir: Path, point=None, bbox=None, type_=None, from_=None, to=None) -> dict:
+def query(
+    data_dir: Path, point=None, bbox=None, type_=None, from_=None, to=None, category=None
+) -> dict:
     """C6 /query: events and areas at a point or in a box, optionally filtered."""
     box = bbox or [point[0], point[1], point[0], point[1]]
     events = [
@@ -68,6 +80,7 @@ def query(data_dir: Path, point=None, bbox=None, type_=None, from_=None, to=None
         if _overlaps(e["bbox"], box)
         and (point is None or contains(e["geometry"], *point))
         and (type_ is None or e["type"] == type_)
+        and (category is None or category in e.get("categories", []))
         and (from_ is None or e["date_range"][1] >= from_)
         and (to is None or e["date_range"][0] <= to)
     ]
@@ -75,7 +88,11 @@ def query(data_dir: Path, point=None, bbox=None, type_=None, from_=None, to=None
     return {"contract_version": CONTRACT_VERSION, "events": events, "area_ids": areas}
 
 
-def create_app(data_dir, inbox=None, poll_seconds: float = 5.0) -> FastAPI:
+def create_app(
+    data_dir, inbox=None, poll_seconds: float = 5.0, jobs=None, admin_token: str | None = None
+) -> FastAPI:
+    """`jobs` (live.Jobs) enables /sites; without it the server is read-only. With `admin_token`
+    set, POST requests need `Authorization: Bearer <token>` (they start downloads)."""
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     clients: set[asyncio.Queue] = set()
@@ -112,12 +129,64 @@ def create_app(data_dir, inbox=None, poll_seconds: float = 5.0) -> FastAPI:
     def health():
         return {"ok": True}
 
+    def require_jobs(authorization: str | None):
+        if jobs is None:
+            raise HTTPException(404, "site processing is off (serve --jobs)")
+        if admin_token and authorization != f"Bearer {admin_token}":
+            raise HTTPException(401, "missing or wrong token")
+
+    @app.get("/sites")
+    def list_sites():
+        if jobs is None:
+            raise HTTPException(404, "site processing is off (serve --jobs)")
+        return {
+            "sites": [
+                {
+                    "id": site_id,
+                    "title": site["title"],
+                    "bbox": site["bbox"],
+                    "requested": site.get("requested", False),
+                    **jobs.status.get(site_id, {"status": "idle"}),
+                }
+                for site_id, site in jobs.sites().items()
+            ]
+        }
+
+    @app.post("/sites", status_code=202)
+    def request_site(req: SiteRequest, authorization: str | None = Header(None)):
+        """Ask for a new site around a point; it is processed in the background. The manifest
+        event (/events) fires when its data is ready."""
+        require_jobs(authorization)
+        site_id = req.id or f"p{req.lat:+.3f}{req.lon:+.3f}".replace(".", "_")
+        if site_id in jobs.sites():
+            return {"id": site_id, **jobs.submit(site_id)}
+        site = {
+            "title": req.title or f"Requested place ({req.lat:.3f}, {req.lon:.3f})",
+            "summary": "A place requested from the app, processed on demand.",
+            "bbox": bbox_around(req.lon, req.lat, req.km),
+            "change_types": ["other"],
+            "looks": 4,
+        }
+        try:
+            add_site(site_id, site, path=jobs.data / "sites.json", max_sq_deg=0.1)
+        except ValueError as err:
+            raise HTTPException(400, str(err)) from err
+        return {"id": site_id, **jobs.submit(site_id)}
+
+    @app.post("/sites/{site_id}/refresh", status_code=202)
+    def refresh(site_id: str, force: bool = False, authorization: str | None = Header(None)):
+        require_jobs(authorization)
+        if site_id not in jobs.sites():
+            raise HTTPException(404, f"unknown site {site_id}")
+        return {"id": site_id, **jobs.submit(site_id, force)}
+
     @app.get("/query")
     def query_endpoint(
         lat: float | None = None,
         lon: float | None = None,
         bbox: str | None = None,
         type: str | None = None,
+        category: str | None = None,
         from_: str | None = Query(None, alias="from"),
         to: str | None = None,
     ):
@@ -128,10 +197,10 @@ def create_app(data_dir, inbox=None, poll_seconds: float = 5.0) -> FastAPI:
                 box = []
             if len(box) != 4:
                 raise HTTPException(400, "bbox must be w,s,e,n")
-            return query(data_dir, bbox=box, type_=type, from_=from_, to=to)
+            return query(data_dir, bbox=box, type_=type, from_=from_, to=to, category=category)
         if lat is None or lon is None:
             raise HTTPException(400, "give lat and lon, or bbox")
-        return query(data_dir, point=[lon, lat], type_=type, from_=from_, to=to)
+        return query(data_dir, point=[lon, lat], type_=type, from_=from_, to=to, category=category)
 
     @app.get("/events")
     async def events():
