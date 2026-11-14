@@ -29,6 +29,10 @@ As the analysis lane, I want one command that fetches and prepares the data so I
 7. `make fetch` and `make pipeline` call `scripts/check_gate.sh` first.
 8. No credentials in code, logs, or `run-log.json`.
 
+9. `select` builds the granule list: one `asf_search` query per area and date window, grouped by track, frame, and pass direction; prefers the highest maturity and never mixes maturities within a group; writes `granules.json` (small, committable).
+10. Reads stream only the needed window over HTTPS (`h5py` + `fsspec`, Earthdata token) instead of downloading whole 6-7 GB granules. Full download stays a fallback.
+11. The same commands run locally and on a GCP VM; only the data root and credentials source differ (see F06).
+
 ## Acceptance criteria
 1. Given a granule list, `make fetch` downloads missing files and a second run downloads nothing.
 2. Given a small synthetic HDF5 fixture shaped like the product, `extract` produces a raster whose size and georeferencing match the expected values in the test.
@@ -37,6 +41,7 @@ As the analysis lane, I want one command that fetches and prepares the data so I
 5. Raw data and interim rasters are not tracked by git (`git status` clean after a run).
 6. Pipeline runs end to end on at least two dates of the real AOI, and outputs open in a GIS tool with the right location.
 7. `make lint test` pass for `backend/`.
+8. `select` on the San Francisco test area returns a `granules.json` with at least one group holding two dates of the same maturity.
 
 ## Out of scope
 Change detection (F03), web asset export (F03), mosaicking beyond the AOI overlap.
@@ -54,4 +59,4 @@ pytest with a tiny synthetic HDF5; one manual run on real granules with a docume
 Good executor material in slices: downloader with idempotency and logging (T-1), extractor against the synthetic HDF5 (T-2), normalizer (T-3), config and CLI wiring (T-4). Keep real-data validation and unit/scaling decisions with Claude.
 
 ## Open questions
-Streaming vs full download for our AOI size (decide from the F01 size estimate).
+None on access: streaming is decided (rule 10).

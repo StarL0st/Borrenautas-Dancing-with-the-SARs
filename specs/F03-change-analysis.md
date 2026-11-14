@@ -29,6 +29,18 @@ As a viewer, I want to see where and how much the surface changed between dates,
 6. Validate against an independent reference where possible (an optical image, a known event date) and note agreement or disagreement honestly in the data notes.
 7. Never claim more than the data support; BETA or PROVISIONAL status is carried into the UI text.
 8. Image overlays are at most 2048 px on the long side.
+9. Classification turns changed pixels into C7 event records. Baseline is rules, one per change type, thresholds in config:
+
+| Type | Rule (after speckle averaging, dB) |
+|---|---|
+| `flood_wetland` | HH and HV both drop sharply (open water turns dark) |
+| `forest_loss` / `wildfire` | HV drops; HH changes less |
+| `agriculture` | Repeated HV/HH swings across the time series |
+| `deformation` | Needs GUNW, not GCOV; out of scope unless a site requires it |
+| `other` | Significant change matching no rule |
+
+10. Connected changed pixels become one event; tiny regions below a minimum area (config) are dropped. `confidence` comes from the margin over the threshold and the pixel count; the formula is written in `provenance.steps`.
+11. Optional model (stretch goal): a scikit-learn classifier trained on land-cover labels (ESA WorldCover) with HH, HV, HV/HH, and texture features; events come from class transitions between dates. Its events carry `method: "model"`, are labelled experimental, and are reported next to the rules with held-out accuracy.
 
 ## Acceptance criteria
 1. On a synthetic pair of arrays with a known changed patch, the method detects the patch (stated precision/recall thresholds in the test) and leaves the unchanged area alone.
@@ -38,6 +50,8 @@ As a viewer, I want to see where and how much the surface changed between dates,
 5. A short methods note in `docs/` explains the method, thresholds, polarization findings, and known limitations in plain language.
 6. At least one comparison (polarization or date pair) is available for the story in F05, with a one-sentence takeaway.
 7. `make lint test validate` pass.
+8. On a synthetic pair with a known darkened patch in HH and HV, classify returns one `flood_wetland` event whose bbox covers the patch; an unchanged pair returns no events.
+9. `events.json` validates against C7 and every event's `layer_ids` exist in the manifest.
 
 ## Out of scope
 Frontend rendering (F04), narrative writing (F05), global or on-demand processing.

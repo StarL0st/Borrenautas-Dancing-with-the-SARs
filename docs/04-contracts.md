@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.1.0. Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.2.0 (adds C7 events and the `/events` and `/query` endpoints). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -8,7 +8,7 @@ These contracts are the only coupling between the pipeline (producer) and the fr
 
 - All coordinates are WGS84 longitude/latitude in degrees. Bounding boxes are `[west, south, east, north]`.
 - Dates are ISO 8601 (`YYYY-MM-DD`; timestamps in UTC with `Z`).
-- All URLs inside the contracts are relative to the data root (`frontend/public/data/`).
+- URLs inside the contracts are relative to the data root (`frontend/public/data/`), except `xyz_tiles` URLs, which may be absolute (`https://`) when tiles live in a Cloud Storage bucket.
 - `contract_version` is semver. Frontend rejects a manifest with an unsupported major version.
 - Unknown fields are allowed (forward compatibility); required fields are not optional.
 
@@ -106,11 +106,39 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /<timeseries.url>` | C4 time series, e.g. `areas/<area>/timeseries/<pol>.json` |
 | `GET /events` | Server-sent events. `event: manifest` with data `{"type": "manifest", "url": "manifest.json"}` whenever the manifest changes. The frontend refetches the manifest on each event |
 | `GET /health` | `{"ok": true}` |
+| `GET /events.json` | All events: `{ contract_version, events: Event[] }` (C7). Also present in the static export |
+| `GET /query?lat=<lat>&lon=<lon>` | `{ contract_version, events: Event[], area_ids: string[] }`: events whose geometry contains the point, and areas whose `bbox` contains it |
+| `GET /query?bbox=w,s,e,n` | Same shape: events and areas whose `bbox` intersects the box |
 
+- `/query` also takes optional filters `type=<change type>`, `from=YYYY-MM-DD`, `to=YYYY-MM-DD` (event `date_range` overlaps `[from, to]`).
 - CORS is open for GET; responses carry `Cache-Control: no-cache`.
+- `/query` exists only on the server. Against the static export the frontend loads `events.json` and filters it itself.
 - Area IDs are `t<track>-f<frame>-<a|d>` (one track, frame, and pass direction, so every date shares viewing geometry). Layer IDs are `<pol>-<YYYY-MM-DD>`.
 - Layers may carry an extra `stats` object (`mean_db`, `n_pixels`); the frontend must not depend on it.
 - The static build sets the base to the site's own `data/` path; nothing else changes. `/events` does not exist there, so the frontend must work without it.
+
+## C7. Event
+
+A detected and classified surface change: "this place shows X between these dates". Produced by the classify stage, served by `/events.json` and `/query`. The manifest change event (`/events`) also fires when `events.json` changes.
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `id` | string | yes | Unique, stable across reruns with the same inputs |
+| `area_id` | string | yes | The C1 area it was found in |
+| `type` | enum | yes | Same values as `change_types` in C1 |
+| `title` | string | yes | Short, plain language |
+| `summary` | string | yes | One or two plain-language sentences, data basis first |
+| `date_range` | [string, string] | yes | `[from, to]`, the two acquisitions compared |
+| `geometry` | GeoJSON geometry | yes | Polygon or MultiPolygon, WGS84 |
+| `bbox` | number[4] | yes | Of `geometry` |
+| `area_km2` | number | yes | |
+| `confidence` | number | yes | 0 to 1; how it is computed is stated in `provenance.steps` |
+| `method` | enum | yes | `rules` or `model` (`model` is experimental and labelled so in the UI) |
+| `polarization` | string | yes | Polarization(s) the detection used, e.g. `HV`, `HH/HV` |
+| `maturity` | enum | yes | As in C2 |
+| `layer_ids` | string[] | yes | C2 layers in the same area that show it |
+| `synthetic` | boolean | yes | |
+| `provenance` | Provenance | yes | C3 |
 
 ## Validation rules
 

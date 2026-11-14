@@ -24,6 +24,12 @@ As the team, we want integration problems found within hours, not on the last ni
 5. Smoke test the deployed site: manifest loads, a layer shows, story mode opens.
 6. Sanity check in at least two desktop browsers and one phone-sized viewport.
 7. A fresh-clone test works from the README.
+8. Google Cloud (team credit), scripted under `deploy/` with a README:
+   - Batch: a VM in `us-west1` runs the pipeline and writes to a Cloud Storage bucket; stopped when idle.
+   - API: the backend server as a container on Cloud Run, reading the data root from the bucket.
+   - Earthdata token in Secret Manager; nothing secret in images or the repo.
+   - A budget alert on the project.
+9. Integration happens on the `testing` branch (backend + frontend together) before humans merge to `main`.
 
 ## Acceptance criteria
 1. `make sync-data` copies valid data and rejects a deliberately broken file.
@@ -47,4 +53,4 @@ Run the checks above; record the browser/device matrix and measurements in the P
 Scripts (`sync-data`, smoke tests) suit the executor. Deployment decisions and secrets stay human.
 
 ## Open questions
-Hosting choice (ADR-004).
+Hosting is proposed as Google Cloud (Cloud Run + Cloud Storage); confirm in ADR-004.
