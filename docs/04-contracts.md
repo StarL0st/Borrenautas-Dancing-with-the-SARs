@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.6.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas; 0.6.0 adds live events (C9, `live.geojson`, the `live` push event and the `storms` category). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.6.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas; 0.6.0 adds live events (C9, `live.geojson`, the `live` push event and the `storms` category) and history (C10, area `history`, `GET /history`). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -41,6 +41,7 @@ These contracts are the only coupling between the pipeline (producer) and the fr
 | `credits` | string[] | yes | Data and tool attributions |
 | `products` | object | no | Per NISAR product used: `{ maturity, track?, frame?, direction? }` |
 | `friendly` | string | no | URL of this area's friendly cards (C8) |
+| `history` | string | no | URL of this area's history (C10) |
 
 ### Categories
 
@@ -115,6 +116,7 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /<timeseries.url>` | C4 time series, e.g. `areas/<area>/timeseries/<pol>.json` |
 | `GET /events` | Server-sent events. `event: manifest` with data `{"type": "manifest", "url": "manifest.json"}` whenever the manifest changes. The frontend refetches the manifest on each event |
 | `GET /health` | `{"ok": true}` |
+| `GET /history?lat=<lat>&lon=<lon>` | `{ contract_version, point: [lon, lat], histories: History[] }` (C10): one history per area whose `bbox` contains the point, holding only the events within 5 km of the point. Optional `from=YYYY-MM-DD`, `to=YYYY-MM-DD`, `category=<category>`. `histories` is empty where no area covers the point. Only on the server; against the static export use the area's `history` file |
 | `GET /live.geojson` | C9 live events. Only when the server runs with `serve --live-minutes N` (or after `sars-pipeline live-events`); otherwise 404, and the frontend must work without it. `/events` then also sends `event: live` with data `{"type": "live", "url": "live.geojson"}` whenever the file changes |
 | `GET /events.json` | All events: `{ contract_version, events: Event[] }` (C7). Also present in the static export |
 | `GET /query?lat=<lat>&lon=<lon>` | `{ contract_version, events: Event[], area_ids: string[] }`: events whose geometry contains the point, and areas whose `bbox` contains it |
@@ -237,6 +239,35 @@ Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
 - One event may reach us through two feeds; the backend keeps one (GDACS events are taken from GDACS, not EONET; earthquakes from USGS, not GDACS).
 - A fire detection (`firms`) is a hot spot seen from space: it can also be a crop burn or a gas flare. Its `detail` says so.
 - Refresh: the server rewrites the file every N minutes; the frontend reloads on the `live` push event or on its own timer.
+
+## C10. History (`areas/<area>/history.json`, `GET /history`)
+
+Everything known about an area in time order, for a timeline or replay. No new detections: every id points to a C2 layer, a C7 event or a C4 series. Also in the static export.
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `contract_version` | string | in the file | In `/history` it is on the envelope |
+| `area_id`, `title` | string | yes | The area |
+| `from`, `to` | string or null | yes | The range asked for, else the first and last date on the timeline; null when the timeline is empty |
+| `periods` | Period[] | yes | `{ maturity, from, to }`, one per maturity level present, oldest first. Values from different levels must not be compared |
+| `timeline` | Day[] | yes | Oldest first. Only dates that have something. May be empty |
+| `events` | object[] | yes | C7 events without `geometry`, `evidence`, `series`, `summary` and `provenance`: `id`, `type`, `categories`, `signature`, `title`, `date_range`, `centroid`, `bbox`, `area_km2`, `confidence`, `maturity`, `product`, `layer_ids`. Full events: `events.json` or `/query` |
+| `layers` | object[] | yes | C2 layers reduced to `id`, `title`, `group`, `role`, `product`, `maturity`, `date` or `date_range`, `url` |
+| `series` | object[] | yes | `{ series_id, title, units, maturity, url }` for each C4 series with values in range |
+
+Day:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `date` | string | yes | `YYYY-MM-DD` |
+| `layer_ids` | string[] | yes | Layers of this date |
+| `event_ids` | string[] | yes | Events first visible on this date |
+| `values` | object | yes | Series id to value on this date, e.g. `{ "hv-backscatter": -14.38 }`. A pass without a reading has no key |
+
+- A layer or event with a `date_range` sits at its **last** date: the pass on which it became visible. A change layer from June 17 to June 29 is under June 29.
+- Layers without a date (for example surface type) are not in a history.
+- With `from`/`to`, a layer or event is kept when its dates overlap the range; a series value when its date is inside.
+- Area files hold every event of the area. `/history` holds only those near the point.
 
 ## Validation rules
 
