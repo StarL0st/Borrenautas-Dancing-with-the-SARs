@@ -572,3 +572,75 @@ def test_friendly_cards_grade_by_share_and_confidence():
     fire["provenance"] = {"params": {"detections": 12}}
     card = friendly.cards({**area, "layers": [fire]}, [], 100)["cards"][-1]
     assert card["category"] == "wildfires" and "12 active fires" in card["headline"]
+
+
+def test_history_orders_by_date_and_cuts_to_range(tmp_path):
+    from sars_pipeline import history
+    from sars_pipeline.server import create_app
+
+    def layer(id_, **dates):
+        return {"id": id_, "title": id_, "maturity": "PROVISIONAL", "url": f"{id_}.png", **dates}
+
+    def event(id_, a, b, lon=-103.0):
+        return {
+            "id": id_,
+            "area_id": "x",
+            "type": "other",
+            "categories": ["floods"],
+            "title": id_,
+            "date_range": [a, b],
+            "maturity": "PROVISIONAL",
+            "bbox": [lon, 20.0, lon + 0.01, 20.01],
+            "geometry": {"type": "Polygon", "coordinates": []},
+        }
+
+    area = {
+        "id": "x",
+        "title": "X",
+        "bbox": [-104, 19, -102, 21],
+        "layers": [
+            layer("surface"),  # undated: not on the timeline
+            layer("hv-b", date="2026-07-11"),
+            layer("hv-a", date="2026-06-17"),
+            layer("change", date_range=["2026-06-17", "2026-07-11"]),
+            {**layer("old", date="2025-12-01"), "maturity": "BETA"},
+        ],
+        "timeseries": [{"id": "hv", "title": "HV", "url": "hv.json"}],
+    }
+    points = [{"date": "2026-06-17", "value": -14.0}, {"date": "2026-07-11", "value": None}]
+    series = {"series_id": "hv", "title": "HV", "units": "dB", "points": points}
+    (tmp_path / "hv.json").write_text(json.dumps(series))
+    events = [
+        event("late", "2026-06-17", "2026-07-11"),
+        event("far", "2026-06-17", "2026-07-11", -102.5),
+    ]
+    doc = history.build(area, events, tmp_path)
+    assert [d["date"] for d in doc["timeline"]] == ["2025-12-01", "2026-06-17", "2026-07-11"]
+    assert doc["timeline"][1] == {
+        "date": "2026-06-17",
+        "layer_ids": ["hv-a"],
+        "event_ids": [],
+        "values": {"hv": -14.0},
+    }
+    last = doc["timeline"][2]
+    assert last["layer_ids"] == ["hv-b", "change"] and last["event_ids"] == ["far", "late"]
+    assert last["values"] == {}  # a pass without a reading has no value, not null
+    assert [(p["maturity"], p["from"]) for p in doc["periods"]] == [
+        ("BETA", "2025-12-01"),
+        ("PROVISIONAL", "2026-06-17"),
+    ]
+    assert "geometry" not in doc["events"][0]
+    cut = history.build(area, events, tmp_path, "2026-07-01", "2026-12-31")
+    assert [d["date"] for d in cut["timeline"]] == ["2026-07-11"] and cut["from"] == "2026-07-01"
+    assert history.build(area, [], tmp_path, "2027-01-01")["timeline"] == []
+
+    from fastapi.testclient import TestClient
+
+    (tmp_path / "manifest.json").write_text(json.dumps({"contract_version": "0", "areas": [area]}))
+    (tmp_path / "events.json").write_text(json.dumps({"events": events}))
+    client = TestClient(create_app(tmp_path))
+    got = client.get("/history", params={"lat": 20.0, "lon": -103.0}).json()
+    [h] = got["histories"]
+    assert [e["id"] for e in h["events"]] == ["late"]  # "far" is 50 km away
+    assert client.get("/history", params={"lat": 50, "lon": 10}).json()["histories"] == []
+    assert client.get("/history").status_code == 422

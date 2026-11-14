@@ -15,7 +15,7 @@ from PIL import Image
 
 from .granule import Granule, open_granule, read_db
 
-CONTRACT_VERSION = "0.5.0"
+CONTRACT_VERSION = "0.6.0"
 ATTRIBUTION = "NISAR data: NASA/JPL/NISAR, distributed by NASA ASF DAAC"
 # Collection titles and DOIs (Earthdata catalog / CMR; each DOI checked to resolve on doi.org).
 # CMR lists GUNW as 10.5067/NIL1GUNW-P1, which does not resolve; the DOI inside the granules,

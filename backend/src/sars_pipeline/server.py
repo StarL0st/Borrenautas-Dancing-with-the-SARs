@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import mimetypes
+import shutil
 import time
 from contextlib import asynccontextmanager
 from itertools import pairwise
@@ -16,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from . import history
 from .export import CONTRACT_VERSION, ingest, ingested_ids, load_events, load_manifest
 from .granule import open_granule
 from .sites import add_site, bbox_around
@@ -31,6 +33,20 @@ RECHECK_HOURS = 12
 MAX_QUEUED = 20
 MAX_CELLS = 300
 MAX_NEW_PER_HOUR = 5  # per client address
+MIN_FREE_GB = 5  # below this no new place is accepted: cached windows fill the disk
+MAX_STREAMS = 500  # open /events connections; each one holds a socket and a queue
+HISTORY_KM = 5  # /history keeps events within this box around the point
+
+_cache: dict[Path, tuple[int, dict]] = {}
+
+
+def _cached(path: Path, load) -> dict:
+    """A parsed JSON file, read again only when it changed (events.json is several MB and
+    /query and /history would otherwise parse it on every request). Callers must not modify it."""
+    mtime = path.stat().st_mtime_ns if path.exists() else 0
+    if _cache.get(path, (None,))[0] != mtime:
+        _cache[path] = (mtime, load(path.parent))
+    return _cache[path][1]
 
 
 class SiteRequest(BaseModel):
@@ -90,7 +106,7 @@ def query(
     box = bbox or [point[0], point[1], point[0], point[1]]
     events = [
         e
-        for e in load_events(data_dir)["events"]
+        for e in _cached(Path(data_dir) / "events.json", load_events)["events"]
         if _overlaps(e["bbox"], box)
         and (point is None or contains(e["geometry"], *point))
         and (type_ is None or e["type"] == type_)
@@ -98,8 +114,25 @@ def query(
         and (from_ is None or e["date_range"][1] >= from_)
         and (to is None or e["date_range"][0] <= to)
     ]
-    areas = [a["id"] for a in load_manifest(data_dir)["areas"] if _overlaps(a["bbox"], box)]
+    manifest = _cached(Path(data_dir) / "manifest.json", load_manifest)
+    areas = [a["id"] for a in manifest["areas"] if _overlaps(a["bbox"], box)]
     return {"contract_version": CONTRACT_VERSION, "events": events, "area_ids": areas}
+
+
+def history_at(data_dir: Path, lon: float, lat: float, from_=None, to=None, category=None) -> dict:
+    """C10 /history: per area at the point, what happened near it, in time order."""
+    near = bbox_around(lon, lat, HISTORY_KM)
+    found = query(data_dir, bbox=near, from_=from_, to=to, category=category)["events"]
+    manifest = _cached(Path(data_dir) / "manifest.json", load_manifest)
+    return {
+        "contract_version": CONTRACT_VERSION,
+        "point": [lon, lat],
+        "histories": [
+            history.build(a, [e for e in found if e["area_id"] == a["id"]], data_dir, from_, to)
+            for a in manifest["areas"]
+            if _overlaps(a["bbox"], [lon, lat, lon, lat])
+        ],
+    }
 
 
 def create_app(
@@ -203,6 +236,8 @@ def create_app(
             return {"id": site_id, **state, "status": "done"}
         if jobs.queued() >= MAX_QUEUED:
             raise HTTPException(429, "the processing queue is full; try again in a few minutes")
+        if shutil.disk_usage(data_dir).free < MIN_FREE_GB * 1e9:
+            raise HTTPException(429, "this server is out of space for new places")
         if site_id not in sites:
             if sum(bool(s.get("requested")) for s in sites.values()) >= MAX_CELLS:
                 raise HTTPException(429, "this server holds its maximum number of places")
@@ -314,8 +349,21 @@ def create_app(
             raise HTTPException(400, "give lat and lon, or bbox")
         return query(data_dir, point=[lon, lat], type_=type, from_=from_, to=to, category=category)
 
+    @app.get("/history")
+    def history_endpoint(
+        lat: float = Query(ge=-90, le=90),
+        lon: float = Query(ge=-180, le=180),
+        category: str | None = None,
+        from_: str | None = Query(None, alias="from"),
+        to: str | None = None,
+    ):
+        return history_at(data_dir, lon, lat, from_, to, category)
+
     @app.get("/events")
     async def events():
+        if len(clients) >= MAX_STREAMS:
+            # The frontend works without the stream (it reloads on a timer).
+            raise HTTPException(503, "too many open event streams")
         q: asyncio.Queue = asyncio.Queue()
         clients.add(q)
 
