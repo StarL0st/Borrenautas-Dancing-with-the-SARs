@@ -12,6 +12,8 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from shapely.geometry import box, shape
+
 from .granule import maturity_from_collection
 from .gunw import chain, pair_dates
 
@@ -25,6 +27,7 @@ def search(bbox, start: str, end: str, product: str = "GCOV") -> list[dict]:
 
     w, s, e, n = bbox
     wkt = f"POLYGON(({w} {s},{e} {s},{e} {n},{w} {n},{w} {s}))"
+    area = box(w, s, e, n)
     results = asf.search(
         dataset="NISAR", processingLevel=product, intersectsWith=wkt, start=start, end=end
     )
@@ -39,6 +42,8 @@ def search(bbox, start: str, end: str, product: str = "GCOV") -> list[dict]:
             "collection": p.properties["collectionName"],
             "maturity": maturity_from_collection(p.properties["collectionName"]),
             "url": p.properties["url"],
+            # Share of the bbox inside the granule footprint: a frame can touch only a corner.
+            "coverage": round(shape(p.geometry).intersection(area).area / area.area, 3),
         }
         if product == "GUNW":
             row["ref_date"], row["date"] = pair_dates(row["id"])
@@ -62,8 +67,9 @@ def _dedupe(rows: list[dict]) -> dict[str, dict]:
 def choose(rows: list[dict], max_dates: int = 6, min_dates: int = 4, product: str = "GCOV"):
     """The best same-maturity series for one product, or None if nothing was found.
 
-    Prefers groups with at least `min_dates` dates (time-series rules need them), then at least
-    two (change needs a pair), then the higher maturity, then more dates.
+    Prefers groups whose frames cover the bbox (90% or more on every date), then at least
+    `min_dates` dates (time-series rules need them), then at least two (change needs a pair), then
+    the higher maturity, then more dates.
     """
     groups: dict[tuple, list] = defaultdict(list)
     for row in rows:
@@ -80,6 +86,8 @@ def choose(rows: list[dict], max_dates: int = 6, min_dates: int = 4, product: st
     key, picked = max(
         series.items(),
         key=lambda kv: (
+            # SME2 mixes tracks on one grid, so footprints say nothing about a group there.
+            product == "SME2" or min(r.get("coverage", 1) for r in kv[1]) >= 0.9,
             len(kv[1]) >= min_dates,
             len(kv[1]) >= 2,
             MATURITY_RANK[kv[0][-1]],

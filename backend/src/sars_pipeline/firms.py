@@ -16,10 +16,10 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 API = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{source}/{bbox}/{days}/{start}"
-# Standard (SP) for older dates, near-real-time (NRT) for the last weeks; both VIIRS on Suomi NPP.
-SOURCES = ("VIIRS_SNPP_SP", "VIIRS_SNPP_NRT")
+# Standard (SP) for older dates, near-real-time (NRT) for the last weeks; both VIIRS on NOAA-20 (Suomi NPP near-real-time data stops on 2026-11-02).
+SOURCES = ("VIIRS_NOAA20_SP", "VIIRS_NOAA20_NRT")
 CREDIT = (
-    "NASA FIRMS: VIIRS (S-NPP) 375 m active fire detections, NASA LANCE. "
+    "NASA FIRMS: VIIRS (NOAA-20) 375 m active fire detections, NASA LANCE. "
     "https://firms.modaps.eosdis.nasa.gov/"
 )
 
@@ -42,9 +42,10 @@ def hotspots(bbox, start: str, end: str, cache: Path) -> list[dict] | None:
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     found: dict[tuple, dict] = {}
+    complete = True
     day, stop = date.fromisoformat(start), date.fromisoformat(end)
     while day <= stop:
-        days = min(10, (stop - day).days + 1)  # the API serves at most 10 days per request
+        days = min(5, (stop - day).days + 1)  # the API serves at most 5 days per request
         for source in SOURCES:
             url = API.format(
                 key=key,
@@ -59,10 +60,12 @@ def hotspots(bbox, start: str, end: str, cache: Path) -> list[dict] | None:
                         found[(h["lat"], h["lon"], h["date"])] = h
             except OSError as err:  # FIRMS is context only; never fail a run over it
                 log.warning("FIRMS %s %s: %s", source, day, err)
+                complete = False
         day += timedelta(days=days)
     out = sorted(found.values(), key=lambda h: (h["date"], h["lat"], h["lon"]))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(out), encoding="utf-8")
+    if complete:  # a partial answer is not cached, so the next run asks again
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out), encoding="utf-8")
     return out
 
 

@@ -20,7 +20,7 @@ Once:
    export AZ_PREFIX=<short lowercase name>   # the VM becomes <prefix>-sars.westus2.cloudapp.azure.com
    backend/deploy/azure.sh vm       # creates the VM; ports 80/443 open, SSH only from your current address
    backend/deploy/azure.sh deploy   # committed code + backend/.env -> VM, build, start; prints the URL
-   backend/deploy/azure.sh seed     # uploads data/selected and data/processed so the API starts with data
+   backend/deploy/azure.sh seed     # uploads data/selected, data/interim (cache) and data/processed so the API starts with data
    backend/deploy/azure.sh site     # from a checkout with the frontend integration (testing branch); prints the site URL
    ```
 Each change: commit, then `deploy` again. `seed` again only to push locally processed outputs.

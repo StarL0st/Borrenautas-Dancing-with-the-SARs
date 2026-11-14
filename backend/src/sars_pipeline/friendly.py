@@ -79,7 +79,12 @@ def cards(area: dict, events: list[dict], area_km2: float) -> dict:
         for category in event["categories"]:
             by_category.setdefault(category, []).append(event)
     # What the site is watched for, even when nothing was found: "no change" is a result too.
-    expected = {c for c, t in CHANGE_TYPE.items() if t in area["change_types"] and c != "other"}
+    # Only categories the backend can produce (TEXT); CHANGE_TYPE also lists frontend-only ones.
+    expected = {
+        c
+        for c, t in CHANGE_TYPE.items()
+        if t in area["change_types"] and c in TEXT and c != "other"
+    }
     out = []
     for category in sorted(set(by_category) | expected):
         label, found, quiet = TEXT[category]

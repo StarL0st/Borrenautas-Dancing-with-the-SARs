@@ -77,7 +77,12 @@ DOUBLE_BOUNCE_DB = 3.0
 
 
 def decide(
-    signature: str, before: int, after: int, fires: int = 0, hh_minus_hv_db: float = 0.0
+    signature: str,
+    before: int,
+    after: int,
+    fires: int = 0,
+    hh_minus_hv_db: float = 0.0,
+    near_urban: bool = True,
 ) -> list[str]:
     """The decision table (docs/04 C7, backend/README). First category is the primary one."""
     if signature == "darkening_both":
@@ -93,7 +98,9 @@ def decide(
     if signature == "brightening":
         if before == VEGETATION and hh_minus_hv_db >= DOUBLE_BOUNCE_DB:
             return ["floods"]  # flooded vegetation
-        if after == URBAN:
+        # Towns grow at their edges. A bright patch with nothing built nearby is far more often a
+        # tall wet crop (stalks and wet soil bounce HH like walls do) than a new building.
+        if after == URBAN and (near_urban or before == URBAN):
             return ["urban"]
         return ["agriculture"] if before == BARE else ["other"]  # crops growing, soil wetting
     if signature == "seasonal_cycle":
