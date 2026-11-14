@@ -1007,6 +1007,7 @@ function setMode(mode: Settings["mode"], animate = false) {
     settings.mode = mode;
     saveSettings(settings);
     document.documentElement.dataset.mode = mode;
+    liveLimit = livePage(); // Simple mode lists fewer events at a time
     for (const r of document.querySelectorAll<HTMLInputElement>('input[name="mode"]')) r.checked = r.value === mode;
     buildFilters();
     render();
@@ -1029,6 +1030,7 @@ function onSetting(key: keyof Settings) {
 $("settings-btn").onclick = () => dialog.showModal();
 
 wheel.dataset.size = settings.wheel;
+liveLimit = livePage();
 applyLanguage();
 loadLive();
 loadLiveFeeds();

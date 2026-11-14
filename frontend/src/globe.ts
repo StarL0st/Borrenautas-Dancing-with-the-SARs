@@ -269,8 +269,10 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     // Fly to a place and show a popup built by the caller (DOM nodes, never HTML strings).
     async openInfo(lon: number, lat: number, content: Node, zoom = 6) {
       await ready;
+      // The popup opens at once and rides along with the flight, so it never waits on an
+      // animation (a hidden tab pauses animations, and "moveend" would never come).
+      popup.setLngLat([lon, lat]).setDOMContent(content).addTo(map);
       map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
-      map.once("moveend", () => popup.setLngLat([lon, lat]).setDOMContent(content).addTo(map));
     },
 
     // `shown` already passed the filters and carries its display color.
