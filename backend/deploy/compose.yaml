@@ -9,8 +9,9 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     env_file: /opt/sars/.env  # ASF_EARTH_DATA_TOKEN, FIRMS_MAP_KEY, SARS_ADMIN_TOKEN
     environment:
-      # --jobs --public: anyone may look up a place (limited); --watch-hours: refresh curated sites.
-      SARS_SERVE_FLAGS: --jobs --public --watch-hours 12
+      # --jobs --public: anyone may look up a place (limited); --watch-hours: refresh curated sites;
+      # --live-minutes: refresh live.geojson (public disaster feeds).
+      SARS_SERVE_FLAGS: --jobs --public --watch-hours 12 --live-minutes 15
     volumes:
       - /opt/sars/data:/data  # selections, cached windows, outputs: survive rebuilds
     restart: always
