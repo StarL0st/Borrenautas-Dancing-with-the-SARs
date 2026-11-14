@@ -1,0 +1,11 @@
+# What `gcloud builds submit` uploads from the repo root (passed with --ignore-file).
+# Secrets and data stay local.
+.git
+**/.env
+**/.env.*
+.venv
+**/__pycache__
+data/
+frontend/
+docs/
+specs/
