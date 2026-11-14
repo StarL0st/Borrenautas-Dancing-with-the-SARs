@@ -4,7 +4,7 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 
 ## Principles
 
-1. **Static-first, live-capable.** The pipeline produces contract files; the frontend loads files. The backend (`pipeline/`, a uv project on the `backend` branch) also serves the same files live over HTTP and pushes "data updated" events, so the frontend can work against it during development. The static export stays the judging fallback: no server is required to run the demo.
+1. **Static-first, live-capable.** The pipeline produces contract files; the frontend loads files. The backend (`backend/`, a uv project on the `backend` branch) also serves the same files live over HTTP and pushes "data updated" events, so the frontend can work against it during development. The static export stays the judging fallback: no server is required to run the demo.
 2. **Contract-driven.** Pipeline and frontend only meet at the contracts in `docs/04-contracts.md`. Each lane can work alone against fixtures.
 3. **Reproducible.** Any published layer can be regenerated from raw granules by one command, with parameters recorded.
 4. **Small areas, small files.** One compact study area, downsampled web assets, raw data never in git.
@@ -17,14 +17,14 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 ASF DAAC / Earthdata (NISAR HDF5 products)
         |  asf_search / earthaccess (Earthdata Login)
         v
-pipeline/ (Python)
+backend/ (Python)
   fetch -> extract -> normalize -> change products -> export web assets
         |  writes web-ready assets + manifest.json + time series JSON
         v
-web/public/data/         (validated against contracts/schemas)
+frontend/public/data/         (validated against contracts/schemas)
         |
         v
-web/ (Vite + TypeScript + MapLibre GL JS)  ->  static host (build output)
+frontend/ (Vite + TypeScript + MapLibre GL JS)  ->  static host (build output)
 ```
 
 ## Default stack (ADR-001)

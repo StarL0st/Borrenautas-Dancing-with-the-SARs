@@ -17,7 +17,7 @@ As the team, we want integration problems found within hours, not on the last ni
 - Output: `make sync-data`, a deployed static site, a deployment fallback, integration check reports.
 
 ## Behavior and rules
-1. `make sync-data` validates outputs against the schemas, then copies them to `web/public/data/`. It refuses to copy invalid data.
+1. `make sync-data` validates outputs against the schemas, then copies them to `frontend/public/data/`. It refuses to copy invalid data.
 2. Run the `integration-check` skill every 3 to 4 hours and before freezes; log breakages with their owning lane.
 3. Deploy the static build to the host chosen in ADR-004; keep local `vite preview` as a fallback and the demo video as the last resort.
 4. Keep asset budgets (committed data about 50 MB total; overlays at most 2048 px).

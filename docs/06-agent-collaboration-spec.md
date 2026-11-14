@@ -13,8 +13,8 @@ Defines who owns what, how work flows between three people and their Claude Code
 
 | Lane | Name | Owns (paths) | Primary specs |
 |---|---|---|---|
-| **L1** | Backend: data and analysis | `pipeline/`, `data/` | F02, F03 |
-| **L2** | Frontend | `web/` (except `web/public/data/`, which is generated) | F04, F05 (UI) |
+| **L1** | Backend: data and analysis | `backend/`, `data/` | F02, F03 |
+| **L2** | Frontend | `frontend/` (except `frontend/public/data/`, which is generated) | F04, F05 (UI) |
 | **L3** | Story and integration | `docs/` (except `docs/04-contracts.md`), `specs/`, `tasks/`, `README.md`, `scripts/`, `Makefile`, `.github/` | F01 (with L1), F05 (content), F06, F07 |
 
 Shared, change only by agreement: `contracts/`, `docs/04-contracts.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/`. The spec keeper merges changes here.
@@ -50,8 +50,8 @@ If L1 is overloaded after kickoff (heavy analysis), split it into pipeline (data
   - `main` holds the ground truth: all specs, contracts, and rules, plus the working product. Nothing reaches `main` unless it works.
   - Agents **must not modify the guiding rules** on any branch unless a human explicitly directs that change in a prompt: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/`, `specs/`, `contracts/`, `.claude/`. If a rule looks wrong, stop and ask; do not edit it.
   - Agents never push or merge to `main` on their own. Humans merge branch work into `main` once it is tested and working.
-  - Branch-specific notes (design decisions, how to run) live inside the lane's own folder (for example `pipeline/README.md`), never in the shared rule files.
-- **Lane branches:** `backend` (pipeline and data server, `pipeline/`) and `frontend` (`web/`) are the long-lived lane branches where each lane builds and tests. Each lane agent works only on its own branch and only in its own paths. Feature branches `<lane>/F##-short-desc` may be cut from a lane branch and merged back into it.
+  - Branch-specific notes (design decisions, how to run) live inside the lane's own folder (for example `backend/README.md`), never in the shared rule files.
+- **Lane branches:** `backend` (pipeline and data server, `backend/`) and `frontend` (`frontend/`) are the long-lived lane branches where each lane builds and tests. Each lane agent works only on its own branch and only in its own paths. Feature branches `<lane>/F##-short-desc` may be cut from a lane branch and merged back into it.
 - **Trunk:** `main` is always buildable and always contains a working demo path. Lane branches rebase on `main` regularly so rule updates reach them.
 - **Worktrees:** one per lane agent, created with `make worktree LANE=<lane> NAME=<branch>`. Each starts its Claude Code session inside its own worktree. This also keeps executor runs isolated.
 - **Commits:** prefix with the spec ID: `F02: add granule downloader` (`chore:`, `docs:`, `kickoff:` for work outside a spec). Enforced by the `.githooks/commit-msg` hook.

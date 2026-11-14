@@ -14,7 +14,7 @@ As a viewer, I want to see where and how much the surface changed between dates,
 
 ## Inputs and outputs
 - Input: `data/interim/<area>/<date>/<pol>.tif`, config, ADR-003 (method).
-- Output (written to `data/processed/` then synced to `web/public/data/`):
+- Output (written to `data/processed/` then synced to `frontend/public/data/`):
   - Change layers: image overlays (or tiles) with bounds, value range, colormap (contract C2).
   - Time-series JSON for chosen points/regions (contract C4).
   - `manifest.json` (contract C1) including provenance (C3) and credits.

@@ -36,7 +36,7 @@ As the analysis lane, I want one command that fetches and prepares the data so I
 4. `run-log.json` lists, for every output raster, its source granule ID, polarization, date, and parameters.
 5. Raw data and interim rasters are not tracked by git (`git status` clean after a run).
 6. Pipeline runs end to end on at least two dates of the real AOI, and outputs open in a GIS tool with the right location.
-7. `make lint test` pass for `pipeline/`.
+7. `make lint test` pass for `backend/`.
 
 ## Out of scope
 Change detection (F03), web asset export (F03), mosaicking beyond the AOI overlap.

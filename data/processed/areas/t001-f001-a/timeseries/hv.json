@@ -1,0 +1,57 @@
+{
+  "area_id": "t001-f001-a",
+  "series_id": "hv",
+  "title": "Mean HV backscatter over the frame",
+  "units": "dB",
+  "polarization": "HV",
+  "statistic": "mean",
+  "region": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -177.0,
+          9.034985
+        ],
+        [
+          -176.988353,
+          9.034985
+        ],
+        [
+          -176.988353,
+          9.046562
+        ],
+        [
+          -177.0,
+          9.046562
+        ],
+        [
+          -177.0,
+          9.034985
+        ]
+      ]
+    ]
+  },
+  "points": [
+    {
+      "date": "2026-01-01",
+      "value": -22.163,
+      "n_pixels": 4080,
+      "granule": "SYNTHETIC_GCOV_T001_F001_20260101"
+    },
+    {
+      "date": "2026-01-13",
+      "value": -19.684,
+      "n_pixels": 4080,
+      "granule": "SYNTHETIC_GCOV_T001_F001_20260113"
+    },
+    {
+      "date": "2026-01-25",
+      "value": -17.813,
+      "n_pixels": 4080,
+      "granule": "SYNTHETIC_GCOV_T001_F001_20260125"
+    }
+  ],
+  "maturity": "OTHER",
+  "synthetic": true
+}

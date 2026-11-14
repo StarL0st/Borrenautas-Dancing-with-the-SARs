@@ -8,10 +8,10 @@ Phase 0 will add `@AGENTS.md` here. Until then these rules apply to every agent.
 - Never push or merge to `main`. Humans merge tested, working branch work into `main`.
 
 ## Branches
-- `backend`: Python pipeline and data server, edits only in `pipeline/` (and gitignored `data/`).
-- `frontend`: web app, edits only in `web/`.
+- `backend`: Python pipeline and data server, edits only in `backend/` (and gitignored `data/`).
+- `frontend`: web app, edits only in `frontend/`.
 - Work only on your lane's branch. Rebase on `main` to pick up rule changes.
-- Branch-specific notes go in your lane folder (`pipeline/README.md`, `web/README.md`).
+- Branch-specific notes go in your lane folder (`backend/README.md`, `frontend/README.md`).
 
 ## Interface between lanes
 - Backend and frontend meet only at the data contracts in `docs/04-contracts.md`.

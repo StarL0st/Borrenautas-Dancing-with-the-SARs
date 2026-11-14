@@ -13,7 +13,7 @@ Turn the map into a story: a time-series view for any clicked location, a guided
 As an educator, I want a guided walkthrough that tells me what radar sees, why the surface changed, and what NISAR could do next.
 
 ## Inputs and outputs
-- Input: time-series files (contract C4), story file (contract C5), glossary and methods content (Markdown in `web/public/content/`).
+- Input: time-series files (contract C4), story file (contract C5), glossary and methods content (Markdown in `frontend/public/content/`).
 - Output: chart panel, story panel, Methods/About page, glossary, "future applications" section.
 
 ## Behavior and rules

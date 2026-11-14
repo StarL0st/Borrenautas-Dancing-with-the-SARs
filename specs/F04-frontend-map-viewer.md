@@ -13,8 +13,8 @@ An accessible, responsive web map that loads `manifest.json`, shows change layer
 As a visitor, I want to see a place, switch between layers and dates, and understand what I am looking at.
 
 ## Inputs and outputs
-- Input: `web/public/data/manifest.json` and referenced layer files (contract C1, C2, C3). Until real data exists, the synthetic fixture.
-- Output: a static build in `web/dist/`.
+- Input: `frontend/public/data/manifest.json` and referenced layer files (contract C1, C2, C3). Until real data exists, the synthetic fixture.
+- Output: a static build in `frontend/dist/`.
 
 ## Behavior and rules
 1. On load, fetch the manifest, check `contract_version` (unsupported major version shows an error), and center the map on the first area.

@@ -1,0 +1,362 @@
+{
+  "contract_version": "0.1.0",
+  "areas": [
+    {
+      "id": "t001-f001-a",
+      "title": "Track 1, frame 1 (ascending)",
+      "summary": "NISAR radar backscatter over one track and frame. Every date shares the same viewing geometry, so dates can be compared.",
+      "change_types": [
+        "other"
+      ],
+      "layers": [
+        {
+          "id": "hh-2026-01-01",
+          "title": "HH backscatter, 2026-01-01",
+          "description": "Radar brightness in HH polarization on 2026-01-01. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hh-2026-01-01.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-01",
+          "product": "GCOV",
+          "polarization": "HH",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -25.01,
+            -7.05
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260101"
+            ],
+            "steps": [
+              "read HHHH from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HHHH",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -15.174,
+            "n_pixels": 4080
+          }
+        },
+        {
+          "id": "hv-2026-01-01",
+          "title": "HV backscatter, 2026-01-01",
+          "description": "Radar brightness in HV polarization on 2026-01-01. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hv-2026-01-01.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-01",
+          "product": "GCOV",
+          "polarization": "HV",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -32.0,
+            -14.04
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260101"
+            ],
+            "steps": [
+              "read HVHV from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HVHV",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -22.163,
+            "n_pixels": 4080
+          }
+        },
+        {
+          "id": "hh-2026-01-13",
+          "title": "HH backscatter, 2026-01-13",
+          "description": "Radar brightness in HH polarization on 2026-01-13. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hh-2026-01-13.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-13",
+          "product": "GCOV",
+          "polarization": "HH",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -23.16,
+            -6.18
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260113"
+            ],
+            "steps": [
+              "read HHHH from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HHHH",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -12.694,
+            "n_pixels": 4080
+          }
+        },
+        {
+          "id": "hv-2026-01-13",
+          "title": "HV backscatter, 2026-01-13",
+          "description": "Radar brightness in HV polarization on 2026-01-13. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hv-2026-01-13.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-13",
+          "product": "GCOV",
+          "polarization": "HV",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -30.14,
+            -13.17
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260113"
+            ],
+            "steps": [
+              "read HVHV from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HVHV",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -19.684,
+            "n_pixels": 4080
+          }
+        },
+        {
+          "id": "hh-2026-01-25",
+          "title": "HH backscatter, 2026-01-25",
+          "description": "Radar brightness in HH polarization on 2026-01-25. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hh-2026-01-25.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-25",
+          "product": "GCOV",
+          "polarization": "HH",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -20.17,
+            -5.29
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260125"
+            ],
+            "steps": [
+              "read HHHH from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HHHH",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -10.824,
+            "n_pixels": 4080
+          }
+        },
+        {
+          "id": "hv-2026-01-25",
+          "title": "HV backscatter, 2026-01-25",
+          "description": "Radar brightness in HV polarization on 2026-01-25. Brighter areas scatter more radar energy back to the satellite.",
+          "kind": "image_overlay",
+          "url": "areas/t001-f001-a/layers/hv-2026-01-25.png",
+          "bounds": [
+            -177.0,
+            9.034985,
+            -176.988353,
+            9.046562
+          ],
+          "date": "2026-01-25",
+          "product": "GCOV",
+          "polarization": "HV",
+          "maturity": "OTHER",
+          "units": "dB",
+          "value_range": [
+            -27.16,
+            -12.28
+          ],
+          "colormap": "gray",
+          "synthetic": true,
+          "provenance": {
+            "source_granules": [
+              "SYNTHETIC_GCOV_T001_F001_20260125"
+            ],
+            "steps": [
+              "read HVHV from the frequency A grid",
+              "kept every 1th pixel",
+              "converted linear power to dB",
+              "stretched between the 2nd and 98th percentile"
+            ],
+            "params": {
+              "term": "HVHV",
+              "decimation": 1,
+              "stretch_percentiles": [
+                2,
+                98
+              ]
+            },
+            "software": {
+              "name": "sars-pipeline",
+              "version": "0.1.0",
+              "commit": "733d9c9af4411215bfea74866291f13ff6f95a68"
+            },
+            "attribution": "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+          },
+          "stats": {
+            "mean_db": -17.813,
+            "n_pixels": 4080
+          }
+        }
+      ],
+      "credits": [
+        "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+      ],
+      "bbox": [
+        -177.0,
+        9.034985,
+        -176.988353,
+        9.046562
+      ],
+      "center": [
+        -176.994176,
+        9.040774
+      ],
+      "zoom_default": 14,
+      "timeseries": [
+        {
+          "id": "hh",
+          "title": "Mean HH backscatter over the frame",
+          "url": "areas/t001-f001-a/timeseries/hh.json"
+        },
+        {
+          "id": "hv",
+          "title": "Mean HV backscatter over the frame",
+          "url": "areas/t001-f001-a/timeseries/hv.json"
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-11-14T00:09:04Z",
+  "git_commit": "733d9c9af4411215bfea74866291f13ff6f95a68",
+  "synthetic": true
+}

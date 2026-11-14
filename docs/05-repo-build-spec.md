@@ -69,11 +69,11 @@ While `KICKOFF.md` says `STATUS: LOCKED`, the build agent must not: download sci
 ├── contracts/
 │   ├── schemas/                    # manifest, layer, timeseries, story (draft 2020-12)
 │   └── fixtures/                   # synthetic examples, always "synthetic": true
-├── pipeline/                       # Python package (Lane 1)
+├── backend/                        # uv project (Lane 1): pyproject.toml, uv.lock
 │   ├── pyproject.toml
 │   ├── src/sars_pipeline/          # discover, fetch, extract, normalize, change, export (stubs)
 │   └── tests/
-├── web/                            # Vite + TypeScript app (Lane 2)
+├── frontend/                       # Vite + TypeScript app (Lane 2)
 │   ├── package.json, vite.config.ts, tsconfig.json
 │   ├── src/                        # toolchain check only in Phase 0
 │   └── public/data/                # pipeline output lands here
@@ -107,8 +107,8 @@ Commit after each step. Each step has a check; do not proceed until it passes. I
 | **B5** | Create `contracts/schemas/*.schema.json` from `docs/04`, synthetic fixtures, and `scripts/validate-contracts.py`. | `make validate` passes on fixtures; fails when a required field is removed from a fixture copy |
 | **B6** | Create `.claude/settings.json`, `scripts/post-edit.sh`, the eight skills, and the `spec-reviewer` subagent per `docs/06`. | Each `SKILL.md` has valid front matter (`name`, `description`) and the sections listed in `docs/06`; settings JSON parses |
 | **B7** | Create the delegation kit: `.qwen/settings.json` template, `tasks/briefs/_template.md`, `scripts/delegate.sh`, `scripts/executor-smoke.sh`, `tasks/results/` per `docs/07`. | `bash -n` passes on scripts; `delegate.sh` with no executor configured exits with a clear message |
-| **B8** | Create the `pipeline/` skeleton: `pyproject.toml`, package with stub modules and docstrings only, one test that imports the package. | `make lint` and `make test` pass for the pipeline |
-| **B9** | Create the `web/` skeleton: Vite + TypeScript + MapLibre toolchain check that renders a map container and loads the synthetic fixture manifest, nothing more. | `make build` succeeds; `make smoke` passes |
+| **B8** | Create the `backend/` skeleton: `pyproject.toml`, package with stub modules and docstrings only, one test that imports the package. | `make lint` and `make test` pass for the pipeline |
+| **B9** | Create the `frontend/` skeleton: Vite + TypeScript + MapLibre toolchain check that renders a map container and loads the synthetic fixture manifest, nothing more. | `make build` succeeds; `make smoke` passes |
 | **B10** | Create `.github/workflows/ci.yml` and `pull_request_template.md` (5.4). | Workflow YAML parses; every job is guarded so it passes on the empty skeleton |
 | **B11** | Create `tasks/BOARD.md` seeded from `specs/` (5.5) and `docs/decisions/` ADR stubs (ADR-000 template, ADR-001 to ADR-006). | Every spec appears on the board with a status |
 | **B12** | Write the repo `README.md` (what it is, how to run, team workflow, gate explanation). | Fresh reader can find: setup, run, test, workflow, gate |
@@ -158,17 +158,17 @@ GO unlocks: data download, study-area selection, pipeline, analysis, frontend fe
 | Target | Behavior |
 |---|---|
 | `help` | List targets |
-| `setup` | Apply the git config from 5.8; create Python venv and install pipeline; `npm ci` in `web/` |
+| `setup` | Apply the git config from 5.8; `uv sync` in `backend/`; `npm ci` in `frontend/` |
 | `lint` | ruff (pipeline) and ESLint/Prettier check (web) |
 | `test` | pytest and Vitest |
-| `validate` | Run `scripts/validate-contracts.py` over fixtures and `web/public/data/` |
-| `build` | Production build of `web/` |
+| `validate` | Run `scripts/validate-contracts.py` over fixtures and `frontend/public/data/` |
+| `build` | Production build of `frontend/` |
 | `dev` | Run the web dev server |
 | `smoke` | Build, then verify the built site's manifest validates and the page entry point exists |
 | `gate` | Run `scripts/check_gate.sh` |
 | `fetch` | **Gated.** Download granules (implemented in F02) |
 | `pipeline` | **Gated.** Run the full pipeline (implemented in F02/F03) |
-| `sync-data` | Copy validated pipeline outputs into `web/public/data/` |
+| `sync-data` | Copy validated pipeline outputs into `frontend/public/data/` |
 | `worktree` | `make worktree LANE=<lane> NAME=<branch>` calls `scripts/new-worktree.sh` |
 | `delegate` | `make delegate TASK=T-001` calls `scripts/delegate.sh` |
 
@@ -178,10 +178,10 @@ CI (`.github/workflows/ci.yml`), on pull requests and pushes to `main`:
 
 - `gate-file`: `KICKOFF.md` exists and its first line is `STATUS: LOCKED` or `STATUS: GO`.
 - `contracts`: `make validate`.
-- `pipeline`: ruff and pytest, skipped cleanly if `pipeline/` is absent.
-- `web`: `npm ci`, lint, test, build, skipped cleanly if `web/` is absent.
+- `pipeline`: ruff and pytest, skipped cleanly if `backend/` is absent.
+- `web`: `npm ci`, lint, test, build, skipped cleanly if `frontend/` is absent.
 - `smoke`: `make smoke`.
-- Pin Python (3.11) and Node (20).
+- Pin Python (3.12, via uv) and Node (20).
 
 PR template fields: Spec ID; Lane; Summary; Acceptance criteria table (criterion, evidence); How it was tested; Screenshots (UI changes); Out-of-lane edits (none or list); New dependencies (none or list); Contract change (yes/no, and approvals); Executor-generated (yes/no, brief ID); Reviewer checklist.
 

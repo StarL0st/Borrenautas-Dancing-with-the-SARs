@@ -51,7 +51,7 @@ Space Apps projects are expected to be built during the event. Before the start,
 
 ## Branches and spec authority
 
-`main` is the ground truth for specs, contracts, and rules, and holds only the working product. Each lane builds and tests on its own branch: `backend` (`pipeline/`) and `frontend` (`web/`). Agents do not modify rule files (`README.md`, `CLAUDE.md`, `docs/`, `specs/`, `contracts/`, `.claude/`) unless a human prompt says so, and never push or merge to `main`. Details: `docs/06-agent-collaboration-spec.md` section 5 and the root `CLAUDE.md`.
+`main` is the ground truth for specs, contracts, and rules, and holds only the working product. Each lane builds and tests on its own branch: `backend` (`backend/`) and `frontend` (`frontend/`). Agents do not modify rule files (`README.md`, `CLAUDE.md`, `docs/`, `specs/`, `contracts/`, `.claude/`) unless a human prompt says so, and never push or merge to `main`. Details: `docs/06-agent-collaboration-spec.md` section 5 and the root `CLAUDE.md`.
 
 ## Commit discipline
 
