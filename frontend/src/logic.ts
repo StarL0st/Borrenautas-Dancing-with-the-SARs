@@ -160,3 +160,18 @@ export function ticks(min: number, max: number, n = 4): number[] {
   for (let v = Math.floor(min / step) * step; v <= max + step * 0.999; v += step) out.push(+v.toFixed(10));
   return out;
 }
+
+// ---- Live events (live.geojson from the back end's livefeeds.py; not NISAR detections) ----
+
+export type LiveFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: {
+    id: string; source: string; source_name: string; credit: string; category: string;
+    title: string; date: string; detail: string; url: string; lon: number; lat: number;
+  };
+};
+
+// A live event shows when its category is ticked; categories the filters do not know always show.
+export const liveShown = (f: LiveFeature, ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
+  !known(f.properties.category) || ticked.has(f.properties.category);

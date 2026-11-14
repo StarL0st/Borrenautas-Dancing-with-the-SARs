@@ -159,6 +159,26 @@ With `SARS_ADMIN_TOKEN` set, POST requests need `Authorization: Bearer <token>`.
 
 There is no push from ASF, so "live" is polling: `refresh` (or `serve --jobs --watch-hours N`, or the cloud schedule) searches the catalog again for each site (a few seconds per product) and only re-processes a site when it got new granules. NISAR revisits each track every 12 days and products appear days after acquisition, so checking every 6-12 hours is plenty. A new request (`POST /sites`) is processed right away: about 30 granules, a few minutes for a 10-20 km site.
 
+## Live disaster feeds (prototype, branch `live-events`)
+
+`livefeeds.py` polls public event feeds and writes `live.geojson` to the data root, next to the contract files. These are **not NISAR detections**: each feature names its source (`source`, `source_name`, `credit`, `url`) and the file says so in `note`.
+
+| Feed | Run by | Categories | Key |
+|---|---|---|---|
+| EONET v3, open events, last 30 days | NASA Earth Observatory (GSFC) | wildfires, volcanoes, floods, landslides, drought, earthquakes, sea-ice, storms, marine | none |
+| Earthquakes M4.5+, last 7 days | USGS Earthquake Hazards Program (ANSS) | earthquakes | none |
+| GDACS alerts, last 14 days (no earthquakes: USGS has them) | UN OCHA + European Commission JRC | storms, floods, volcanoes, drought, wildfires | none |
+| Active tropical cyclones | NOAA National Hurricane Center | storms | none |
+| VIIRS fire detections, last 24 h, in `FIRMS_BBOX` (default Mexico) | NASA FIRMS; NOAA-20/21 satellites | wildfires | `FIRMS_MAP_KEY` |
+
+- `uv run sars-pipeline live-events`: fetch once, print each feed's count or error.
+- `uv run sars-pipeline serve --live-minutes 15`: refresh in the background; `/events` pushes `event: live` (`{"type": "live", "url": "live.geojson"}`) when the file changes.
+- One failing feed never stops the others: it is listed in `sources` with `ok: false` and the reason.
+- Feature properties: `id`, `source`, `source_name`, `credit`, `category` (frontend filter id; `storms` is new), `title`, `date`, `detail`, `url`, `lon`, `lat`. Points only.
+- EONET events reported only by GDACS are dropped (they come in from GDACS directly). Other overlaps (for example a storm in both NHC and GDACS) are not merged yet.
+- GDACS returns at most 100 events per request (no paging yet).
+- Not in the contract (`docs/04`): adding `live.geojson` and the `live` push event there needs a `contract-change` PR. Sources still need entries in `docs/09-references.md`.
+
 ## Status (backend branch, 2026-11-14)
 
 | Site | GCOV | GUNW | SME2 | Events |

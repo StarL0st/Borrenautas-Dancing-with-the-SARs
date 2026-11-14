@@ -184,6 +184,7 @@ output { color: var(--text); }
 .stage .maplibregl-popup .maplibregl-popup-tip { border-top-color: var(--panel); border-bottom-color: var(--panel); }
 .stage .maplibregl-popup-close-button { color: var(--text); background: none; border: 0; font-size: 18px; }
 .event-popup p { margin: 6px 0 0; }
+.event-popup a { display: inline-block; margin-top: 6px; color: var(--text); }
 
 /* ---- Open areas ---- */
 

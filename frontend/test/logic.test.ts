@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
-import { datesFor, inFilter, layerAt, supportedVersion, ticks, toAreaView, type Layer } from "../src/logic.ts";
+import { datesFor, inFilter, layerAt, liveShown, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -73,4 +73,19 @@ test("every language has every text, with the same placeholders", () => {
       assert.equal(holes(text), holes(STRINGS.en[key as keyof typeof STRINGS.en]), `${lang} ${key}`);
     }
   }
+});
+
+test("live events follow the filters; unknown categories always show", () => {
+  const f = (category: string) => ({ properties: { category } }) as LiveFeature;
+  const known = (id: string) => ["earthquakes", "storms"].includes(id);
+  const ticked = new Set(["storms"]);
+  assert.ok(liveShown(f("storms"), ticked, known));
+  assert.ok(!liveShown(f("earthquakes"), ticked, known));
+  assert.ok(liveShown(f("other"), ticked, known));
+});
+
+test("every live category the back end sends is a filter or 'other'", () => {
+  // Mirrors backend/src/sars_pipeline/livefeeds.py (EONET_CATEGORIES, GDACS_CATEGORIES).
+  const sent = ["wildfires", "volcanoes", "floods", "landslides", "drought", "earthquakes", "sea-ice", "storms", "marine"];
+  for (const id of sent) assert.ok(STRINGS.en[`type.${id}` as keyof typeof STRINGS.en], id);
 });

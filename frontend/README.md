@@ -62,6 +62,10 @@ Areas take their filter subdivisions from the back end's `categories`. For a bac
 
 `RAMPS` and `CLASSES` in `src/main.ts` repeat the colors the back end paints into its images (`backend/src/sars_pipeline/site.py`, `categorize.py`). The contract does not carry them, so they must be kept in step by hand.
 
+### Live events (prototype, branch `live-events`)
+
+"Happening now" in the left panel: hollow rings on the globe from the back end's `live.geojson` (public disaster feeds: NASA EONET, USGS, GDACS, NOAA NHC, NASA FIRMS; see `backend/README.md`). They follow the same filter checklist (new type `storms`), can be switched off, and refresh on the server's `live` push or every 10 minutes. The popup shows the date, category, detail and the source's credit line, with a link to the source. Rings are hollow so they never read as radar detections.
+
 ### Not done yet
 
 Before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, charts of each event's own `series` (from `events.json`), a confidence or date filter for events.
