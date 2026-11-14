@@ -1,5 +1,6 @@
 # The backend on one VM (backend/deploy/azure.sh deploy). Run from the repo root:
-#   SARS_HOST=<public host name> docker compose -p sars -f backend/deploy/compose.yaml --project-directory . up -d --build
+#   SARS_HOST=<public host name> SARS_STORAGE=<storage account> \
+#     docker compose -p sars -f backend/deploy/compose.yaml --project-directory . up -d --build
 services:
   api:
     build:
@@ -12,19 +13,60 @@ services:
       # --jobs --public: anyone may look up a place (limited); --watch-hours: refresh curated sites;
       # --live-minutes: refresh live.geojson (public disaster feeds).
       SARS_SERVE_FLAGS: --jobs --public --watch-hours 12 --live-minutes 15
+      # "New data" is pushed to browsers only once the sync container has copied it to storage.
+      SARS_SYNC_MARKER: /sync/copied
     volumes:
       - /opt/sars/data:/data  # selections, cached windows, outputs: survive rebuilds
+      - sync:/sync:ro
+    # A site run that grows past this is killed and the container restarts, instead of the whole
+    # VM freezing. The VM has 8 GB plus 4 GB swap (cloud-init.yaml).
+    mem_limit: ${SARS_API_MEM:-6g}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+  sync:
+    # Copies results to Blob Storage, where browsers read them (the VM only answers API calls).
+    # Signs in as the VM itself (managed identity): no storage key anywhere.
+    # Two passes: files first, then the indexes that point at them, so a browser never gets a
+    # manifest naming a file that is not uploaded yet. Copy, never delete: an empty disk cannot
+    # wipe the storage. no-cache: URLs are reused after a rerun; browsers revalidate (ETag).
+    image: rclone/rclone:1
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        while true; do
+          start=$$(date +%s)
+          rclone copy /data/processed :azureblob:data -q --header-upload "Cache-Control: no-cache" \
+            --exclude "*.tmp" --exclude /manifest.json --exclude "/events.*" --exclude /live.geojson &&
+          rclone copy /data/processed :azureblob:data -q --header-upload "Cache-Control: no-cache" \
+            --include /manifest.json --include "/events.*" --include /live.geojson &&
+          echo $$start > /sync/copied
+          sleep 20
+        done
+    environment:
+      RCLONE_AZUREBLOB_ACCOUNT: ${SARS_STORAGE:?storage account name}
+      RCLONE_AZUREBLOB_USE_MSI: "true"
+    volumes:
+      - /opt/sars/data:/data:ro
+      - sync:/sync
     restart: always
   caddy:
     # HTTPS in front of the API (a site served over HTTPS cannot call a plain HTTP API).
-    # Caddy gets and renews the certificate for SARS_HOST by itself.
+    # Caddy gets and renews the certificate for SARS_HOST by itself (Caddyfile).
     image: caddy:2
-    command: caddy reverse-proxy --from ${SARS_HOST:?public host name} --to api:8080
+    environment:
+      SARS_HOST: ${SARS_HOST:?public host name}
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./backend/deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy:/data  # certificates
     restart: always
 volumes:
   caddy: {}
+  sync: {}

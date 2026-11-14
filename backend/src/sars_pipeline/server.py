@@ -142,14 +142,25 @@ def create_app(
     jobs=None,
     admin_token: str | None = None,
     public: bool = False,
+    sync_marker: Path | None = None,
 ) -> FastAPI:
     """`jobs` (live.Jobs) enables /sites; without it the server is read-only. With `admin_token`
     set, POST requests need `Authorization: Bearer <token>` (they start downloads). `public`
-    lets anyone POST /sites {lat, lon} without a token, within limits (see lookup)."""
+    lets anyone POST /sites {lat, lon} without a token, within limits (see lookup).
+    `sync_marker`: browsers read the files from a copy (Blob Storage, deploy/compose.yaml), so a
+    push waits until the copy has caught up; the file holds the start time of the last full copy."""
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     clients: set[asyncio.Queue] = set()
     recent: dict[str, list[float]] = {}  # client address -> times of its new cells
+
+    def copied(mtime_ns: int | None) -> bool:
+        if sync_marker is None or mtime_ns is None:
+            return True
+        try:
+            return int(Path(sync_marker).read_text()) * 1e9 > mtime_ns
+        except (OSError, ValueError):
+            return False
 
     async def watch():
         manifest, last, failed = data_dir / "manifest.json", None, {}
@@ -159,13 +170,13 @@ def create_app(
                 await asyncio.to_thread(scan_inbox, inbox, data_dir, failed)
             # Any writer (inbox, CLI ingest) changes manifest.json; that is the push trigger.
             mtime = manifest.stat().st_mtime_ns if manifest.exists() else None
-            if mtime != last:
+            if mtime != last and copied(mtime):
                 last = mtime
                 for q in clients:
                     q.put_nowait({"type": "manifest", "url": "manifest.json"})
             # Live disaster feeds (livefeeds.py) have their own push event.
             live_mtime = live_file.stat().st_mtime_ns if live_file.exists() else None
-            if live_mtime != live_last:
+            if live_mtime != live_last and copied(live_mtime):
                 live_last = live_mtime
                 for q in clients:
                     q.put_nowait({"type": "live", "url": "live.geojson"})
@@ -178,6 +189,7 @@ def create_app(
         task.cancel()
 
     app = FastAPI(title="sars-pipeline", lifespan=lifespan)
+    app.state.clients = clients  # open /events streams (tests look here)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

@@ -176,8 +176,15 @@ def main() -> None:
                 target=poll, args=(args.data_dir, args.live_minutes), daemon=True, name="live"
             ).start()
         token = os.environ.get("SARS_ADMIN_TOKEN")
+        marker = os.environ.get("SARS_SYNC_MARKER")  # set in deploy/compose.yaml
         app = create_app(
-            args.data_dir, inbox, args.poll, jobs=jobs, admin_token=token, public=args.public
+            args.data_dir,
+            inbox,
+            args.poll,
+            jobs=jobs,
+            admin_token=token,
+            public=args.public,
+            sync_marker=Path(marker) if marker else None,
         )
         uvicorn.run(app, host=args.host, port=args.port)
     else:

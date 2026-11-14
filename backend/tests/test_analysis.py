@@ -644,3 +644,23 @@ def test_history_orders_by_date_and_cuts_to_range(tmp_path):
     assert [e["id"] for e in h["events"]] == ["late"]  # "far" is 50 km away
     assert client.get("/history", params={"lat": 50, "lon": 10}).json()["histories"] == []
     assert client.get("/history").status_code == 422
+
+
+def test_push_waits_for_the_copy_to_storage(tmp_path):
+    import asyncio
+
+    from fastapi.testclient import TestClient
+
+    from sars_pipeline.server import create_app
+
+    manifest, marker = tmp_path / "manifest.json", tmp_path / "copied"
+    manifest.write_text(json.dumps({"contract_version": "0", "areas": []}))
+    app = create_app(tmp_path, poll_seconds=0.02, sync_marker=marker)
+    q: asyncio.Queue = asyncio.Queue()
+    with TestClient(app) as client:
+        client.portal.call(lambda: app.state.clients.add(q))
+        client.portal.call(asyncio.sleep, 0.1)
+        assert q.empty()  # manifest is there, but not yet copied
+        marker.write_text(str(int(manifest.stat().st_mtime) + 5))
+        client.portal.call(asyncio.sleep, 0.1)
+        assert q.get_nowait()["type"] == "manifest"
