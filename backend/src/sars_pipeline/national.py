@@ -29,7 +29,7 @@ EPSG = 6933
 CELL = 36032.220840584 / 180 * 10
 CYCLE_DAYS = 12  # NISAR repeat cycle: one cycle covers the country once per direction
 DEFAULTS = {"drying_drop": 0.05, "min_cells": 250, "max_events": 12, "min_fine_pixels": 30}
-FIRE_DAYS = 10  # one FIRMS request
+FIRE_DAYS = 10
 
 
 def select(site_id: str, cfg: dict, out: Path, days: int = 75) -> dict:

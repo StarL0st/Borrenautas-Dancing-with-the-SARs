@@ -515,7 +515,7 @@ def test_friendly_cards_grade_by_share_and_confidence():
     area = {
         "id": "x",
         "title": "X",
-        "change_types": ["flood_wetland", "wildfire", "other"],
+        "change_types": ["flood_wetland", "wildfire", "forest_loss", "other"],  # incl. logging
         "layers": [{"maturity": "PROVISIONAL"}],
     }
     events = [event(0, "floods", 4, 0.9), event(1, "floods", 3, 0.5), event(2, "urban", 8, 0.2)]
