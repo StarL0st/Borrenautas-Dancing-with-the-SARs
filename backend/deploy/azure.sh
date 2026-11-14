@@ -51,14 +51,15 @@ deploy)
 seed)
   # Same granules as local runs, the cached windows (so the VM does not stream them again)
   # and the processed outputs, so the API starts with data.
-  tar -c -C "$ROOT/data" selected interim processed | "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
+  # sites.json: the places looked up locally, so the VM knows them as cached.
+  (cd "$ROOT/data" && tar -c selected interim processed $(ls sites.json 2>/dev/null)) |
+    "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
   ;;
 ssh)
   "${SSH[@]}"
   ;;
 site)
-  # Run from a checkout whose frontend/ has the 0.3+ integration (testing branch, or frontend
-  # once frontend/integration-0.3.patch is applied).
+  # Run from a checkout that has frontend/ (testing or frontend branch).
   az staticwebapp show -g "$RG" -n "$SITE" -o none 2>/dev/null ||
     az staticwebapp create -g "$RG" -n "$SITE" -l "$LOC" --sku Free -o none
   DEPLOY="$(az staticwebapp secrets list -g "$RG" -n "$SITE" --query properties.apiKey -o tsv)"
