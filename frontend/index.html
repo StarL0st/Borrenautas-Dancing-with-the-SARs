@@ -24,11 +24,6 @@
         <p class="muted" data-i18n="live.scope"></p>
         <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
         <div class="slider-row">
-          <label for="live-days" data-i18n="live.window"></label>
-          <input type="range" id="live-days" min="0" max="4" step="1" value="2" />
-          <output id="live-days-out" for="live-days"></output>
-        </div>
-        <div class="slider-row">
           <label for="live-level" data-i18n="live.level"></label>
           <input type="range" id="live-level" min="0" max="3" step="1" value="1" />
           <output id="live-level-out" for="live-level"></output>
@@ -78,9 +73,9 @@
         </div>
         <div id="wheel" role="group" data-i18n-label="view.wheel"></div>
         <button type="button" class="panel-toggle" id="nav-toggle" aria-controls="nav" aria-expanded="true" data-i18n-label="panel.nav"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
-        <button type="button" class="panel-toggle" id="detail-toggle" aria-controls="detail" aria-expanded="true" data-i18n-label="panel.detail"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
+        <button type="button" class="panel-toggle tech" id="detail-toggle" aria-controls="detail" aria-expanded="true" data-i18n-label="panel.detail"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
       </div>
-      <aside id="detail" data-i18n-label="h.open">
+      <aside id="detail" class="tech" data-i18n-label="h.open">
         <h2 data-i18n="h.open"></h2>
         <div id="cards"></div>
       </aside>

@@ -30,7 +30,7 @@ export type HistoryEvent = {
 const USGS: Source = { name: "USGS Earthquake Hazards Program", url: "https://earthquake.usgs.gov/earthquakes/browse/significant.php" };
 const SSN: Source = { name: "Servicio Sismológico Nacional (UNAM)", url: "http://www.ssn.unam.mx/" };
 const NHC: Source = { name: "NOAA National Hurricane Center, Tropical Cyclone Reports", url: "https://www.nhc.noaa.gov/data/tcr/" };
-const EO: Source = { name: "NASA Earth Observatory", url: "https://earthobservatory.nasa.gov/" };
+const EO: Source = { name: "NASA Earth Observatory", url: "https://science.nasa.gov/earth/earth-observatory/" };
 const GVP: Source = { name: "Smithsonian Global Volcanism Program", url: "https://volcano.si.edu/" };
 const CENAPRED: Source = { name: "CENAPRED (Mexico's national disaster prevention center)", url: "https://www.gob.mx/cenapred" };
 const CONAGUA: Source = { name: "CONAGUA / Servicio Meteorológico Nacional", url: "https://smn.conagua.gob.mx/" };
@@ -60,8 +60,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "michoacan-1985", date: "1985-09-19", type: "earthquakes", severity: 3,
     title: { en: "Magnitude 8.0 Michoacán earthquake", es: "Sismo de magnitud 8.0 de Michoacán" },
     impact: {
-      en: "Struck off the Michoacán coast, but the soft old lakebed under Mexico City amplified the shaking: hundreds of buildings collapsed and thousands died (official counts range from about 3,000 to over 10,000). It led to Mexico's civil protection system.",
-      es: "Ocurrió frente a la costa de Michoacán, pero el suelo blando del antiguo lago bajo la Ciudad de México amplificó el movimiento: cientos de edificios colapsaron y murieron miles de personas (las cifras oficiales van de unas 3,000 a más de 10,000). De ahí nació el sistema de protección civil.",
+      en: "Struck off the Michoacán coast, but the soft old lakebed under Mexico City amplified the shaking: hundreds of buildings collapsed and thousands died (the official count is about 10,000; other estimates are higher). It led to Mexico's civil protection system.",
+      es: "Ocurrió frente a la costa de Michoacán, pero el suelo blando del antiguo lago bajo la Ciudad de México amplificó el movimiento: cientos de edificios colapsaron y murieron miles de personas (la cifra oficial es de unas 10,000; otras estimaciones son mayores). De ahí nació el sistema de protección civil.",
     },
     places: [[-102.53, 18.19], [-99.13, 19.43]],
     sources: [USGS, SSN],
@@ -70,8 +70,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "gilbert-1988", date: "1988-09-14", type: "hurricanes", severity: 3,
     title: { en: "Hurricane Gilbert", es: "Huracán Gilberto" },
     impact: {
-      en: "A Category 5 hurricane that hit the Yucatán Peninsula, then brought deadly floods to Monterrey days later. Hundreds died in Mexico.",
-      es: "Huracán categoría 5 que golpeó la península de Yucatán y días después causó inundaciones mortales en Monterrey. Cientos de personas murieron en México.",
+      en: "A Category 5 hurricane that hit the Yucatán Peninsula, then brought deadly floods to Monterrey days later. About 200 people died in Mexico, most of them in Monterrey.",
+      es: "Huracán categoría 5 que golpeó la península de Yucatán y días después causó inundaciones mortales en Monterrey. Murieron unas 200 personas en México, la mayoría en Monterrey.",
     },
     places: [[-86.9, 20.8], [-100.31, 25.67]],
     sources: [NHC],
@@ -90,8 +90,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "wilma-2005", date: "2005-10-21", type: "hurricanes", severity: 3,
     title: { en: "Hurricane Wilma", es: "Huracán Wilma" },
     impact: {
-      en: "Stalled over Cozumel and Cancún as a major hurricane for more than a day, wrecking hotels, homes and beaches and stripping mangroves and coral reefs.",
-      es: "Se estancó sobre Cozumel y Cancún como huracán mayor por más de un día, destruyendo hoteles, viviendas y playas, y dañando manglares y arrecifes.",
+      en: "Stalled over Cozumel and Cancún as a major hurricane for two days or more, wrecking hotels, homes and beaches and stripping mangroves and coral reefs.",
+      es: "Se estancó sobre Cozumel y Cancún como huracán mayor durante dos días o más, destruyendo hoteles, viviendas y playas, y dañando manglares y arrecifes.",
     },
     places: [[-86.95, 20.5], [-86.85, 21.16]],
     sources: [NHC, EO],
@@ -100,8 +100,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "tabasco-2007", date: "2007-10-28", type: "floods", severity: 3,
     title: { en: "Tabasco floods", es: "Inundaciones de Tabasco" },
     impact: {
-      en: "Days of heavy rain overflowed the Grijalva and Usumacinta rivers: most of the state, including much of Villahermosa, was under water and around a million people were affected. A landslide days later blocked the Grijalva near Juan de Grijalva, Chiapas.",
-      es: "Días de lluvia intensa desbordaron los ríos Grijalva y Usumacinta: la mayor parte del estado, incluida buena parte de Villahermosa, quedó bajo el agua y alrededor de un millón de personas resultaron afectadas. Días después un deslave tapó el Grijalva cerca de Juan de Grijalva, Chiapas.",
+      en: "Days of heavy rain overflowed the Grijalva and Usumacinta rivers: up to about 80% of the state, including much of Villahermosa, was under water and about a million people were affected. A landslide days later blocked the Grijalva near Juan de Grijalva, Chiapas.",
+      es: "Días de lluvia intensa desbordaron los ríos Grijalva y Usumacinta: hasta cerca del 80% del estado, incluida buena parte de Villahermosa, quedó bajo el agua y alrededor de un millón de personas resultaron afectadas. Días después un deslave tapó el Grijalva cerca de Juan de Grijalva, Chiapas.",
     },
     places: [[-92.93, 17.99], [-93.4, 17.4]],
     sources: [EO, CENAPRED],
@@ -110,8 +110,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "piedrasnegras-2007", date: "2007-04-24", type: "storms", severity: 1,
     title: { en: "Piedras Negras tornado", es: "Tornado de Piedras Negras" },
     impact: {
-      en: "A strong tornado crossed from Texas into Piedras Negras, Coahuila, destroying homes and killing several people. Tornadoes are rare but not unknown in northern Mexico.",
-      es: "Un tornado fuerte cruzó de Texas a Piedras Negras, Coahuila, destruyó viviendas y causó varias muertes. Los tornados son raros pero no desconocidos en el norte de México.",
+      en: "A strong tornado crossed from Texas into Piedras Negras, Coahuila, destroying homes and killing three people there and seven more across the river in Eagle Pass, Texas. Tornadoes are rare but not unknown in northern Mexico.",
+      es: "Un tornado fuerte cruzó de Texas a Piedras Negras, Coahuila, destruyó viviendas y mató a tres personas ahí y a siete más al otro lado del río, en Eagle Pass, Texas. Los tornados son raros pero no desconocidos en el norte de México.",
     },
     places: [[-100.52, 28.7]],
     sources: [CONAGUA],
@@ -150,8 +150,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "patricia-2015", date: "2015-10-23", type: "hurricanes", severity: 2,
     title: { en: "Hurricane Patricia", es: "Huracán Patricia" },
     impact: {
-      en: "The strongest hurricane ever measured in the Western Hemisphere at its peak. It weakened before landfall on the Jalisco coast and hit a thinly populated area, so damage was smaller than feared, but forests were flattened.",
-      es: "El huracán más intenso jamás medido en el hemisferio occidental en su punto máximo. Se debilitó antes de tocar tierra en la costa de Jalisco, en una zona poco poblada, así que los daños fueron menores de lo temido, aunque derribó bosques enteros.",
+      en: "The strongest hurricane ever measured in the Western Hemisphere at its peak. It weakened to Category 4 before landfall on the Jalisco coast and hit a thinly populated area, so damage was smaller than feared, but forests were flattened.",
+      es: "El huracán más intenso jamás medido en el hemisferio occidental en su punto máximo. Se debilitó a categoría 4 antes de tocar tierra en la costa de Jalisco, en una zona poco poblada, así que los daños fueron menores de lo temido, aunque derribó bosques enteros.",
     },
     places: [[-105.0, 19.4]],
     sources: [NHC, EO],
@@ -250,8 +250,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "otis-2023", date: "2023-10-25", type: "hurricanes", severity: 3,
     title: { en: "Hurricane Otis", es: "Huracán Otis" },
     impact: {
-      en: "Grew from a tropical storm to Category 5 in about a day, far faster than forecast, and struck Acapulco at night: the first Category 5 landfall on Mexico's Pacific coast on record. Dozens died and most of the city's buildings were damaged.",
-      es: "Pasó de tormenta tropical a categoría 5 en alrededor de un día, mucho más rápido de lo pronosticado, y golpeó Acapulco de noche: el primer impacto de un categoría 5 en la costa del Pacífico mexicano registrado. Murieron decenas de personas y la mayoría de los edificios resultaron dañados.",
+      en: "Grew from a tropical storm to Category 5 in about a day, far faster than forecast, and struck Acapulco at night as a Category 5, one of the strongest hurricanes ever to hit Mexico's Pacific coast. Dozens died and most of the city's buildings were damaged.",
+      es: "Pasó de tormenta tropical a categoría 5 en alrededor de un día, mucho más rápido de lo pronosticado, y golpeó Acapulco de noche como categoría 5, uno de los huracanes más fuertes que han golpeado la costa del Pacífico mexicano. Murieron decenas de personas y la mayoría de los edificios resultaron dañados.",
     },
     places: [[-99.88, 16.85]],
     sources: [NHC, EO],
@@ -260,8 +260,8 @@ export const HISTORY: HistoryEvent[] = [
     id: "drought-2024", date: "2024-05-15", type: "drought", severity: 2,
     title: { en: "Drought and heat wave; Cutzamala at record lows", es: "Sequía y ola de calor; Cutzamala en mínimos" },
     impact: {
-      en: "Most of Mexico was in drought. The Cutzamala reservoirs that supply Mexico City fell to about a quarter to a third of capacity, and heat records were broken in many cities.",
-      es: "La mayor parte de México estaba en sequía. Las presas del Sistema Cutzamala, que abastecen a la Ciudad de México, bajaron a entre una cuarta y una tercera parte de su capacidad, y se rompieron récords de calor en muchas ciudades.",
+      en: "Most of Mexico was in drought. The Cutzamala reservoirs that supply Mexico City fell to about 26% of capacity in June, the lowest in some 25 years, and heat records were broken in many cities.",
+      es: "La mayor parte de México estaba en sequía. Las presas del Sistema Cutzamala, que abastecen a la Ciudad de México, bajaron a cerca del 26% de su capacidad en junio, el nivel más bajo en unos 25 años, y se rompieron récords de calor en muchas ciudades.",
     },
     places: [[-100.13, 19.19], [-99.13, 19.43]],
     sources: [CONAGUA, EO],
@@ -316,17 +316,18 @@ export function statusOf(site: Pick<Infra, "kind" | "mmYr" | "reported">): Statu
 }
 
 const CHAUSSARD: Source = {
-  name: "Chaussard et al. (2014), Land subsidence in central Mexico detected by ALOS InSAR time-series, Remote Sensing of Environment",
+  name: "Chaussard et al. (2014), Land subsidence in central Mexico detected by ALOS InSAR time-series, Remote Sensing of Environment 140",
+  url: "https://doi.org/10.1016/j.rse.2013.08.038",
 };
-const CONAGUA_DAMS: Source = { name: "CONAGUA, Sistema Nacional de Información del Agua (dam inventory)", url: "https://sinav30.conagua.gob.mx:8080/" };
+const CONAGUA_DAMS: Source = { name: "CONAGUA (Mexico's national water commission), dam inventory", url: "https://www.gob.mx/conagua" };
 
 export const INFRA: Infra[] = [
   // Subsidence: fast-sinking cities measured by satellite radar (InSAR).
   {
     id: "cdmx-subsidence", kind: "subsidence", name: "Mexico City (old lakebed)", lon: -99.13, lat: 19.43, mmYr: -350,
     note: {
-      en: "Pumping groundwater from the clay of the old lake makes parts of the city sink by up to roughly 30–40 cm a year. It bends Metro lines, breaks water and drainage pipes, tilts buildings and makes floods worse.",
-      es: "Extraer agua del subsuelo arcilloso del antiguo lago hace que partes de la ciudad se hundan hasta unos 30–40 cm al año. Deforma líneas del Metro, rompe tuberías de agua y drenaje, inclina edificios y empeora las inundaciones.",
+      en: "Pumping groundwater from the clay of the old lake makes parts of the city sink by up to about 30–50 cm a year. It bends Metro lines, breaks water and drainage pipes, tilts buildings and makes floods worse.",
+      es: "Extraer agua del subsuelo arcilloso del antiguo lago hace que partes de la ciudad se hundan hasta unos 30–50 cm al año. Deforma líneas del Metro, rompe tuberías de agua y drenaje, inclina edificios y empeora las inundaciones.",
     },
     sources: [CHAUSSARD, EO],
   },
@@ -350,8 +351,8 @@ export const INFRA: Infra[] = [
   ).map(([id, name, lon, lat]): Infra => ({
     id: `${id}-subsidence`, kind: "subsidence", name, lon, lat, reported: "fast",
     note: {
-      en: "Sinking by several centimeters a year where aquifers are overpumped; cracks (faults) open across streets, homes and pipes along the edges of the sinking zone.",
-      es: "Se hunde varios centímetros al año donde los acuíferos están sobreexplotados; se abren grietas en calles, casas y tuberías en los bordes de la zona que se hunde.",
+      en: "Sinking by about 5–10 cm a year where aquifers are overpumped; cracks (faults) open across streets, homes and pipes along the edges of the sinking zone.",
+      es: "Se hunde unos 5–10 cm al año donde los acuíferos están sobreexplotados; se abren grietas en calles, casas y tuberías en los bordes de la zona que se hunde.",
     },
     sources: [CHAUSSARD],
   })),
@@ -399,7 +400,7 @@ export const INFRA: Infra[] = [
       en: "Once one of the world's largest offshore oil fields. Pumping oil and gas out of a reservoir can make the ground above it sink and, sometimes, trigger small earthquakes.",
       es: "Fue uno de los yacimientos marinos más grandes del mundo. Sacar petróleo y gas de un yacimiento puede hundir el suelo encima y, a veces, provocar sismos pequeños.",
     },
-    sources: [{ name: "Comisión Nacional de Hidrocarburos", url: "https://www.gob.mx/cnh" }],
+    sources: [{ name: "Petróleos Mexicanos (Pemex)", url: "https://www.pemex.com/" }],
   },
   {
     id: "laguna-verde", kind: "energy", name: "Laguna Verde nuclear power plant, Veracruz", lon: -96.41, lat: 19.72,
@@ -407,7 +408,7 @@ export const INFRA: Infra[] = [
       en: "Mexico's only nuclear plant, on the Gulf coast in hurricane country. Its site and coastline are watched for ground movement and erosion.",
       es: "La única central nuclear de México, en la costa del Golfo, zona de huracanes. Su terreno y su litoral se vigilan por movimiento del suelo y erosión.",
     },
-    sources: [{ name: "Comisión Federal de Electricidad", url: "https://www.cfe.mx/" }],
+    sources: [{ name: "Comisión Federal de Electricidad", url: "https://www.cfe.gob.mx/" }],
   },
   {
     id: "metro12-bridge", kind: "bridge", name: "Metro Line 12 elevated section, Mexico City", lon: -99.05, lat: 19.3, reported: "watch",
@@ -507,7 +508,7 @@ export const ZONES: Record<string, ZoneNote> = {
       en: "Clearing cuts up the forest corridor toward the Calakmul reserve, used by jaguars and other wildlife. Maya beekeepers have taken genetically modified soy permits to court over harm to their bees and honey.",
       es: "El desmonte fragmenta el corredor de selva hacia la reserva de Calakmul, que usan jaguares y otra fauna. Apicultores mayas llevaron a los tribunales los permisos de soya transgénica por el daño a sus abejas y su miel.",
     },
-    sources: [{ name: "Global Forest Watch (Hansen et al., Landsat)", url: "https://www.globalforestwatch.org/" }, { name: "CONABIO", url: "https://www.gob.mx/conabio" }],
+    sources: [{ name: "University of Maryland GLAD, Global Forest Change (Hansen et al., Landsat)", url: "https://glad.earthengine.app/view/global-forest-change" }, { name: "CONABIO", url: "https://www.gob.mx/conabio" }],
   },
   chapala: {
     center: [-103.1, 20.22],

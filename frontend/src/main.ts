@@ -13,7 +13,7 @@ import {
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import {
-  HISTORY, INFRA, INFRA_THRESHOLDS, LEARN, REGION_BBOX, infraNear, mostDestructive, statusOf, tx, zoneHistory, zoneNote,
+  HISTORY, INFRA, INFRA_THRESHOLDS, LEARN, infraNear, mostDestructive, statusOf, tx, zoneHistory, zoneNote,
   type HistoryEvent, type Infra, type Source, type Status,
 } from "./mexico";
 import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
@@ -42,6 +42,7 @@ let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
 let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
 let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
+let liveEvery = 0; // how often the back end refreshes live.geojson, in minutes (0: unknown)
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
 let stagger = true; // the area list cascades in while the page loads, not on later updates
 let opened: string[] = []; // area ids open as tabs, newest first
@@ -68,6 +69,25 @@ const globe = createGlobe("map", settings.texture, toggle);
 
 // ---- Left panel: filters ----
 
+// How many types each group shows before "Show more": one row of four tiles in Simple mode.
+const FIRST_TYPES = () => (simple() ? 4 : 6);
+const expanded = new Set<string>(); // groups whose full list is open
+
+function moreButton(g: (typeof GROUPS)[number]): Node[] {
+  const hidden = g.items.length - FIRST_TYPES();
+  if (hidden <= 0) return [];
+  const open = expanded.has(g.id);
+  const button = el("button", { type: "button", className: "link more" }, open ? t("filter.less") : t("filter.more", { n: hidden }));
+  button.setAttribute("aria-expanded", String(open));
+  button.onclick = () => {
+    if (open) expanded.delete(g.id);
+    else expanded.add(g.id);
+    buildFilters();
+    filters.querySelector<HTMLElement>(`[data-group="${g.id}"] .more`)?.focus();
+  };
+  return [button];
+}
+
 function buildFilters() {
   const open = [...filters.children].map((d) => (d as HTMLDetailsElement).open);
   filters.replaceChildren(
@@ -92,7 +112,7 @@ function buildFilters() {
         render();
       };
       syncAll();
-      return el(
+      const group = el(
         "details",
         { open: open[n] ?? n === 0 },
         el("summary", {}, dot(g.color), groupLabel(g.id)),
@@ -107,10 +127,15 @@ function buildFilters() {
             box.className = "vh";
             const tile = el("label", { className: "ftype", title: typeLabel(id) }, box, icon(id), el("span", {}, simple() ? shortLabel(id) : typeLabel(id)));
             tile.style.setProperty("--c", g.color);
+            // Only the first few types show until "Show more" is pressed, so the panel stays short.
+            tile.hidden = !expanded.has(g.id) && i >= FIRST_TYPES();
             return tile;
           }),
         ),
+        ...moreButton(g),
       );
+      group.dataset.group = g.id;
+      return group;
     }),
   );
 }
@@ -208,6 +233,13 @@ function render() {
 function toggle(id: string) {
   const a = areas().find((x) => x.id === id);
   if (!a) return;
+  if (simple()) {
+    // No side panel in Simple mode: a short popup, with a way into the full details.
+    setSpin(false);
+    globe.openInfo(a.center[0], a.center[1], simpleArea(a), 6);
+    if (infraFrom?.kind !== "you") setInfraFrom(a.center, "area", a.title);
+    return;
+  }
   const opening = !opened.includes(id);
   opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
   if (opening) {
@@ -442,6 +474,25 @@ function chartSection(a: AreaView): Node {
 }
 
 // ---- Zone notes, history, satellite view (jopa-testing; data in mexico.ts, satview.ts) ----
+
+// Simple mode's popup for an area: what it is, what changed, and a button to the full card.
+function simpleArea(a: AreaView): Node {
+  const note = zoneNote(a.id, a.center);
+  const more = el("button", { type: "button", className: "primary" }, t("simple.details"));
+  more.onclick = () => {
+    setMode("technical");
+    if (!opened.includes(a.id)) toggle(a.id);
+  };
+  return el(
+    "div",
+    { className: "event-popup" },
+    el("strong", {}, a.title),
+    el("p", {}, ...a.types.map((id) => el("span", { className: "tag" }, shortLabel(id)))),
+    el("p", {}, a.summary),
+    ...(note ? [el("p", { className: "muted" }, tx(note.changes, lang()))] : []),
+    el("p", {}, more),
+  );
+}
 
 const lang = () => settings.lang;
 
@@ -789,19 +840,15 @@ liveMore.onclick = () => {
   renderLiveList();
 };
 
-// Two sliders instead of more checkboxes: how far back, and how dangerous.
-const DAYS = [1, 3, 7, 14, 30];
-const liveDays = $<HTMLInputElement>("live-days"), liveLevel = $<HTMLInputElement>("live-level");
-const liveView = () => ({ now: Date.now(), days: DAYS[+liveDays.value], minSeverity: +liveLevel.value, region: REGION_BBOX });
+// Live events are worldwide and from the last 24 hours; one slider picks how dangerous.
+const liveLevel = $<HTMLInputElement>("live-level");
+const liveView = () => ({ now: Date.now(), days: 1, minSeverity: +liveLevel.value });
 function showLiveControls() {
-  const days = t("live.window.value", { n: DAYS[+liveDays.value] });
-  $("live-days-out").textContent = days;
-  liveDays.setAttribute("aria-valuetext", days);
   const level = t(`level.${liveLevel.value}` as Key);
   $("live-level-out").textContent = level;
   liveLevel.setAttribute("aria-valuetext", level);
 }
-liveDays.oninput = liveLevel.oninput = () => {
+liveLevel.oninput = () => {
   liveLimit = livePage();
   showLiveControls();
   render();
@@ -850,7 +897,10 @@ function renderLiveList() {
 
 function showLiveStatus() {
   liveStatus.textContent = liveUpdated
-    ? t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) })
+    ? [
+        t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) }),
+        liveEvery ? t("live.every", { n: liveEvery }) : "",
+      ].join(" ").trim()
     : t("live.offline");
 }
 
@@ -861,9 +911,11 @@ async function loadLiveFeeds() {
     const doc = await res.json();
     liveEvents = doc.features ?? [];
     liveUpdated = doc.generated_at ?? "";
+    liveEvery = Number(doc.refresh_minutes) || 0;
   } catch {
     liveEvents = [];
     liveUpdated = "";
+    liveEvery = 0;
   }
   showLiveStatus();
   render();
@@ -933,19 +985,8 @@ function applyLanguage() {
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
   $("mode-seg").replaceChildren(
     ...(["simple", "technical"] as const).map((mode) => {
-      const input = el("input", { type: "radio", name: "mode", checked: settings.mode === mode });
-      input.onchange = () => {
-        const flip = () => {
-          settings.mode = mode;
-          saveSettings(settings);
-          document.documentElement.dataset.mode = mode;
-          buildFilters();
-          render();
-        };
-        // The two panels cross-fade between modes (see `view-transition-name` in the stylesheet).
-        if (document.startViewTransition) document.startViewTransition(flip);
-        else flip();
-      };
+      const input = el("input", { type: "radio", name: "mode", value: mode, checked: settings.mode === mode });
+      input.onchange = () => setMode(mode, true);
       return el("label", {}, input, el("span", {}, t(`mode.${mode}`)));
     }),
   );
@@ -956,6 +997,22 @@ function applyLanguage() {
   showLiveControls();
   render();
   renderSettings(dialog, settings, onSetting);
+}
+
+// Switch between Simple and Technical. `animate` cross-fades the two panels (see
+// `view-transition-name` in the stylesheet); without it the switch is immediate, for callers that
+// act on the new mode right away (the "See all details" button).
+function setMode(mode: Settings["mode"], animate = false) {
+  const flip = () => {
+    settings.mode = mode;
+    saveSettings(settings);
+    document.documentElement.dataset.mode = mode;
+    for (const r of document.querySelectorAll<HTMLInputElement>('input[name="mode"]')) r.checked = r.value === mode;
+    buildFilters();
+    render();
+  };
+  if (animate && document.startViewTransition) document.startViewTransition(flip);
+  else flip();
 }
 
 function onSetting(key: keyof Settings) {
