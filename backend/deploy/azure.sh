@@ -2,7 +2,7 @@
 # Microsoft Azure deployment for sars-pipeline. See backend/deploy/README.md ("Azure").
 #   backend/deploy/azure.sh vm       once: resource group and a Linux VM with Docker
 #   backend/deploy/azure.sh deploy   copy the committed code and backend/.env, build, (re)start
-#   backend/deploy/azure.sh seed     copy data/selected and data/processed to the VM
+#   backend/deploy/azure.sh seed     copy data/selected, data/interim and data/processed to the VM
 #   backend/deploy/azure.sh site     build the frontend against the API and publish it (Static Web Apps)
 #   backend/deploy/azure.sh ssh      open a shell on the VM (logs: sudo docker logs -f sars-api-1)
 set -euo pipefail
@@ -49,8 +49,9 @@ deploy)
   echo "admin token: $0 ssh, then: grep SARS_ADMIN_TOKEN /opt/sars/.env"
   ;;
 seed)
-  # Same granules as local runs, and the processed outputs, so the API starts with data.
-  tar -c -C "$ROOT/data" selected processed | "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
+  # Same granules as local runs, the cached windows (so the VM does not stream them again)
+  # and the processed outputs, so the API starts with data.
+  tar -c -C "$ROOT/data" selected interim processed | "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
   ;;
 ssh)
   "${SSH[@]}"
