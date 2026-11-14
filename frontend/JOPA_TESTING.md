@@ -1,7 +1,40 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Local only: not pushed, not merged.** Round 2 (below) was checked the same way: type-check, 15 frontend tests, 45 backend tests. The app has not been run in a browser (no dev server). Checked without running it: `tsc --noEmit` passes, the frontend unit tests pass (15 of 15), and the backend unit tests pass (43, including 12 for the live feeds).
+**Pushed to GitHub as the branch `jopa-testing` (not merged anywhere).** Checked without a browser after every round: `tsc --noEmit`, the frontend unit tests (15) and the backend unit tests (45) pass. It was run locally on 2026-11-14 and looked at in the app's browser.
+
+## What the branch has now (after round 3)
+
+- **Event icons** on every filter type: filled when on, outline when off. Compact buttons, with "Show N more" per group.
+- **Live events, worldwide, last 24 hours,** for every type with a public feed, weather included. Each event has a danger score. The page says how often the server checks the sources.
+- **Most dangerous right now** (live) and **Most destructive recent events** (Mexico since 2015, with sources).
+- **Open areas panel (Technical mode only):** a satellite before/now view (NASA GIBS), "What changed" with effects on plants and animals, and a timeline of remarkable events per zone. Simple mode shows a short popup with "See all details".
+- **Removed in round 3:** the "How dangerous" slider and the "Infrastructure risks near you" function.
+
+## Change log (one row per commit)
+
+| Commit | Round | What it did |
+|---|---|---|
+| `bbe50eb` | setup | Branch created from `origin/testing`, with the latest `origin/frontend` (e7a8f48) merged in |
+| `c4a711a` | 1 | Backend: live feeds ported from `testing-live-events`; weather types (hurricanes, storms, heat, cold, dust, industrial); danger score 0–3; Mexico region filter |
+| `f6c30d8` | 1 | Frontend: Mexico scope, event icons, live sliders, most dangerous now, recent destructive events, infrastructure risks, zone timelines, satellite before/now, plants and animals notes |
+| `d80fba3` | 1 | Docs: this file, first version |
+| `92f7ce8` | 2 | Backend: live events worldwide and from the last 24 hours; `refresh_minutes` in `live.geojson` |
+| `932105d` | 2 | Frontend: compact icon buttons with "Show more", open areas panel in Technical mode only, live list worldwide and 24 h, corrected sources and facts |
+| `d5143fc` | 2 | Docs: round 2, source check, update frequency |
+| `4dec1df` | 2 | Fixes found while running: worldwide wording, Simple list length, sea ice label, popup no longer waits for the map's flight |
+| `281dd08` | 3 | Removed the "How dangerous" slider (and its minimum-danger filter and texts) and the "Infrastructure risks near you" function (panel, location, radius slider, globe dots, data, texts, styles, tests) |
+| *this commit* | 3 | Docs: round 3 and this change log |
+
+## Round 3 (2026-11-14, evening)
+
+| Request | What changed |
+|---|---|
+| Erase the "How dangerous" slider and data | **Removed:** the slider in "Happening now", the minimum-danger filter (`minSeverity` in `src/logic.ts`), and its texts (`live.level`, `level.0`–`level.3`) in three languages. The unused "From the last" texts from round 2 went too. **Kept:** each event's danger score (`severity` from the backend), because **Most dangerous right now** needs it to rank events and the list marks serious and extreme events. Ask if you also want the score itself removed. |
+| Erase the function that analyzes infrastructure near the user | **Removed:** the left-panel section (Use my location, the radius slider, the list), the colored dots on the globe, the data (`INFRA`, `LEARN`, `INFRA_THRESHOLDS`, `statusOf`, `infraNear` in `src/mexico.ts`), about 30 texts in each language, the styles and the tests. The browser no longer asks for location. |
+| Push to my personal branch | The branch `jopa-testing` was pushed to GitHub (`origin/jopa-testing`). Nothing was merged into `testing`, `frontend` or `main`. |
+
+The round 1 and round 2 sections below describe some features that were removed later; they are marked as such.
 
 ## Round 2 (2026-11-14, later the same day)
 
@@ -92,7 +125,7 @@ In practice an event reaches the page **at most about 15 minutes after its sourc
 | 3 | Most dangerous or destructive recent events, with legal sources | **Most dangerous right now** (live, ranked by a 0–3 danger score) and **Most destructive recent events** (Mexico since 2015, curated, every item names its sources) | `livefeeds.py`, `src/logic.ts`, `src/mexico.ts`, `src/main.ts` |
 | 4 | A timeline of remarkable events for each zone | Each open area shows a strip of years with a mark per event and the events below, oldest first | `src/mexico.ts` (`HISTORY`, `zoneHistory`), `src/main.ts` (`historySection`) |
 | 5 | Mexico only | Globe opens on Mexico; live events are kept to Mexico and its seas; example places, filters and data are Mexican; polar filter types removed | `src/globe.ts`, `src/example-areas.ts`, `src/filters.ts`, `livefeeds.py` |
-| 6 | Infrastructure risks near the user | Dams, levees, sinking cities, mine tailings, pipelines, bridges, roads, oil fields, a nuclear plant, an unstable slope: on the globe and in a list near you, red when movement passes a threshold, with "what can go wrong" examples | `src/mexico.ts` (`INFRA`, `LEARN`, `INFRA_THRESHOLDS`), `src/main.ts`, `src/globe.ts` |
+| 6 | Infrastructure risks near the user (**removed in round 3**) | Dams, levees, sinking cities, mine tailings, pipelines, bridges, roads, oil fields, a nuclear plant, an unstable slope: on the globe and in a list near you, red when movement passes a threshold, with "what can go wrong" examples | `src/mexico.ts` (`INFRA`, `LEARN`, `INFRA_THRESHOLDS`), `src/main.ts`, `src/globe.ts` |
 | 7 | A simpler Simple mode, with sliders | Big icon tiles instead of a checklist; sliders for time window, danger level, search radius, "compare with" and a before/now swipe; shorter lists | `src/main.ts`, `src/style.css`, `index.html` |
 | 8 | Satellite pictures of the zone now, and notes on what changed (plants and animals) | A **Satellite view** in each area card (the "Radar images / What changed" panel from the screenshot): a "now" and a "before" picture from NASA GIBS with a swipe to compare. **What changed** gains notes on each zone, including effects on plants and animals. | `src/satview.ts`, `src/mexico.ts` (`ZONES`), `src/main.ts` |
 
@@ -149,7 +182,7 @@ The live feeds were ported from `testing-live-events`, because `testing` only ha
 - **Filters:** ice sheets, sea ice, permafrost and glacial lakes were removed (they don't apply to Mexico). Glaciers stay for Pico de Orizaba. New: hurricanes, heat, cold, dust, industrial.
 - **Example places** (shown while no backend is connected) are now 25 Mexican places, one per type, for example Juchitán, Popocatépetl, Acapulco, Villahermosa and Mexico City.
 
-### 6. Infrastructure risks near you
+### 6. Infrastructure risks near you (removed in round 3)
 
 - **Where from:**
   - "Use my location": the browser asks first; the position is not stored or sent anywhere.
@@ -178,7 +211,7 @@ The live feeds were ported from `testing-live-events`, because `testing` only ha
 - **Next step:** fill `mmYr` per structure from the backend's NISAR ground-motion layers. That needs a contract field; see "Open questions".
 - **Learning texts** use the brief's examples (Derna, Oroville, Brumadinho, New Orleans, Morandi, Mexico City) plus Mexican ones (Peñitas 2007, Cananea 2014, Tlahuelilpan 2019, Metro Line 12 2021).
 
-### 7. Simpler Simple mode
+### 7. Simpler Simple mode (the time-window and danger sliders were removed in rounds 2 and 3)
 
 - **Filters:** icon tiles with short names.
 - **Sliders instead of extra controls:**
