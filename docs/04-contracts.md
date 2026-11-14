@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.3.0. 0.2.0 added C7 events and `/query`; 0.3.0 adds categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`. Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.4.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -140,7 +140,7 @@ A detected and classified surface change: "this place shows X between these date
 | `area_id` | string | yes | The C1 area it was found in |
 | `type` | enum | yes | Same values as `change_types` in C1 |
 | `categories` | string[] | yes | Categories (C1), primary first, e.g. `["subsidence", "groundwater"]` |
-| `signature` | string | yes | What the radar saw before interpretation: `darkening_both`, `hv_drop`, `brightening`, `strong_change`, `seasonal_cycle`, `sinking`, `soil_drying` |
+| `signature` | string | yes | What the radar saw before interpretation: `darkening_both`, `hv_drop`, `brightening`, `strong_change`, `seasonal_cycle`, `sinking`, `soil_drying`, `burn_scar` (GCOV plus NASA FIRMS: `date_range` starts at the fire season, `series` has `HV` and `HV_unburned_vegetation`) |
 | `product` | string | yes | NISAR product it comes from: `GCOV`, `GUNW`, `SME2` |
 | `title` | string | yes | Short, plain language |
 | `summary` | string | yes | One or two plain-language sentences, data basis first |
