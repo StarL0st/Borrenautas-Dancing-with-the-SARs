@@ -1,5 +1,4 @@
-# One image for the API (Cloud Run service) and the batch pipeline (Cloud Run job).
-# Build context is the repo root: backend/deploy/gcp.sh build
+# The backend image. Build context is the repo root (see backend/deploy/compose.yaml).
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.13 /uv /usr/local/bin/uv
@@ -16,9 +15,8 @@ COPY backend backend
 RUN uv sync --frozen --no-dev --package sars-pipeline
 
 ARG GIT_COMMIT=unknown
-# /data is the Cloud Storage bucket, mounted by Cloud Run (see backend/deploy/gcp.sh).
+# /data is mounted from the host (compose.yaml): selections, cached windows, outputs.
 ENV PATH=/app/.venv/bin:$PATH SARS_DATA_ROOT=/data GIT_COMMIT=$GIT_COMMIT
 
-# Default: the API. The batch job overrides the command with "sars-pipeline refresh".
-# SARS_SERVE_FLAGS=--jobs turns on POST /sites (set by gcp.sh api).
+# SARS_SERVE_FLAGS (compose.yaml): --jobs turns on POST /sites, --public opens place lookup.
 CMD ["sh", "-c", "sars-pipeline --data-dir /data/processed serve --host 0.0.0.0 --port ${PORT:-8080} --no-inbox ${SARS_SERVE_FLAGS:-}"]

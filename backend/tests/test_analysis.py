@@ -567,3 +567,8 @@ def test_friendly_cards_grade_by_share_and_confidence():
     assert by["urban"]["level"] == 1  # big but weak
     assert by["wildfires"]["level"] == 0  # watched for, nothing found: still a card
     assert friendly.cards(area, [], 100)["headline"] == "No change detected."
+    # A fire-detection layer (country mosaic) must not read as "no burned ground found".
+    fire = {"id": "fire-detections", "maturity": "PROVISIONAL"}
+    fire["provenance"] = {"params": {"detections": 12}}
+    card = friendly.cards({**area, "layers": [fire]}, [], 100)["cards"][-1]
+    assert card["category"] == "wildfires" and "12 active fires" in card["headline"]
