@@ -496,3 +496,34 @@ def test_mosaic_site_writes_layers_and_drying_event(tmp_path, monkeypatch):
     lon, lat = event["centroid"]
     assert -103.2 < lon < -102.0 and 20.4 < lat < 21.3  # where the dry block is
     assert event["evidence"]["drop_m3_m3"] == 0.15
+
+
+def test_friendly_cards_grade_by_share_and_confidence():
+    from sars_pipeline import friendly
+
+    def event(i, category, km2, confidence):
+        return {
+            "id": f"e{i}",
+            "categories": [category],
+            "area_km2": km2,
+            "confidence": confidence,
+            "date_range": ["2026-06-20", "2026-10-21"],
+            "maturity": "PROVISIONAL",
+            "layer_ids": ["change"],
+        }
+
+    area = {
+        "id": "x",
+        "title": "X",
+        "change_types": ["flood_wetland", "wildfire", "other"],
+        "layers": [{"maturity": "PROVISIONAL"}],
+    }
+    events = [event(0, "floods", 4, 0.9), event(1, "floods", 3, 0.5), event(2, "urban", 8, 0.2)]
+    doc = friendly.cards(area, events, area_km2=100)
+    by = {c["category"]: c for c in doc["cards"]}
+    assert doc["status"] == "alert" and doc["cards"][0]["category"] == "floods"
+    assert by["floods"]["level"] == 3 and by["floods"]["number"]["value"] == 7.0
+    assert by["floods"]["event_ids"] == ["e0", "e1"]
+    assert by["urban"]["level"] == 1  # big but weak
+    assert by["wildfires"]["level"] == 0  # watched for, nothing found: still a card
+    assert friendly.cards(area, [], 100)["headline"] == "No change detected."

@@ -14,10 +14,12 @@ from pathlib import Path
 
 import numpy as np
 
-from . import categorize, classify, firms
+from . import categorize, classify, firms, friendly
 from .categorize import COVER_COLORS, COVER_NAMES, decide, outline
 from .export import (
+    CONTRACT_VERSION,
     _software,
+    _write_json,
     attribution,
     backscatter_layer,
     load_events,
@@ -1044,6 +1046,9 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
         },
         "errors": errors,
     }
+    area["friendly"] = f"areas/{site_id}/friendly.json"
+    cards = friendly.cards(area, run.events, _bbox_km2(site["bbox"]))
+    _write_json(data_dir / area["friendly"], {"contract_version": CONTRACT_VERSION, **cards})
     manifest = load_manifest(data_dir)
     old = {a["id"] for a in manifest["areas"] if a.get("site") == site_id or a["id"] == site_id}
     manifest["areas"] = [a for a in manifest["areas"] if a["id"] not in old] + [area]
