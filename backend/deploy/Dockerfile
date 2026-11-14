@@ -19,6 +19,6 @@ ARG GIT_COMMIT=unknown
 # /data is the Cloud Storage bucket, mounted by Cloud Run (see backend/deploy/gcp.sh).
 ENV PATH=/app/.venv/bin:$PATH SARS_DATA_ROOT=/data GIT_COMMIT=$GIT_COMMIT
 
-# Default: the API. The batch job overrides the command with "sars-pipeline run".
+# Default: the API. The batch job overrides the command with "sars-pipeline refresh".
 # SARS_SERVE_FLAGS=--jobs turns on POST /sites (set by gcp.sh api).
 CMD ["sh", "-c", "sars-pipeline --data-dir /data/processed serve --host 0.0.0.0 --port ${PORT:-8080} --no-inbox ${SARS_SERVE_FLAGS:-}"]
