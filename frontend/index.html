@@ -4,16 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dancing with the SARs</title>
-    <style>
-      html, body, #map { margin: 0; height: 100%; }
-      #banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1;
-        padding: 4px 12px; background: #b45309; color: #fff; font: 14px system-ui; border-radius: 4px; }
-      #banner[hidden] { display: none; }
-    </style>
   </head>
   <body>
-    <div id="banner" role="status" hidden>Synthetic data: not a real place</div>
-    <div id="map"></div>
+    <header>
+      <h1>Dancing with the SARs</h1>
+      <button type="button" id="tour-btn">Tutorial</button>
+      <div id="banner" role="status" hidden>Sample data: placeholder areas and reports, not real observations</div>
+    </header>
+    <main class="app">
+      <nav aria-label="Themes and areas">
+        <h3>Themes</h3>
+        <div id="tabs" role="group" aria-label="Filter areas by theme"></div>
+        <div id="topics"></div>
+        <h3>Areas</h3>
+        <p id="status" class="muted" role="status"></p>
+        <ul id="results"></ul>
+      </nav>
+      <div id="map" role="region" aria-label="Globe of radar study areas"></div>
+      <aside id="detail" aria-label="Selected area"></aside>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

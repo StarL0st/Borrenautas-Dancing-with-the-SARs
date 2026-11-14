@@ -20,4 +20,30 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
-`src/main.ts` is only a toolchain check. It loads the manifest, shows the latest image overlay of the first area, reloads on each `manifest` event, and shows a banner for synthetic data. Replace it with the real viewer from `specs/F04-frontend-map-viewer.md`.
+A globe home screen that zooms into a map (one MapLibre map, `globe` projection).
+
+- **Themes:** seven filters (Agriculture, Climate Resilience, Disasters, Ecological Conservation, Health & Air Quality, Water Resources, Wildland Fires) plus "All". Picking one lights only its areas and spins the globe to the first. Defined in `src/categories.ts`.
+- **Area list:** the same areas as a keyboard-friendly list with dates and counts.
+- **Area details:** timeline of reports, and for areas with radar images a polarization picker, a date slider over the available dates, opacity, a legend, and the full provenance (C3).
+- **Tutorial:** a five-step tour (`src/tour.ts`), shown on first visit and from the Tutorial button.
+- **Manifest:** loaded from the data base URL; an unsupported major `contract_version` shows an error and the app keeps working. Refetches on each `manifest` event from the live server.
+
+### Placeholder data
+
+`src/sample-areas.ts` holds 14 invented areas with invented reports, because the contract has no themed areas or past reports yet. They are flagged synthetic and a banner shows whenever one is listed. Replace them when the back end provides this data. Contract change types map to themes in `src/logic.ts` (`THEMES`); `other` maps to none, so those areas appear only under "All".
+
+### Not done yet (from `specs/F04`)
+
+Before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, colormaps other than `gray`, the time-series chart (F05).
+
+## Test
+
+```
+npm test          # date, version and theme-mapping logic (Node's built-in test runner)
+```
+
+To see the radar path without the back end, copy `../data/processed` to `public/data/` (gitignored) and run `VITE_DATA_BASE=./data/ npm run dev`.
+
+## AI use
+
+The code in this folder from the globe viewer onward was written with Claude Code (Anthropic), directed and reviewed by the front-end lane. No AI-generated images, audio or video are used. The basemap is the MapLibre demo tiles; theme names and topics follow NASA ARSET training areas.
