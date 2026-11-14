@@ -1,0 +1,346 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index c6f86ae..86c1303 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -22,6 +22,7 @@
+           <label for="lon">Longitude (-180 to 180)</label>
+           <input id="lon" type="number" min="-180" max="180" step="any" required placeholder="-99.13" />
+           <button type="submit" class="primary">Go</button>
++          <button type="button" id="process">Process this place</button>
+         </form>
+         <h3>Areas</h3>
+         <p id="status" class="muted" role="status"></p>
+diff --git a/frontend/src/globe.ts b/frontend/src/globe.ts
+index c0d45ac..ee87107 100644
+--- a/frontend/src/globe.ts
++++ b/frontend/src/globe.ts
+@@ -1,10 +1,11 @@
+ // The globe and the zoomed-in map are one MapLibre map: the "globe" projection turns flat on
+ // its own as you zoom in.
+-import { Map, Marker, NavigationControl, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
++import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
+ // MapLibre cannot find its worker file by itself once Vite bundles it, so hand it the URL.
+ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+ import "maplibre-gl/dist/maplibre-gl.css";
+-import type { AreaView, Layer } from "./logic";
++import type { AreaView, EventFeature, Layer } from "./logic";
++import { el } from "./ui";
+ 
+ setWorkerUrl(workerUrl);
+ 
+@@ -84,6 +85,30 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
+         },
+         paint: { "text-color": "#e6f1f5", "text-halo-color": "#03060a", "text-halo-width": 1.5 },
+       });
++      // Detected changes (events.geojson): outlines when close, dots at every zoom.
++      const empty = { type: "FeatureCollection" as const, features: [] };
++      map.addSource("events", { type: "geojson", data: empty });
++      map.addSource("event-points", { type: "geojson", data: empty });
++      map.addLayer({
++        id: "events-fill", type: "fill", source: "events", minzoom: 8,
++        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 },
++      }, "areas-box");
++      map.addLayer({
++        id: "events-line", type: "line", source: "events", minzoom: 8,
++        paint: { "line-color": ["get", "color"], "line-width": 1.5 },
++      }, "areas-box");
++      map.addLayer({
++        id: "events-dot", type: "circle", source: "event-points",
++        paint: {
++          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
++          "circle-color": ["get", "color"], "circle-stroke-color": "#03060a", "circle-stroke-width": 1,
++        },
++      });
++      for (const layer of ["events-fill", "events-dot"]) {
++        map.on("click", layer, (e) => picking || showEvent(e.features![0].properties as EventFeature["properties"], e.lngLat));
++        map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
++        map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
++      }
+       // The halo is the click target so the dots are easy to hit on touch screens.
+       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
+       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
+@@ -94,6 +119,23 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
+ 
+   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+ 
++  const popup = new Popup({ maxWidth: "320px" });
++  // Built from DOM nodes, never HTML strings: event text comes from the data.
++  function showEvent(p: EventFeature["properties"], at: { lng: number; lat: number }) {
++    popup
++      .setLngLat(at)
++      .setDOMContent(
++        el(
++          "div",
++          { className: "event-popup" },
++          el("strong", {}, p.title),
++          el("p", { className: "muted" }, `${p.from} to ${p.to} · ${p.area_km2} km² · confidence ${Math.round(p.confidence * 100)}% · ${p.maturity} data`),
++          el("p", {}, p.summary),
++        ),
++      )
++      .addTo(map);
++  }
++
+   return {
+     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
+       await ready;
+@@ -113,6 +155,19 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
+       });
+     },
+ 
++    // Events already carry their display color; `shown` is the subset that passes the filters.
++    async setEvents(shown: (EventFeature & { properties: { color: string } })[]) {
++      await ready;
++      map.getSource<GeoJSONSource>("events")!.setData({ type: "FeatureCollection", features: shown as never });
++      map.getSource<GeoJSONSource>("event-points")!.setData({
++        type: "FeatureCollection",
++        features: shown.map((f) => ({
++          type: "Feature" as const, properties: f.properties,
++          geometry: { type: "Point" as const, coordinates: [f.properties.lon, f.properties.lat] },
++        })),
++      });
++    },
++
+     // MapLibre skips flight animations by itself when the user prefers reduced motion.
+     async focus(area: AreaView) {
+       await ready;
+diff --git a/frontend/src/logic.ts b/frontend/src/logic.ts
+index 1799eab..59fe5bf 100644
+--- a/frontend/src/logic.ts
++++ b/frontend/src/logic.ts
+@@ -28,6 +28,8 @@ export type Layer = {
+   colormap?: string;
+   synthetic: boolean;
+   provenance: Provenance;
++  group?: string; // contract 0.3: picker label, e.g. "HV backscatter", "Ground motion"
++  role?: string;
+ };
+ 
+ export type ManifestArea = {
+@@ -35,6 +37,7 @@ export type ManifestArea = {
+   title: string;
+   summary: string;
+   change_types: string[];
++  categories?: string[]; // contract 0.3: filter type ids (filters.ts), set by the back end
+   bbox?: Bbox;
+   center?: [number, number];
+   layers: Layer[];
+@@ -45,6 +48,16 @@ export type Manifest = { contract_version: string; synthetic: boolean; areas: Ma
+ 
+ export type TimelineEvent = { date: string; title: string; text: string };
+ 
++// One feature of events.geojson (contract 0.3, C6); properties are flat for MapLibre.
++export type EventFeature = {
++  type: "Feature";
++  geometry: unknown;
++  properties: {
++    id: string; area_id: string; category: string; categories: string; title: string; summary: string;
++    from: string; to: string; confidence: number; area_km2: number; maturity: string; lon: number; lat: number;
++  };
++};
++
+ // What the UI shows for one area, whether it came from the manifest or from the placeholders.
+ export type AreaView = {
+   id: string;
+@@ -81,7 +94,9 @@ export const inFilter = (a: AreaView, ticked: ReadonlySet<string>) =>
+ 
+ export const layerDate = (l: Layer) => l.date ?? l.date_range?.[1] ?? "";
+ 
+-const pol = (l: Layer) => l.polarization ?? "none";
++// The picker groups layers by the back end's `group` label when there is one (imagery per
++// polarization, change, ground motion, soil moisture), else by polarization.
++const pol = (l: Layer) => l.group ?? l.polarization ?? "none";
+ 
+ export const polarizations = (layers: Layer[]) => [...new Set(layers.map(pol))];
+ 
+@@ -92,24 +107,38 @@ export const datesFor = (layers: Layer[], p: string) =>
+ export const layerAt = (layers: Layer[], p: string, date: string) =>
+   layers.find((l) => pol(l) === p && layerDate(l) === date);
+ 
+-export function toAreaView(a: ManifestArea): AreaView {
++// Back-end categories are filter ids already; "other" is not a filter, so such areas stay visible.
++const typesOf = (a: ManifestArea) =>
++  a.categories ? a.categories.filter((c) => c !== "other") : typesFor(a.change_types ?? []);
++
++const report = (e: EventFeature): TimelineEvent => ({
++  date: e.properties.to,
++  title: e.properties.title,
++  text: `${e.properties.summary} Confidence ${Math.round(e.properties.confidence * 100)}%.`,
++});
++
++export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaView {
+   // shortcut: only image overlays are drawn, add xyz_tiles and geojson when the back end emits them.
+   const layers = a.layers.filter((l) => l.kind === "image_overlay" && l.bounds);
+   const bbox = a.bbox ?? layers[0]?.bounds ?? [-180, -85, 180, 85];
+   const dates = [...new Set(layers.map(layerDate).filter(Boolean))].sort();
++  const mine = reports.filter((e) => e.properties.area_id === a.id);
+   return {
+     id: a.id,
+     title: a.title,
+     summary: a.summary,
+-    types: typesFor(a.change_types ?? []),
++    types: typesOf(a),
+     center: a.center ?? [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2],
+     bbox,
+     synthetic: layers.some((l) => l.synthetic),
+-    events: dates.map((date) => ({
+-      date,
+-      title: "Radar pass",
+-      text: `Polarizations: ${polarizations(layers.filter((l) => layerDate(l) === date)).join(", ")}`,
+-    })),
++    // Detected changes from the back end when there are any, newest first; else one row per pass.
++    events: mine.length
++      ? mine.map(report).sort((x, y) => y.date.localeCompare(x.date))
++      : dates.map((date) => ({
++          date,
++          title: "Radar pass",
++          text: `Polarizations: ${polarizations(layers.filter((l) => layerDate(l) === date)).join(", ")}`,
++        })),
+     layers,
+     credits: a.credits ?? [],
+   };
+diff --git a/frontend/src/main.ts b/frontend/src/main.ts
+index 9c64f59..7067a83 100644
+--- a/frontend/src/main.ts
++++ b/frontend/src/main.ts
+@@ -4,7 +4,7 @@ import { GROUPS, typeLabel } from "./filters";
+ import { createGlobe, type ViewMode } from "./globe";
+ import {
+   datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
+-  type AreaView, type Layer, type Manifest,
++  type AreaView, type EventFeature, type Layer, type Manifest,
+ } from "./logic";
+ import { startTour } from "./tour";
+ import { el } from "./ui";
+@@ -17,6 +17,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as
+ const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
+ 
+ let live: AreaView[] = [];
++let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
+ const ticked = new Set(GROUPS.flatMap((g) => g.items.map((i) => i.id))); // filter types switched on
+ let opened: string[] = []; // area ids open as tabs, newest first
+ const collapsed = new Set<string>();
+@@ -25,6 +26,12 @@ const views = new Map<string, { pol: string; date: string; opacity: number }>();
+ const areas = () => [...live, ...EXAMPLE_AREAS];
+ const colorOf = (a: AreaView) =>
+   GROUPS.find((g) => g.items.some((i) => ticked.has(i.id) && a.types.includes(i.id)))?.color ?? "#e6f1f5";
++const categoryColor = (c: string) => GROUPS.find((g) => g.items.some((i) => i.id === c))?.color ?? "#e6f1f5";
++// Like areas: an event whose categories are not filters ("other") is always shown.
++const eventShown = (e: EventFeature) => {
++  const cats = e.properties.categories.split(",").filter((c) => GROUPS.some((g) => g.items.some((i) => i.id === c)));
++  return !cats.length || cats.some((c) => ticked.has(c));
++};
+ const dot = (color: string) => {
+   const d = el("span", { className: "dot" });
+   d.style.background = color;
+@@ -75,6 +82,28 @@ $<HTMLFormElement>("coords").onsubmit = (e) => {
+   globe.goTo(+$<HTMLInputElement>("lon").value, +$<HTMLInputElement>("lat").value);
+ };
+ 
++// Ask the back end to process the typed place (needs `serve --jobs`). It shows up when ready:
++// the server pushes a manifest event and the app reloads.
++$("process").onclick = async () => {
++  const form = $<HTMLFormElement>("coords");
++  if (!form.reportValidity()) return;
++  const lat = +$<HTMLInputElement>("lat").value, lon = +$<HTMLInputElement>("lon").value;
++  status.className = "muted";
++  status.textContent = "Asking the radar data server to process this place...";
++  try {
++    const res = await fetch(new URL("sites", BASE), {
++      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
++    });
++    status.textContent =
++      res.status === 202 ? "Processing this place. It appears on the globe when ready (a few minutes)."
++      : res.status === 404 ? "This radar data server does not process new places."
++      : res.status === 401 ? "Processing new places needs an access token on this server."
++      : `The server could not take the request (${res.status}).`;
++  } catch {
++    status.textContent = "Radar data server not connected.";
++  }
++};
++
+ // ---- Area list, dots and open tabs ----
+ 
+ function render() {
+@@ -110,6 +139,9 @@ function render() {
+   banner.textContent = notes.join(" ");
+ 
+   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
++  globe.setEvents(
++    reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: categoryColor(e.properties.category) } })),
++  );
+   globe.keepOverlays(opened);
+   cards.replaceChildren(
+     ...(opened.length
+@@ -203,7 +235,7 @@ function radarSection(a: AreaView): Node[] {
+   setDates();
+   return [
+     el("h4", {}, "Radar images"),
+-    el("label", { htmlFor: polSelect.id }, "Polarization (how the radar wave is sent and received)"), polSelect,
++    el("label", { htmlFor: polSelect.id }, "Layer (radar image per polarization, detected change, ground motion, soil moisture)"), polSelect,
+     el("label", { htmlFor: slider.id }, "Date: ", dateOut), slider,
+     el("label", { htmlFor: opacity.id }, "Image opacity"), opacity,
+     info,
+@@ -250,9 +282,14 @@ async function loadLive() {
+     if (!res.ok) throw new Error(String(res.status));
+     const manifest: Manifest = await res.json();
+     if (supportedVersion(manifest.contract_version)) {
+-      live = manifest.areas.map(toAreaView);
++      // events.geojson is optional (older back ends have none); the areas still load without it.
++      reports = await fetch(new URL("events.geojson", BASE))
++        .then((r) => (r.ok ? r.json() : { features: [] }))
++        .then((g) => g.features ?? [])
++        .catch(() => []);
++      live = manifest.areas.map((a) => toAreaView(a, reports));
+       status.className = "muted";
+-      status.textContent = `Radar data connected: ${live.length} area(s).`;
++      status.textContent = `Radar data connected: ${live.length} area(s), ${reports.length} detected change(s).`;
+     } else {
+       live = [];
+       status.className = "error";
+@@ -260,6 +297,7 @@ async function loadLive() {
+     }
+   } catch {
+     live = [];
++    reports = [];
+     status.className = "muted";
+     status.textContent = "Radar data server not connected. Showing example locations only.";
+   }
+diff --git a/frontend/src/style.css b/frontend/src/style.css
+index 7884aa7..ed4ed33 100644
+--- a/frontend/src/style.css
++++ b/frontend/src/style.css
+@@ -166,3 +166,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
+   #wheel { width: 150px; }
+   .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
+ }
++
++/* Event popups (testing integration): dark like the panels, so data text stays readable. */
++.maplibregl-popup-content { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
++.maplibregl-popup-tip { border-top-color: var(--panel) !important; border-bottom-color: var(--panel) !important; }
++.event-popup p { margin: 6px 0 0; }
+diff --git a/frontend/test/logic.test.ts b/frontend/test/logic.test.ts
+index bf5be23..c55c4fb 100644
+--- a/frontend/test/logic.test.ts
++++ b/frontend/test/logic.test.ts
+@@ -33,3 +33,21 @@ test("manifest areas map to filter types and survive missing optional fields", (
+   assert.ok(inFilter(other, new Set()), "untyped areas always show");
+   assert.equal(other.layers.length, 0);
+ });
++
++test("contract 0.3: categories drive filters, groups drive the picker, events fill the timeline", () => {
++  const grouped = [
++    layer("HH", "2026-01-01", { group: "HH backscatter" }),
++    layer("HH", "2026-01-13", { group: "HH change", date: undefined, date_range: ["2026-01-01", "2026-01-13"] }),
++  ];
++  const report = (area_id: string, to: string, title: string) =>
++    ({ type: "Feature", geometry: null, properties: { area_id, to, title, summary: "S.", confidence: 0.5 } }) as never;
++  const area = toAreaView(
++    { id: "c", title: "C", summary: "", change_types: ["deformation"], categories: ["subsidence", "other"], layers: grouped },
++    [report("c", "2026-01-13", "Ground sinking"), report("elsewhere", "2026-02-01", "No")],
++  );
++  assert.deepEqual(area.types, ["subsidence"]);
++  assert.deepEqual(datesFor(area.layers, "HH change"), ["2026-01-13"]);
++  assert.deepEqual(datesFor(area.layers, "HH backscatter"), ["2026-01-01"]);
++  assert.deepEqual(area.events.map((e) => e.title), ["Ground sinking"]);
++  assert.match(area.events[0].text, /Confidence 50%/);
++});
