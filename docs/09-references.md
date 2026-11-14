@@ -13,11 +13,13 @@ Status column: **used** (data or code in the product), **consulted** (read for f
 | NISAR Provisional Geocoded Polarimetric Covariance Product (Version 1), `NISAR_L2_GCOV_PROVISIONAL_V1` | [10.5067/NIL2GCOV-P1](https://doi.org/10.5067/NIL2GCOV-P1), CMR C2854338529-ASF | used | San Francisco test site (track 135, frame 21) |
 | NISAR Validated Geocoded Polarimetric Covariance Product (Version 1), `NISAR_L2_GCOV_V1` | [10.5067/NIL2GCOV-V1](https://doi.org/10.5067/NIL2GCOV-V1), CMR C3622241360-ASF | used | Mexico City site (track 19, frame 11) |
 | NISAR Beta GCOV, `NISAR_L2_GCOV_BETA_V1` | [10.5067/NIL2GCOV-B1](https://doi.org/10.5067/NIL2GCOV-B1) | consulted | Format checks only. Beta products "are not intended for use in scientific research" (Earthdata catalog) |
-| NISAR Provisional Geocoded Unwrapped Interferogram (Version 1), `NISAR_L2_GUNW_PROVISIONAL_V1` | [10.5067/NIL1GUNW-P1](https://doi.org/10.5067/NIL1GUNW-P1) (as listed in CMR), CMR C2854335566-ASF | candidate | Subsidence, ground deformation |
-| NISAR Provisional Soil Moisture (Version 1), `NISAR_L3_SME2_PROVISIONAL_V1` | [10.5067/NIL3SME2-P1](https://doi.org/10.5067/NIL3SME2-P1), CMR C2854344945-ASF | candidate | Drought, soil moisture |
-| NASA FIRMS active fire data | to add | candidate | Wildfire context |
+| NISAR Provisional Geocoded Unwrapped Interferogram (Version 1), `NISAR_L2_GUNW_PROVISIONAL_V1` | [10.5067/NIL2GUNW-P1](https://doi.org/10.5067/NIL2GUNW-P1), CMR C2854335566-ASF. CMR lists `10.5067/NIL1GUNW-P1`, which does not resolve (checked 2026-11-14); the granules' own `productDoi` is `NIL2GUNW-P1`, which does | used | Ground motion, subsidence |
+| NISAR Provisional Soil Moisture (Version 1), `NISAR_L3_SME2_PROVISIONAL_V1` | [10.5067/NIL3SME2-P1](https://doi.org/10.5067/NIL3SME2-P1), CMR C2854344945-ASF | used | Soil moisture series, soil drying |
+| NASA FIRMS active fire data (VIIRS S-NPP, standard and near-real-time) via the FIRMS area API | https://firms.modaps.eosdis.nasa.gov/api/ | used when `FIRMS_MAP_KEY` is set (not run yet: no key) | Wildfire context |
 | NASADEM (elevation) | to add | candidate | Slope for landslides |
 | OPERA DSWx (surface water) and DIST (vegetation disturbance), NASA JPL | to add | candidate | Flood and forest-loss context and cross-checks |
+
+The GUNW `mask` layer embeds a NISAR water mask that, per its own attribute text, JPL derived from JRC Global Surface Water, ESA WorldCover, OpenStreetMap water polygons, and MEaSUREs GIMP. We use it only as part of the NASA product; credit the product.
 
 The exact granules behind each site are listed in `data/selected/<site>.json` and in every layer's and event's `provenance.source_granules`.
 
@@ -46,6 +48,10 @@ Use the same pattern with each collection's title and DOI.
 | Source | URL | Used for |
 |---|---|---|
 | NISAR Data User Guide (Kristenson et al. 2026, Zenodo, [10.5281/ZENODO.20075813](https://doi.org/10.5281/ZENODO.20075813)) | https://nisar-docs.asf.alaska.edu/ | Product levels, maturity, access, GCOV layout, projections, metadata. Pages: `products-overview/`, `gcov/`, `data-format/`, `metadata/`, `projections/`, `earthdata-search/`, `asf-search`, `aws-s3-access/` |
+| NISAR L2 GUNW Product Specification, JPL D-102272 Rev E | https://nisar.asf.earthdatacloud.nasa.gov/NISAR-SAMPLE-DATA/DOCS/NISAR_D-102272_RevE_NASA_SDS_Product_Specification_L2_GUNW_Nov8_2024_w-sigs.pdf | GUNW layers; the ionospheric phase screen is "not applied ... by default" (p. 15). The phase sign is not stated there |
+| NISAR GUNW data guide page | https://nisar-docs.asf.alaska.edu/gunw/ | GUNW overview |
+| ISCE / ARIA interferogram sign convention (positive unwrapped phase = range increase) | general InSAR practice; **VERIFY** with a citable source | Phase-to-motion sign; also checked against Mexico City's known subsidence |
+| Mexico City subsidence context, e.g. Chaussard, E., Wdowinski, S., Cabral-Cano, E., Amelung, F. (2014), "Land subsidence in central Mexico detected by ALOS InSAR time-series", Remote Sensing of Environment 140, 94-106 | **VERIFY** (cited from memory, not opened) | Story context; sanity check of the GUNW result |
 | NISAR L2 GCOV Product Specification, JPL D-102274 Rev F | https://cumulus.asf.earthdatacloud.nasa.gov/PUBLIC/DATA/NISAR/NISAR_D-102274_RevF_NASA_SDS_Product_Specification_L2_GCOV_w-esigs.pdf | HDF5 paths, units (linear gamma0), masks, grids |
 | Earthdata NISAR catalog (GCOV Beta) | https://www.earthdata.nasa.gov/data/catalog/asf-nisar-l2-gcov-beta-v1-1 | Citation format, use statement |
 | NASA CMR search API | https://cmr.earthdata.nasa.gov/search/ | Collection titles, DOIs, concept IDs |
@@ -84,6 +90,9 @@ Use the same pattern with each collection's title and DOI.
 | FastAPI | 0.162.7 | MIT | backend: API |
 | Uvicorn | 0.54.0 | BSD-3-Clause | backend: API server |
 | python-dotenv | 1.2.4 | BSD-3-Clause | backend: local secrets |
+| rasterio | 1.5.2 | BSD-3-Clause | backend: event outlines from pixels |
+| Shapely | 2.2.0 | BSD-3-Clause | backend: outline simplification, inside points |
+| affine | 3.0.1 | BSD-3-Clause | backend: grid transforms (rasterio dependency) |
 | uv | 0.12.13 | MIT OR Apache-2.0 | tooling |
 | MapLibre GL JS | 6.18.0 | BSD-3-Clause | frontend: globe and map |
 | Vite | 8.3.8 | MIT | frontend: build |
@@ -91,4 +100,4 @@ Use the same pattern with each collection's title and DOI.
 
 ## 5. App credits (shown on every layer and event)
 
-The backend writes the matching collection citation into each layer's and event's `provenance.attribution` and each area's `credits`, chosen by maturity (`backend/src/sars_pipeline/export.py`, `CITATIONS`).
+The backend writes the matching collection citation into each layer's and event's `provenance.attribution` and each area's `credits`, chosen by product and maturity (`backend/src/sars_pipeline/export.py`, `CITATIONS`).
