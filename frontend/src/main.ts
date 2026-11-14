@@ -796,7 +796,8 @@ function homeUi(on: boolean) {
 }
 
 // Start sends the name round the Earth letter by letter, like type on a ring: across the front
-// of the globe, round its side and out of sight behind it. The house button plays it backwards.
+// of the globe, round its side and out of sight behind it. The house button brings the letters
+// back up from behind the Earth, one by one, into the title.
 // Each letter is drawn twice: once over the map and once under it, where the Earth itself hides
 // it (the map is see-through around the globe). A letter shows in one layer or the other.
 const nameEl = document.querySelector<HTMLElement>(".home-name")!;
@@ -831,37 +832,58 @@ function letterPath(home: Point, g: Point, far: number, size: number, behind: bo
     const ringX = g.x + far * Math.sin(turn), ringY = g.y + 0.12 * far * Math.cos(turn);
     const scale = 1 + (size * (0.75 + 0.25 * Math.cos(turn)) - 1) * join; // smaller on the far side
     return {
-      transform: `translate(${home.x + (ringX - home.x) * join}px, ${home.y + (ringY - home.y) * join}px) translate(-50%, -50%) scale(${scale})`,
+      // Each letter faces outward from the ring, so it turns edge-on as it rounds the side.
+      transform: `translate(${home.x + (ringX - home.x) * join}px, ${home.y + (ringY - home.y) * join}px) translate(-50%, -50%) scale(${scale}) perspective(600px) rotateY(${turn * join}rad)`,
       opacity: i > 18 === behind ? 1 : 0,
     };
   });
 }
 
-// Fly every letter out (or, reversed, back in). Resolves when the last one has landed.
-async function flyName(g: Point, reverse: boolean) {
-  const spans = [...nameEl.children] as HTMLElement[];
-  const type = getComputedStyle(nameEl);
+// A copy of one letter of the name in a layer, with where that letter sits in the title.
+function flyer(span: HTMLElement, layer: HTMLElement) {
+  const type = getComputedStyle(nameEl), r = span.getBoundingClientRect();
+  const letter = el("span", { className: "fly" }, span.textContent!);
+  Object.assign(letter.style, { fontSize: type.fontSize, fontWeight: type.fontWeight, fontFamily: type.fontFamily });
+  layer.append(letter);
+  return { letter, home: { x: r.left + r.width / 2, y: r.top + r.height / 2 } };
+}
+const letters = () => [...nameEl.children] as HTMLElement[];
+const landed = (runs: Promise<unknown>[]) => Promise.all(runs).then(() => layers.forEach((layer) => layer.replaceChildren()));
+
+// Fly every letter out and round the globe. Resolves when the last one is behind it.
+function flyName(g: Point) {
+  const spans = letters();
   const far = Math.min(globe.roughRadius * 1.15, innerWidth * 0.46);
-  const size = Math.min(1, 46 / parseFloat(type.fontSize));
-  const last = (spans.length - 1) * GAP_MS;
-  await Promise.all(
-    spans.flatMap((span, i) => {
-      const r = span.getBoundingClientRect();
-      const home = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      // Going out, the last letter leads, so the word reads left to right as it crosses the front.
-      // Coming back is the same film backwards.
-      const delay = reverse ? i * GAP_MS : last - i * GAP_MS;
-      return layers.map((layer, n) => {
-        const letter = el("span", { className: "fly" }, span.textContent!);
-        Object.assign(letter.style, { fontSize: type.fontSize, fontWeight: type.fontWeight, fontFamily: type.fontFamily });
-        layer.append(letter);
+  const size = Math.min(1, 46 / parseFloat(getComputedStyle(nameEl).fontSize));
+  return landed(
+    spans.flatMap((span, i) =>
+      layers.map((layer, n) => {
+        const { letter, home } = flyer(span, layer);
+        // The last letter leads, so the word reads left to right as it crosses the front.
         return letter.animate(letterPath(home, g, far, size, n === 1), {
-          duration: LAP_MS, delay, direction: reverse ? "reverse" : "normal", fill: "both", easing: "cubic-bezier(0.4, 0, 0.6, 1)",
+          duration: LAP_MS, delay: (spans.length - 1 - i) * GAP_MS, fill: "both", easing: "cubic-bezier(0.4, 0, 0.6, 1)",
         }).finished;
-      });
+      }),
+    ),
+  );
+}
+
+// Coming home: every letter rises from behind the Earth's horizon straight up into its place,
+// first letter first. They travel in the layer under the map, so the Earth covers them at first.
+function riseName() {
+  return landed(
+    letters().map((span, i) => {
+      const { letter, home } = flyer(span, layers[1]);
+      const at = (y: number, rest: string) => `translate(${home.x}px, ${y}px) translate(-50%, -50%) ${rest}`;
+      return letter.animate(
+        [
+          { transform: at(innerHeight + 60, "scale(0.6) perspective(600px) rotateX(-70deg)"), opacity: 1 },
+          { transform: at(home.y, "scale(1) perspective(600px) rotateX(0deg)"), opacity: 1 },
+        ],
+        { duration: 900, delay: i * 110, fill: "both", easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+      ).finished;
     }),
   );
-  for (const layer of layers) layer.replaceChildren();
 }
 
 async function leaveHome() {
@@ -873,7 +895,7 @@ async function leaveHome() {
   globe.welcome(false, 1700);
   $("home-btn").focus();
   if (move) {
-    await flyName(globeCenter(true), false);
+    await flyName(globeCenter(true));
     document.body.classList.remove("orbiting");
   }
   orbiting = false;
@@ -890,20 +912,14 @@ async function leaveHome() {
 async function goHome() {
   if (orbiting) return;
   orbiting = true;
-  setSpin(false); // the globe holds still while the letters come round
+  homeUi(true);
   if (!calm.matches) {
-    document.body.classList.add("orbiting");
-    homeUi(true);
-    globe.whole(700); // the letters can only come out from behind a whole Earth
-    await wait(700);
-    // The camera drops to the horizon once the last letter is out from behind the globe.
-    setTimeout(() => globe.welcome(true, 1400), (nameEl.children.length - 1) * GAP_MS + LAP_MS / 3);
-    await flyName(globeCenter(false), true);
+    document.body.classList.add("orbiting"); // the name, the greeting and Start wait for the letters
+    globe.welcome(true, 1200);
+    await wait(800); // the horizon is nearly in place before the first letter comes up
+    await riseName();
     document.body.classList.remove("orbiting");
-  } else {
-    homeUi(true);
-    globe.welcome(true, 0);
-  }
+  } else globe.welcome(true, 0);
   setSpin(!calm.matches);
   $("start").focus();
   orbiting = false;

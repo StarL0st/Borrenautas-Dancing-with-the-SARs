@@ -255,6 +255,13 @@ button.link { margin-top: 6px; padding: 4px 8px; }
 #home h2 { margin: 0; text-shadow: 0 2px 24px var(--bg); }
 /* A small greeting over the name, which carries the screen. */
 .home-hello { display: block; font-size: clamp(1.3rem, 3vw, 2.2rem); font-weight: 400; }
+/* The name is a little 3D: a stack of darker copies behind each letter gives it a side. In em, so
+   the flying letters (same rule, other sizes) keep the same depth. */
+.home-name, .fly {
+  text-shadow:
+    0.012em 0.012em 0 #b9cfdc, 0.024em 0.024em 0 #a3bfd0, 0.036em 0.036em 0 #8eb1c7, 0.048em 0.048em 0 #7a9db3,
+    0.06em 0.06em 0 #66899f, 0.072em 0.072em 0 #53758b, 0.1em 0.12em 0.14em #000a;
+}
 .home-name { display: block; font-size: clamp(3.4rem, 13vw, 9rem); line-height: 1.05; letter-spacing: 0.04em; }
 #home button { padding: 10px 48px; font-size: 1.3rem; }
 #home > * {

@@ -168,6 +168,7 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - **Live events work without a back end.** `src/livefeeds.ts` is a port of the back end's `livefeeds.py` (branch `jopa-testing`; keep the two in step). When no back end keeps `live.geojson` fresh (older than 30 minutes, or missing), the page asks USGS, GDACS and NASA EONET itself, at most every 15 minutes, and drops events older than 24 hours. A fresh back-end file still wins, because only the back end can add NOAA NHC (its server refuses requests from web pages) and NASA FIRMS (needs a key).
 - **Start animation, letter by letter:** the name's letters leave the title one after another, cross the front of the Earth as a line, round its side and go behind it; the house button plays it backwards. Each letter is drawn in two layers, over the map and under it (`#fly-front`, `#fly-back`); the map is see-through around the globe, so the Earth itself hides the letters behind it. This replaces the mask of the eighth batch.
 - Checked in headless Chrome at desktop size: events loaded with no data file (194 events), and still frames of both animations. Not checked: the animation playing in a real browser, phone size, other browsers.
+- Later: the name has a 3D look (stacked text shadows; the flying letters also turn edge-on as they round the globe). The house button no longer plays the orbit backwards: the letters rise one by one from behind the Earth's horizon into the title (`riseName`).
 
 ## Test
 

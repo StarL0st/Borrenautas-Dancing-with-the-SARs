@@ -321,12 +321,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
 
     // The welcome screen skims the surface with the Earth's curve low on the screen; leaving it
     // swings a sixth of a turn round to the whole globe. MapLibre jumps instead for reduced motion.
-    // The whole Earth, level and in the middle, keeping the side that faces the camera.
-    whole(duration: number) {
-      popup.remove();
-      map.easeTo({ ...HOME.globe, center: [map.getCenter().lng, HOME.globe.center[1]], padding: { top: 0 }, duration });
-    },
-
     // About the globe's radius on screen in the whole-Earth view, in pixels (it varies a little
     // with the window size), for planning a path round it.
     roughRadius: (0.85 * 512 * 2 ** HOME.globe.zoom) / (2 * Math.PI * Math.cos((HOME.globe.center[1] * Math.PI) / 180)),
