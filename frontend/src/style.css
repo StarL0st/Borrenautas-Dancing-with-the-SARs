@@ -127,7 +127,7 @@ label { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); 
 input[type="range"], select { width: 100%; accent-color: var(--accent); }
 output { color: var(--text); font-weight: 600; }
 
-.ramp { height: 12px; margin-top: 10px; border: 1px solid var(--line); background: linear-gradient(to right, #000, #fff); }
+.ramp { height: 12px; margin-top: 10px; border: 1px solid var(--line); }
 .legend { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 
 details { margin-top: 10px; }
@@ -167,7 +167,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
   .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
 }
 
-/* Event popups (testing integration): dark like the panels, so data text stays readable. */
-.maplibregl-popup-content { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
-.maplibregl-popup-tip { border-top-color: var(--panel) !important; border-bottom-color: var(--panel) !important; }
+/* Event popups: dark like the panels. `.stage` outranks MapLibre's own stylesheet, which loads later. */
+.stage .maplibregl-popup-content { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+.stage .maplibregl-popup .maplibregl-popup-tip { border-top-color: var(--panel); border-bottom-color: var(--panel); }
+.stage .maplibregl-popup-close-button { color: var(--text); background: none; border: 0; font-size: 18px; }
 .event-popup p { margin: 6px 0 0; }

@@ -242,12 +242,27 @@ function radarSection(a: AreaView): Node[] {
   ];
 }
 
+// The colors the back end paints into its images (backend/src/sars_pipeline/site.py), from the
+// low end of `value_range` to the high end. Keep in step with the back end.
+// shortcut: "classes" has no color bar because the contract does not list its classes; the
+// layer description names the colors. Add swatches if the contract gains a class list.
+const RAMPS: Record<string, string> = {
+  gray: "#000, #fff",
+  rdbu: "rgb(215 48 39), transparent, rgb(40 110 220)",
+  brbg: "rgb(166 97 26), rgb(1 133 113)",
+};
+
 function layerInfo(l: Layer): Node[] {
   const out: Node[] = [el("p", {}, l.description)];
   if (l.value_range) {
     const [min, max] = l.value_range;
-    // shortcut: only the "gray" colormap has a color bar; others show the range as text. Add ramps as the back end adds colormaps.
-    if (l.colormap === "gray") out.push(el("div", { className: "ramp" }));
+    const stops = RAMPS[l.colormap ?? ""];
+    if (stops) {
+      const bar = el("div", { className: "ramp" });
+      // Ground motion is painted with the sign flipped (red = positive = away from the satellite).
+      bar.style.background = `linear-gradient(${l.role === "motion" ? "to left" : "to right"}, ${stops})`;
+      out.push(bar);
+    }
     out.push(el("p", { className: "legend" }, el("span", {}, `${min} ${l.units}`), el("span", {}, `${max} ${l.units}`)));
   }
   const p = l.provenance;

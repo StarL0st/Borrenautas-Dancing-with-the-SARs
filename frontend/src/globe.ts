@@ -201,7 +201,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
         url: new URL(layer.url, base).href,
         coordinates: [[w, n], [e, n], [e, s], [w, s]],
       });
-      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } }, "areas-box");
+      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } }, "events-fill");
       overlays.add(areaId);
     },
 
