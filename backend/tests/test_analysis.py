@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sars_pipeline import categorize, classify, firms, gunw, live, remote
+from sars_pipeline.export import load_manifest
 from sars_pipeline.granule import GRIDS, IDENT, open_granule, read_window, to_db
 from sars_pipeline.selection import choose
 from sars_pipeline.server import contains, create_app
@@ -83,6 +84,9 @@ def test_decision_table():
     assert categorize.decide("hv_drop", V, B, fires=3) == ["wildfires", "deforestation"]
     assert categorize.decide("hv_drop", B, B) == ["agriculture"]
     assert categorize.decide("brightening", B, U) == ["urban"]
+    assert categorize.decide("brightening", B, B) == ["agriculture"]  # crops, wet soil
+    assert categorize.decide("brightening", V, V, hh_minus_hv_db=4) == ["floods"]  # double bounce
+    assert categorize.decide("brightening", V, V, hh_minus_hv_db=1) == ["other"]
     assert categorize.decide("sinking", U, U) == ["subsidence", "groundwater"]
     assert categorize.decide("soil_drying", 0, 0) == ["drought"]
     assert categorize.decide("strong_change", V, V) == ["other"]
@@ -235,8 +239,8 @@ def flood_site(tmp_path, monkeypatch):
     out = tmp_path / "out"
     sel = {"products": {"GCOV": {"maturity": "OTHER", "granules": rows}}}
 
-    def run():
-        return run_site("synth", site, out, tmp_path / "interim", sel)
+    def run(**extra):
+        return run_site("synth", {**site, **extra}, out, tmp_path / "interim", sel)
 
     return out, run(), run
 
@@ -254,10 +258,31 @@ def test_run_site_writes_flood_event_and_geojson(flood_site):
     assert set(event["layer_ids"]) <= {layer["id"] for layer in area["layers"]}
     for layer in area["layers"]:
         assert (out / layer["url"]).exists() and layer["group"]
+    water = json.loads((out / "areas/synth/timeseries/water-area.json").read_text())
+    assert [p["value"] for p in water["points"]] == [0.0, 6.25]  # 16x16 of 64x64 flooded
     geo = json.loads((out / "events.geojson").read_text())
     [feature] = geo["features"]
     assert feature["properties"]["category"] == "floods"
     assert feature["properties"]["lon"] == event["centroid"][0]
+
+
+def test_fire_season_detections_become_burn_scar(flood_site, monkeypatch):
+    out, _, run = flood_site
+    manifest = json.loads((out / "manifest.json").read_text())
+    w, s, e, n = manifest["areas"][0]["bbox"]
+    # A cluster of detections in the dry corner (the flood patch is in the middle).
+    spots = [
+        {"lon": w + (e - w) * fx, "lat": s + (n - s) * fy, "date": "2025-04-0" + str(k % 9 + 1)}
+        for k, (fx, fy) in enumerate((a / 20, b / 20) for a in range(2, 6) for b in range(2, 6))
+    ]
+    monkeypatch.setattr(firms, "hotspots", lambda *a: spots)
+    run(fire_season=["2025-03-01", "2025-05-31"])
+    events = json.loads((out / "events.json").read_text())["events"]
+    [burn] = [ev for ev in events if ev["signature"] == "burn_scar"]
+    assert burn["categories"] == ["wildfires"] and burn["evidence"]["fire_detections"] == 16
+    assert burn["date_range"] == ["2025-03-01", "2026-01-13"]
+    assert set(burn["series"]) == {"HV", "HV_unburned_vegetation"}
+    assert (out / "areas/synth/layers/fire-detections.png").exists()
 
 
 def test_rerun_gives_same_events(flood_site):
@@ -297,6 +322,16 @@ def test_sites_api_queues_and_processes(tmp_path):
     jobs = live.Jobs(tmp_path, refresh=fake_refresh)
     with TestClient(create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret")) as c:
         assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).status_code == 401
+        # A site hosted on another domain must be allowed to POST (browser preflight).
+        pre = c.options(
+            "/sites",
+            headers={
+                "Origin": "https://example.org",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        assert pre.status_code == 200 and "POST" in pre.headers["access-control-allow-methods"]
         auth = {"Authorization": "Bearer s3cret"}
         res = c.post("/sites", json={"lat": 19.43, "lon": -99.13, "km": 10}, headers=auth)
         assert res.status_code == 202
@@ -309,6 +344,50 @@ def test_sites_api_queues_and_processes(tmp_path):
         too_big = c.post("/sites", json={"lat": 0, "lon": 0, "km": 500}, headers=auth)
         assert too_big.status_code == 422
         assert c.post("/sites/nope/refresh", headers=auth).status_code == 404
+
+
+def test_public_lookup_snaps_caches_and_limits(tmp_path, monkeypatch):
+    import threading
+
+    from sars_pipeline import server
+
+    gate, ran = threading.Event(), []
+
+    def fake_refresh(site_id, site, data, force):
+        gate.wait(5)
+        ran.append(site_id)
+        (data / "selected").mkdir(exist_ok=True)
+        (data / "selected" / f"{site_id}.json").write_text("{}")
+        return {"site": site_id, "status": "updated"}
+
+    monkeypatch.setattr(server, "MAX_NEW_PER_HOUR", 3)
+    jobs = live.Jobs(tmp_path, refresh=fake_refresh)
+    app = create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret", public=True)
+    with TestClient(app) as c:
+        jobs.submit("sf")  # a timer refresh: holds the worker until the gate opens
+        first = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
+        assert first.status_code == 202 and first.json()["id"] == "cell-21_1n-101_3w"
+        # A nearby point is the same cell; no second job.
+        near = c.post("/sites", json={"lat": 21.15, "lon": -101.39})
+        assert near.json()["id"] == first.json()["id"]
+        jobs.submit("cdmx")  # timer
+        second = c.post("/sites", json={"lat": 25.0, "lon": -100.0}).json()
+        assert second["position"] == 0  # visitors go ahead of timer refreshes
+        # Inside a curated site: that site answers, no cell is made.
+        assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).json()["id"] == "cdmx"
+        assert c.post("/sites", json={"lat": 1, "lon": 1, "km": 30}).status_code == 401
+        assert c.post("/sites", json={"lat": 30.0, "lon": -110.0}).status_code == 202
+        assert c.post("/sites", json={"lat": 31.0, "lon": -111.0}).status_code == 429
+        gate.set()
+        assert jobs.wait_idle()
+        assert ran[1] == "cell-30_1n-109_9w"  # the latest visitor request ran first
+        again = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
+        # Checked a moment ago, nothing processed (fake): cached answer, flagged empty.
+        assert again.status_code == 200 and again.json()["empty"]
+        assert c.get(f"/sites/{first.json()['id']}").json()["status"] == "done"
+        auth = {"Authorization": "Bearer s3cret"}
+        admin = c.post("/sites", json={"lat": 1, "lon": 1, "km": 10}, headers=auth)
+        assert admin.status_code == 202 and admin.json()["id"].startswith("at-")
 
 
 def test_refresh_skips_when_nothing_new(tmp_path, monkeypatch):
@@ -355,3 +434,96 @@ def test_persistence_rejects_changes_that_vanish():
     assert classify.persists("hv_drop", r["mask"], before, stays, CFG)
     assert not classify.persists("hv_drop", r["mask"], before, gone, CFG)
     assert classify.persists("darkening_both", r["mask"], before, gone, CFG)  # floods recede
+
+
+def test_mosaic_cells_average_and_line_up():
+    from sars_pipeline import national
+
+    cell = national.CELL
+    # 20 x 20 fine pixels covering exactly 2 x 2 coarse cells north-east of the grid origin.
+    x = (np.arange(20) + 0.5) * cell / 10
+    y = -(np.arange(20) + 0.5) * cell / 10 + 2 * cell
+    sm = np.full((20, 20), 0.3, "float32")
+    sm[:10, :10] = np.nan  # a whole cell without readings
+    sm[10:, :5] = np.nan  # half a cell: still enough pixels
+    r0, c0, grid = national.coarsen(x, y, sm, min_fine=30)
+    assert (r0, c0) == (-2, 0) and grid.shape == (2, 2)
+    assert np.isnan(grid[0, 0]) and np.allclose(grid[[0, 1, 1], [1, 0, 1]], 0.3)
+    both = national.paste(
+        [(0, 0, np.full((2, 2), 0.2)), (1, 1, np.full((2, 2), 0.4))], 0, 0, (3, 3)
+    )
+    assert np.isclose(both[1, 1], 0.3) and both[0, 0] == 0.2 and np.isnan(both[0, 2])
+    rows = national.mercator_rows(14.4, 32.8, 1000, 0)
+    assert (np.diff(rows) >= 0).all()  # north to south, never backwards
+    # Equal-area rows get thinner toward the pole, so Mercator rows reuse them more in the north.
+    assert np.diff(rows[:100]).mean() < np.diff(rows[-100:]).mean()
+
+
+def test_mosaic_site_writes_layers_and_drying_event(tmp_path, monkeypatch):
+    from sars_pipeline import national
+    from sars_pipeline.site import run_site
+
+    bbox = [-104.0, 19.0, -100.0, 22.0]
+    cfg = {"title": "T", "summary": "s", "kind": "mosaic", "bbox": bbox, "change_types": ["other"]}
+    to_grid = national.Transformer.from_crs(4326, national.EPSG, always_xy=True)
+    x, y = to_grid.transform(bbox[0], bbox[3])
+    r0, c0 = int(-y // national.CELL), int(x // national.CELL)
+    wet = np.full((120, 150), 0.30)
+    dry = wet.copy()
+    dry[40:70, 50:90] = 0.15  # a 60 x 80 km block dries out
+    tiles = {"A": (r0, c0, wet), "B": (r0, c0, dry)}
+    monkeypatch.setattr(national, "cached_coarse", lambda row, *a: tiles[row["id"]])
+    monkeypatch.setattr(national.firms, "hotspots", lambda *a: None)
+    sel = {
+        "products": {
+            "SME2": {
+                "maturity": "PROVISIONAL",
+                "cycles": [["2026-09-27", "2026-10-09"], ["2026-10-09", "2026-10-21"]],
+                "granules": [{"id": "A", "date": "2026-10-01"}, {"id": "B", "date": "2026-10-15"}],
+            }
+        }
+    }
+    out = tmp_path / "processed"
+    result = run_site("mx", cfg, out, tmp_path / "interim", sel)
+    assert result["errors"] == {} and result["categories"] == {"drought": 1}
+    area = load_manifest(out)["areas"][0]
+    assert [layer["id"] for layer in area["layers"]] == [
+        "soil-moisture-2026-10-09",
+        "soil-moisture-2026-10-21",
+        "soil-moisture-change",
+    ]
+    event = json.loads((out / "events.json").read_text())["events"][0]
+    lon, lat = event["centroid"]
+    assert -103.2 < lon < -102.0 and 20.4 < lat < 21.3  # where the dry block is
+    assert event["evidence"]["drop_m3_m3"] == 0.15
+
+
+def test_friendly_cards_grade_by_share_and_confidence():
+    from sars_pipeline import friendly
+
+    def event(i, category, km2, confidence):
+        return {
+            "id": f"e{i}",
+            "categories": [category],
+            "area_km2": km2,
+            "confidence": confidence,
+            "date_range": ["2026-06-20", "2026-10-21"],
+            "maturity": "PROVISIONAL",
+            "layer_ids": ["change"],
+        }
+
+    area = {
+        "id": "x",
+        "title": "X",
+        "change_types": ["flood_wetland", "wildfire", "other"],
+        "layers": [{"maturity": "PROVISIONAL"}],
+    }
+    events = [event(0, "floods", 4, 0.9), event(1, "floods", 3, 0.5), event(2, "urban", 8, 0.2)]
+    doc = friendly.cards(area, events, area_km2=100)
+    by = {c["category"]: c for c in doc["cards"]}
+    assert doc["status"] == "alert" and doc["cards"][0]["category"] == "floods"
+    assert by["floods"]["level"] == 3 and by["floods"]["number"]["value"] == 7.0
+    assert by["floods"]["event_ids"] == ["e0", "e1"]
+    assert by["urban"]["level"] == 1  # big but weak
+    assert by["wildfires"]["level"] == 0  # watched for, nothing found: still a card
+    assert friendly.cards(area, [], 100)["headline"] == "No change detected."

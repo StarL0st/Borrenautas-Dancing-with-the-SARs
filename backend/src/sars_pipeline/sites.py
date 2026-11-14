@@ -49,7 +49,8 @@ def validate(site: dict, max_sq_deg: float = 1.0) -> None:
     w, s, e, n = site["bbox"]
     if not (-180 <= w < e <= 180 and -90 <= s < n <= 90):
         raise ValueError(f"bbox must be west,south,east,north in degrees, got {site['bbox']}")
-    if (e - w) * (n - s) > max_sq_deg:
+    # Mosaics (national.py) are read at about 2 km, so they may be country-sized.
+    if (e - w) * (n - s) > max_sq_deg and site.get("kind") != "mosaic":
         # shortcut: site windows are read at 10 m in one piece; bigger areas need tiling first.
         raise ValueError(f"bbox is over {max_sq_deg} square degrees; keep sites to about 20-50 km")
     bad = set(site["change_types"]) - CHANGE_TYPES

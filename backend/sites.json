@@ -34,5 +34,108 @@
       19.4
     ],
     "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
+  },
+  "yucatan": {
+    "title": "Hopelchén, Campeche (Yucatán Peninsula)",
+    "summary": "Los Chenes, in the Yucatán Peninsula: tropical dry forest being cleared for mechanized farmland. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -89.91093,
+      19.60034,
+      -89.52907,
+      19.95966
+    ],
+    "change_types": [
+      "forest_loss",
+      "agriculture",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    },
+    "fire_season": [
+      "2026-03-01",
+      "2026-05-31"
+    ]
+  },
+  "villahermosa": {
+    "title": "Villahermosa, Tabasco",
+    "summary": "Villahermosa sits where the Grijalva and Carrizal rivers meet in Mexico's wettest lowlands, and floods often in the rainy season. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -93.1189,
+      17.81034,
+      -92.7411,
+      18.16966
+    ],
+    "change_types": [
+      "flood_wetland",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "chapala": {
+    "title": "Lake Chapala, Jalisco",
+    "summary": "The hills around Lake Chapala, Mexico's largest lake, burn often in the dry season (March to May). Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -103.39156,
+      20.12034,
+      -103.00844,
+      20.47966
+    ],
+    "change_types": [
+      "wildfire",
+      "forest_loss",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    },
+    "fire_season": [
+      "2026-03-01",
+      "2026-05-31"
+    ]
+  },
+  "mexico": {
+    "title": "Mexico",
+    "summary": "The whole country at about 2 km: soil moisture from every NISAR pass in the two latest 12-day cycles, how it changed between them, and recent fire detections. Look up any place for full-detail radar.",
+    "kind": "mosaic",
+    "bbox": [
+      -118.5,
+      14.4,
+      -86.6,
+      32.8
+    ],
+    "change_types": [
+      "soil_moisture",
+      "wildfire"
+    ],
+    "products": [
+      "SME2"
+    ]
   }
 }

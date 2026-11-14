@@ -39,6 +39,9 @@ def main() -> None:
     serve_p.add_argument("--no-inbox", action="store_true", help="serve only (cloud)")
     serve_p.add_argument("--jobs", action="store_true", help="enable /sites: on-demand processing")
     serve_p.add_argument(
+        "--public", action="store_true", help="with --jobs: anyone may look up a place (limited)"
+    )
+    serve_p.add_argument(
         "--watch-hours", type=float, help="with --jobs: re-check every site this often"
     )
 
@@ -154,7 +157,9 @@ def main() -> None:
 
             jobs = Jobs(DATA, args.watch_hours)
         token = os.environ.get("SARS_ADMIN_TOKEN")
-        app = create_app(args.data_dir, inbox, args.poll, jobs=jobs, admin_token=token)
+        app = create_app(
+            args.data_dir, inbox, args.poll, jobs=jobs, admin_token=token, public=args.public
+        )
         uvicorn.run(app, host=args.host, port=args.port)
     else:
         from .synthetic import write_synthetic

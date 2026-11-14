@@ -13,6 +13,18 @@ Python, managed with [uv](https://docs.astral.sh/uv/) as a member of the repo's 
 - Never use `pip install` or `uv pip install`; use `cd backend && uv add <package>`.
 - Secrets in `backend/.env` (gitignored): `ASF_EARTH_DATA_TOKEN=...` (required; approve the ASF app EULA once per Earthdata account, link in `docs/03`), `FIRMS_MAP_KEY=...` (optional, NASA FIRMS, enables the wildfire category), `SARS_ADMIN_TOKEN=...` (optional, guards `POST /sites`).
 
+## Modes
+
+The app has three modes; the backend feeds them from the same files and API.
+
+| Mode | For | Backend gives |
+|---|---|---|
+| Technical | People who read radar | Layers, events with evidence and provenance, time series (C1-C7), `/query` |
+| Friendly | Anyone | `areas/<id>/friendly.json`: the same detections as a few graded plain-language cards (below) |
+| Real-time weather | Anyone | Planned, not built (below) |
+
+Coverage, in three depths: `mexico` (the whole country at 2 km, soil moisture and fires), the three case-study sites (40 km, every date since June 2026), and any place a visitor looks up (22 km cell, processed on request, then cached).
+
 ## Commands
 
 ```
@@ -25,6 +37,7 @@ uv run sars-pipeline refresh           # search again; process only sites with n
 uv run sars-pipeline watch --hours 6   # refresh in a loop
 uv run sars-pipeline serve             # API on http://127.0.0.1:8765/ (read-only)
 uv run sars-pipeline serve --jobs --watch-hours 6   # plus /sites: process places on request
+uv run sars-pipeline serve --jobs --public --watch-hours 12   # hosted: anyone may look up a place
 uv run pytest && uv run ruff check     # checks
 ```
 
@@ -32,7 +45,16 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 
 ## Sites
 
-`backend/sites.json` (curated, in git) plus `data/sites.json` (requested through the API, not in git). Fields: `title`, `summary`, `bbox` [w, s, e, n], `change_types` (C1), optional `products` (default all three), `looks` (GCOV pixels averaged per side, default 4 = 40 m), `reference_bbox` (a stable area for GUNW, see below), `thresholds`, `thresholds_gunw`, `thresholds_sme2`, `cover` (overrides of the defaults below).
+`backend/sites.json` (curated, in git) plus `data/sites.json` (requested through the API, not in git). Fields: `title`, `summary`, `bbox` [w, s, e, n], `change_types` (C1), optional `products` (default all three), `looks` (GCOV pixels averaged per side, default 4 = 40 m), `reference_bbox` (a stable area for GUNW, see below), `thresholds`, `thresholds_gunw`, `thresholds_sme2`, `cover` (overrides of the defaults below), `max_dates` (per product, default GCOV 6, GUNW 12, SME2 12), `fire_season` [from, to] (FIRMS detections that mark burn scars; needs `FIRMS_MAP_KEY`).
+
+Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa` (floods), `chapala` (wildfires), each 40 km wide with every date since June 2026. NISAR has no data for them between 2026-01-20 and 2026-06-16 (the dry and fire season); dates before are BETA and are not mixed with the PROVISIONAL ones (docs/03), so fires are located with FIRMS and the radar shows the after.
+
+**Country mosaic** (`national.py`, site field `"kind": "mosaic"`, e.g. `mexico`). SME2 only, no size limit.
+- Select: every SME2 granule over the bbox in the two latest 12-day cycles (about 250 granules per cycle for Mexico), one maturity.
+- Read: each granule's part inside the bbox, averaged to 10 x 10 pixel cells (about 2 km, at least 30 valid pixels per cell), cached in `data/interim/mosaic/`. The first run streams about 500 granules (about half an hour); later runs only new ones.
+- Mosaic: mean of every pass in the cycle, by grid index (all SME2 share one global grid). Image rows are respaced from the equal-area grid to Web Mercator so the picture lines up at country scale.
+- Layers: `Soil moisture` per cycle, `Soil moisture change` (latest minus previous), `Fire detections` (NASA FIRMS, last 10 days, needs `FIRMS_MAP_KEY`). Series: mean soil moisture per cycle.
+- Events: `soil_drying` regions (cells drier by 0.05 m3/m3 or more, 250+ joined cells, the 12 largest). Two cycles cannot tell drought from the end of the rainy season; the event text says so. Fires are a layer, not events.
 
 ## Pipeline, per site
 
@@ -58,6 +80,7 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 | `seasonal_cycle` | HV standard deviation over 2 across 4+ dates, never water |
 | `sinking` (GUNW) | line-of-sight rate over 5 cm/yr away from the satellite, region 1 km2+ |
 | `soil_drying` (SME2) | latest site mean 0.05 m3/m3 below the mean of earlier dates (4+ dates) |
+| `burn_scar` (GCOV + FIRMS) | NASA FIRMS VIIRS fire detections in the site's `fire_season`, grown to their 375 m footprint, on vegetation or bare ground; then HV per date vs unburned vegetation (recovery) |
 
 Regions under 25 px (0.04 km2 at 40 m) are dropped. A land change (not darkening) must still show at least half its threshold on the next pass, or it is dropped (ships, wet patches, glints). Changes in the latest pair cannot be checked yet: kept at 0.7x confidence and marked `persistent: null`.
 
@@ -80,11 +103,14 @@ At L-band, HV and the HH/HV ratio do not separate city from forest (both scatter
 | `hv_drop` | vegetation, FIRMS fire detections in the window | `wildfires`, `deforestation` |
 | `hv_drop` | vegetation | `deforestation` |
 | `hv_drop` | bare or low | `agriculture` (harvest, ploughing) |
-| `brightening` | built-up after, or bare before | `urban` |
+| `brightening` | vegetation before, HH rose 3+ dB more than HV (double bounce off water under plants) | `floods` (flooded vegetation) |
+| `brightening` | built-up after | `urban` |
+| `brightening` | bare before | `agriculture` (crops growing, soil wetting) |
 | `seasonal_cycle` | vegetation or bare | `agriculture` |
-| `sinking` | built-up | `subsidence`, `groundwater` |
+| `sinking` | built-up (only sites with a checked `reference_bbox`; elsewhere the motion map only) | `subsidence`, `groundwater` |
 | `sinking` | other | `subsidence` |
 | `soil_drying` | | `drought` |
+| `burn_scar` | | `wildfires` |
 | any land change | was water | none (waves, wind, ships) |
 | anything else | | `other` (published only at confidence 0.5+) |
 
@@ -94,7 +120,8 @@ Frontend filter types that need other data or more time, and are not produced: e
 
 **Export** (`site.py`, `export.py`): one area per site (`id` = site id) in `manifest.json`.
 - Layers (C2) with an extra `group` (picker label) and `role`: `HH backscatter`/`HV backscatter` per date; `Surface type`; per GCOV pair `HH change`, `HV change`, `Detected change` (signature colors); `Ground motion` (cm/yr, red = away from the satellite); `Soil moisture` per date.
-- Time series (C4): site mean HH, HV backscatter, soil moisture.
+- Time series (C4): site mean HH, HV backscatter, soil moisture, open water as % of the site (`water-area`).
+- Friendly cards in `areas/<id>/friendly.json` (`friendly.py`), linked from the area as `friendly`. One card per category found, plus a level 0 card for each category the site is watched for and nothing was found. Fields: `category`, `label`, `level`, `headline`, and when found `number` (km2 affected), `share_percent`, `places`, `from`, `to`, `confidence`, `maturity`, `event_ids` (largest first, max 5), `layer_id`. Top level: `status` (`calm`, `watch`, `alert` from the highest level), `headline`, `data_notes` (maturity wording). Levels are a judgment call, not validated: 1 = found but under 1% of the area or best confidence under 0.4; 2 = 1 to 5%; 3 = over 5%.
 - Events (C7) in `events.json` and as a GeoJSON FeatureCollection in `events.geojson` (flat properties, loads straight into MapLibre). Each event: `categories`, `signature`, real outline `geometry`, `centroid` (always inside the outline), `bbox`, `area_km2`, `confidence`, `evidence` (numbers behind the decision), `series` (the region's own values per date), provenance with the citation.
 
 ## API (`serve`, contract C6)
@@ -108,10 +135,25 @@ Frontend filter types that need other data or more time, and are not produced: e
 | `/events` | Server-sent `manifest` events when data changes (also after a background refresh) |
 | `/health` | `{"ok": true}` |
 | `GET /sites` (with `--jobs`) | Every site and its processing status |
+| `GET /sites/<id>` (with `--jobs`) | One site: `status` (`idle`, `queued`, `running`, `done`, `error`), `position` in the queue, `processed` (has data), `error` |
 | `POST /sites` (with `--jobs`) | `{"lat", "lon", "km" (max 30), "title"?, "id"?}`: adds a requested site and processes it in the background; returns 202 and the id |
+| `POST /sites` (with `--jobs --public`), no token | `{"lat", "lon"}` only. See below |
 | `POST /sites/<id>/refresh` (with `--jobs`) | Search again and process if new; `?force=true` to reprocess |
 
 With `SARS_ADMIN_TOKEN` set, POST requests need `Authorization: Bearer <token>`. Leave it unset only on your own machine: each request starts downloads.
+
+**Public lookup** (`serve --jobs --public`). Anyone may `POST /sites {"lat", "lon"}`; `km`, `title`, `id` and `/refresh` still need the token.
+- Inside a curated site: answers with that site.
+- Elsewhere the point snaps to a 0.2 degree grid; the cell (`cell-<lat>-<lon>`, a 22 km box) is the cached unit, so nearby lookups share it. Cells use few dates (GCOV 4, GUNW 4, SME2 6) to be quick.
+- `200 {"id", "status": "done"}`: cached, load the area now. `"empty": true` with a `message` means there is no NISAR data there.
+- `202 {"id", "status": "queued", "position"}`: processing; poll `GET /sites/<id>` or wait for the `manifest` event on `/events`. Visitor requests run before the timer's refreshes.
+- A cell is searched again when asked for 12 hours or more after its last check. The timer (`--watch-hours`) refreshes curated sites only.
+- Limits, answered with `429` and a reason: 5 new cells per client address per hour, 20 jobs queued, 300 cells in total. Kept in memory, so a restart resets the per-address count.
+- shortcut: one worker, one process, files on disk. Many visitors asking for new places wait in line (minutes each); upgrade to several workers with a real queue when that hurts.
+
+## Planned: real-time weather (not built)
+
+`GET /weather?lat=&lon=`: the backend calls the Meteomatics Weather API (https://www.meteomatics.com/en/weather-api/) with credentials held only in the server environment (never in the browser), caches the answer 15 minutes per 0.1 degree cell, and returns temperature, rain, wind, the valid time and the source credit. Meteomatics is not NASA data: check its license terms before use and cite it in `docs/09-references.md`.
 
 ## Live data
 
@@ -133,4 +175,4 @@ Known limits:
 
 ## Cloud
 
-`backend/deploy/README.md`.
+`backend/deploy/README.md`: an Azure VM (Docker, HTTPS) for the backend, a Static Web App for the frontend.

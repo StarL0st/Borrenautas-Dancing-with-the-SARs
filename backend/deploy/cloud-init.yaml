@@ -1,0 +1,9 @@
+#cloud-config
+# First boot of the Azure VM (backend/deploy/azure.sh vm): Docker and the data folder.
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+runcmd:
+  - mkdir -p /opt/sars/data
+  - chown azureuser /opt/sars

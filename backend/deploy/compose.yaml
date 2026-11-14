@@ -1,0 +1,29 @@
+# The backend on one VM (backend/deploy/azure.sh deploy). Run from the repo root:
+#   SARS_HOST=<public host name> docker compose -p sars -f backend/deploy/compose.yaml --project-directory . up -d --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/deploy/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    env_file: /opt/sars/.env  # ASF_EARTH_DATA_TOKEN, FIRMS_MAP_KEY, SARS_ADMIN_TOKEN
+    environment:
+      # --jobs --public: anyone may look up a place (limited); --watch-hours: refresh curated sites.
+      SARS_SERVE_FLAGS: --jobs --public --watch-hours 12
+    volumes:
+      - /opt/sars/data:/data  # selections, cached windows, outputs: survive rebuilds
+    restart: always
+  caddy:
+    # HTTPS in front of the API (a site served over HTTPS cannot call a plain HTTP API).
+    # Caddy gets and renews the certificate for SARS_HOST by itself.
+    image: caddy:2
+    command: caddy reverse-proxy --from ${SARS_HOST:?public host name} --to api:8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy:/data  # certificates
+    restart: always
+volumes:
+  caddy: {}
