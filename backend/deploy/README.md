@@ -1,35 +1,38 @@
 # Deploy
 
-Two scripted options share one image (`backend/deploy/Dockerfile`): **Azure** (`azure.sh`, the current choice) and Google Cloud (`gcp.sh`, below). Neither has been run against a live account yet.
+Two scripted options share one image (`backend/deploy/Dockerfile`): **Azure** (`azure.sh`, a VM, the current choice) and Google Cloud (`gcp.sh`, below). Neither has been run against a live account yet.
 
 ## Azure
 
 | Piece | Azure service | Does |
 |---|---|---|
-| API + refresh | Container App `sars-api`, one replica | `serve --jobs --watch-hours 12`: contract files, `/query`, `/events` (SSE), `POST /sites`, and every 12 h a catalog check per site (only sites with new granules are processed). No separate job or scheduler |
-| Data | Storage account file share `data`, mounted at `/data` | `selected/`, `interim/`, `processed/`, `sites.json` survive restarts and redeploys |
-| Image | Container Registry (Basic) | Built in the cloud by `az acr build` from committed files only (`git archive`), so `.env` and `data/` never leave the machine |
-| Site | Static Web App `sars-site` (Free) | The frontend, built with `VITE_DATA_BASE=<API URL>/` |
+| Backend | Virtual machine `sars-vm` (Ubuntu 24.04, 2 vCPU / 8 GB, 64 GB disk), Docker Compose (`compose.yaml`) | `api`: `serve --jobs --public --watch-hours 12` (contract files, `/query`, `/events`, public place lookup, 12 h refresh of curated sites). `caddy`: HTTPS in front, certificate obtained automatically |
+| Data | The VM disk, `/opt/sars/data` mounted at `/data` | `selected/`, `interim/`, `processed/`, `sites.json` survive rebuilds |
+| Site | Static Web App `sars-site` (Free) | The frontend, built with `VITE_DATA_BASE=https://<vm host>/` |
+
+The two are detached: the site is static files and talks to the backend only over HTTPS (contract C6).
 
 Once:
 1. Install the Azure CLI (https://learn.microsoft.com/cli/azure/install-azure-cli), then `az login` and, if you have several, `az account set --subscription <id>`. Add a budget alert (Cost Management > Budgets).
-2. `backend/.env` holds `ASF_EARTH_DATA_TOKEN=...` and, for the wildfire case study, `FIRMS_MAP_KEY=...`.
+2. `backend/.env` holds `ASF_EARTH_DATA_TOKEN=...` and `FIRMS_MAP_KEY=...` (wildfire case study, Mexico fire layer).
 3. From the repo root of an up-to-date checkout, in Git Bash:
    ```
-   export AZ_PREFIX=<short lowercase name>   # names the registry <prefix>sars and storage <prefix>sarsdata
-   backend/deploy/azure.sh setup
-   backend/deploy/azure.sh build
+   export AZ_PREFIX=<short lowercase name>   # the VM becomes <prefix>-sars.westus2.cloudapp.azure.com
+   backend/deploy/azure.sh vm       # creates the VM; ports 80/443 open, SSH only from your current address
+   backend/deploy/azure.sh deploy   # committed code + backend/.env -> VM, build, start; prints the URL
    backend/deploy/azure.sh seed     # uploads data/selected and data/processed so the API starts with data
-   backend/deploy/azure.sh api      # prints the API URL
    backend/deploy/azure.sh site     # from a checkout with the frontend integration (testing branch); prints the site URL
    ```
-Each change: `build`, then `api` (new revision). `seed` again only to push locally processed outputs.
+Each change: commit, then `deploy` again. `seed` again only to push locally processed outputs.
+
+Check it: `curl https://<vm host>/health`, `curl "https://<vm host>/query?lat=19.43&lon=-99.13"`, `curl -X POST https://<vm host>/sites -H 'content-type: application/json' -d '{"lat": 21.0, "lon": -101.3}'`.
 
 Notes:
-- `api` keeps the replica always on (background processing and the 12 h refresh need it), so it costs while idle, unlike the scale-to-zero Google setup. Check the Container Apps pricing page for your region before leaving it running.
-- Secrets (Earthdata token, FIRMS key, admin token, registry password) are Container App secrets. The generated `app.yaml` holds them and is deleted when the script exits.
-- `POST /sites` needs the admin token (`az containerapp secret show -g sars -n sars-api --secret-name admin-token --query value -o tsv`), so the public site's "Process this place" button answers "needs an access token". Opening it to everyone means removing `SARS_ADMIN_TOKEN`; the request size limits stay, but anyone could queue downloads.
-- Logs: `az containerapp logs show -g sars -n sars-api --follow`.
+- The VM costs while it runs. Stop it without losing data: `az vm deallocate -g sars -n sars-vm`; start: `az vm start -g sars -n sars-vm`. Remove everything: `az group delete -n sars`.
+- `deploy` sends only committed files (`git archive`). Secrets go to `/opt/sars/.env` on the VM (owner-only), not into the image. The admin token (`SARS_ADMIN_TOKEN`, for `km`/`title`/`id`/`refresh`) is generated on the first deploy: `backend/deploy/azure.sh ssh`, then `grep SARS_ADMIN_TOKEN /opt/sars/.env`.
+- If your network address changes, SSH is refused: `az network nsg rule update -g sars --nsg-name sars-vmNSG -n ssh --source-address-prefixes <new ip>`.
+- Logs: `backend/deploy/azure.sh ssh`, then `sudo docker logs -f sars-api-1`.
+- Not run yet: the script is syntax-checked only. No Azure account was available when it was written.
 
 ## Google Cloud
 
