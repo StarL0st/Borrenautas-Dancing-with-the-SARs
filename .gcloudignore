@@ -1,0 +1,10 @@
+# What `gcloud builds submit` must never upload. Secrets and data stay local.
+.git
+**/.env
+**/.env.*
+.venv
+**/__pycache__
+data/
+frontend/
+docs/
+specs/

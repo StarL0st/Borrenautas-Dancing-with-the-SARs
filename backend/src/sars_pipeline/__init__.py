@@ -26,6 +26,7 @@ def main() -> None:
     serve_p.add_argument("--host", default="127.0.0.1")
     serve_p.add_argument("--port", type=int, default=8765)
     serve_p.add_argument("--poll", type=float, default=5.0, help="seconds between inbox scans")
+    serve_p.add_argument("--no-inbox", action="store_true", help="serve only (cloud)")
 
     synth_p = sub.add_parser("synthetic", help="write synthetic GCOV-shaped granules (for testing)")
     synth_p.add_argument("--out", type=Path, default=DATA / "inbox")
@@ -76,8 +77,10 @@ def main() -> None:
 
         from .server import create_app
 
-        args.inbox.mkdir(parents=True, exist_ok=True)
-        app = create_app(args.data_dir, args.inbox, args.poll)
+        inbox = None if args.no_inbox else args.inbox
+        if inbox:
+            inbox.mkdir(parents=True, exist_ok=True)
+        app = create_app(args.data_dir, inbox, args.poll)
         uvicorn.run(app, host=args.host, port=args.port)
     else:
         from .synthetic import write_synthetic

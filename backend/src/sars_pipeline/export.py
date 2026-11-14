@@ -31,7 +31,7 @@ def _software() -> dict:
             check=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
-        commit = "unknown"
+        commit = os.environ.get("GIT_COMMIT", "unknown")  # container images have no .git
     return {"name": "sars-pipeline", "version": version("sars-pipeline"), "commit": commit}
 
 
