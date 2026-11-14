@@ -90,7 +90,17 @@ def cards(area: dict, events: list[dict], area_km2: float) -> dict:
         label, found, quiet = TEXT[category]
         mine = sorted(by_category.get(category, []), key=lambda e: -e["area_km2"])
         if not mine:
-            out.append({"category": category, "label": label, "level": 0, "headline": quiet})
+            card = {"category": category, "label": label, "level": 0, "headline": quiet}
+            # Country mosaic: fires are a layer of satellite detections, not radar events.
+            fire = next((x for x in area["layers"] if x.get("id") == "fire-detections"), None)
+            if category == "wildfires" and fire:
+                n = fire["provenance"]["params"]["detections"]
+                card["headline"] = (
+                    f"Satellites detected {n} active fires here in recent days (see the fire "
+                    "layer). Burned ground is not mapped by radar at this scale."
+                )
+                card["layer_id"] = fire["id"]
+            out.append(card)
             continue
         km2 = sum(e["area_km2"] for e in mine)
         share = min(100.0, 100 * km2 / area_km2)
