@@ -40,7 +40,8 @@ sizes)
   allowed_sizes
   ;;
 vm)
-  SIZE="${AZ_VM_SIZE:-$(allowed_sizes | head -n 1)}"
+  # sed, not head: head closes the pipe early and pipefail would stop the script without a word.
+  SIZE="${AZ_VM_SIZE:-$(allowed_sizes | sed -n 1p)}"
   [ -n "$SIZE" ] || { echo "none of: $SIZES is allowed in $LOC; set AZ_VM_SIZE or AZ_LOCATION" >&2; exit 1; }
   echo "VM size: $SIZE"
   az group create -n "$RG" -l "$LOC" -o none
