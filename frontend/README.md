@@ -22,47 +22,80 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 
-- **Filters:** three groups in the left sidebar (Natural disasters, Disasters caused by humans, Land use), each opening to a checklist of subdivisions with "Select all". Only areas matching a ticked subdivision are marked. Defined in `src/filters.ts`.
-- **Dots as tabs:** clicking a dot (or its row in the area list) opens that area as a tab in the right panel; clicking again closes it. Open tabs stack in a scrollable list, each with its timeline and, when radar images exist, a polarization picker, a date slider over the available dates, opacity, a legend, and the full provenance (C3).
+- **Filters:** three groups in the left sidebar (Natural disasters, Disasters caused by humans, Land use), each opening to a checklist of subdivisions with "Select all". Only areas matching a ticked subdivision are marked. Ids in `src/filters.ts` are the back end's `categories`.
+- **Dots as tabs:** clicking a dot (or its row in the area list) opens that area as a tab in the right panel; clicking again closes it. Open tabs stack in a scrollable list.
+- **Detected changes** (`events.geojson`): outlines and dots on the map colored by filter group, a popup on click, and each area's timeline. Filtered by the same checklist.
+- **Layer picker:** one option per back-end layer `group`, each with its own date slider, opacity, legend and full provenance (C3). Color bars for `gray`, `rdbu` and `brbg`; swatches for the `Surface type` and `Detected change` class layers.
+- **Change over time:** a line chart per unit from the area's C4 time series files, with a hover readout and a table view (`src/chart.ts`).
+- **Process this place:** asks the back end (`POST /sites`, needs `serve --jobs`) to process the typed coordinates; the area appears when the server reports it ready.
 - **Go to coordinates:** latitude and longitude inputs fly to that point and drop a pin.
-- **Views:** "Globe view" (whole Earth) and "Close-up view" (low, tilted camera with the horizon in view).
-- **View wheel** (`src/wheel.ts`): Zoom, Orbit, Pan, Center, Walk, Look, Up/Down, and Home (centers the whole Earth). Hold a button and drag, or focus it and use the arrow keys.
+- **Views:** "Globe view", "Close-up view" (low, tilted camera with the horizon in view), and "Auto-rotate" (turns the Earth slowly; stops when you open an area).
+- **View wheel** (`src/wheel.ts`): Zoom, Orbit, Home, Center, Look, Up/Down. Hold a button and drag, or focus it and use the arrow keys.
+- **Accessibility menu** (`src/settings.ts`): language (English, Spanish, German), wheel size (large, medium, small) and globe texture. Choices are saved in the browser.
 - **Tutorial:** a step-by-step tour (`src/tour.ts`), shown on first visit and from the Tutorial button.
-- **Manifest:** loaded from the data base URL; an unsupported major `contract_version` shows an error and the app keeps working. Refetches on each `manifest` event from the live server.
+- **Manifest:** an unsupported major `contract_version` shows an error and the app keeps working. Refetches on each `manifest` event from the live server.
+
+### Languages
+
+All interface text is in `src/i18n.ts`; a test checks every language has every key. Text from the radar data (area names, layer descriptions, event summaries) is shown as the back end sends it, in English.
+
+### Globe textures
+
+| Name | What it is | Source |
+|---|---|---|
+| Blue Marble (default) | NASA satellite imagery; sharp to zoom 8, stretched beyond | NASA GIBS, `BlueMarble_ShadedRelief_Bathymetry` |
+| Hologram | Dark outline map | MapLibre demo tiles |
+| Street map | Roads and place names | OpenStreetMap standard tiles, © OpenStreetMap contributors |
+
+The public OpenStreetMap tile server is for light use only; move to a hosted tile service before real traffic.
 
 ### Example locations
 
-`src/example-areas.ts` lists 23 real places, one per filter subdivision (none for "Forecast"), so the globe has something to mark before the back end delivers areas. They carry no radar images and no reports, and a notice shows whenever one is listed. Replace them when the back end provides areas.
+`src/example-areas.ts` lists 23 real places, one per filter subdivision (none for "Forecast"). They are shown only while no back end is connected, carry no radar images or reports, and come with a notice. As soon as real areas load they disappear.
 
-The contract has no field for filter subdivisions yet. `src/logic.ts` (`TYPES`) guesses them from `change_types`; areas it cannot classify (`other`, `deformation`) are always shown.
+Areas take their filter subdivisions from the back end's `categories`. For a back end without them, `src/logic.ts` (`TYPES`) guesses from `change_types`. Areas and events with no filter category (`other`) are always shown.
 
-### Not done yet (from `specs/F04`)
+### Colors copied from the back end
 
-Before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, colormaps other than `gray`, the time-series chart (F05).
+`RAMPS` and `CLASSES` in `src/main.ts` repeat the colors the back end paints into its images (`backend/src/sars_pipeline/site.py`, `categorize.py`). The contract does not carry them, so they must be kept in step by hand.
 
-## Handoff: frontend, 2026-11-13
+### Not done yet
 
-Spec/task: F04 (still Draft; the globe, filters and view wheel are not in it yet).
+Before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, charts of each event's own `series` (from `events.json`), a confidence or date filter for events.
 
-Done:
-- Globe with three filter groups and subdivision checklists, dots that open as stacked tabs, area list, coordinate jump, Globe/Close-up views, view wheel, tutorial.
-- Radar viewer per open area (polarization, date slider, opacity, legend, provenance), checked against the synthetic fixture.
-- `npm test` and `npm run build` pass; dev server and static build clicked through in headless Chrome with no console errors.
+## Handoff: frontend, 2026-11-14 (second session)
+
+Spec/task: F04 and the chart part of F05 (specs still Draft; the globe, filters, wheel and menu are not in them yet).
+
+Done today:
+- Merged `main` (contract 0.3) and the back-end lane's integration from `testing` (f87e148); fixed its popup contrast and outline order; added color bars.
+- Wheel reduced to six buttons (Walk and Pan removed). Auto-rotate button. Close-up view tilted further up (pitch 70 to 76).
+- Accessibility menu: three languages, wheel size, three globe textures.
+- Example locations hide when real areas load.
+- Time-series chart, class swatches.
+- Motion pass: press feedback on buttons, entrance for a newly opened tab, the tour card and the menu; all flattened under reduced motion.
+- `npm test` (7) and `npm run build` pass. Clicked through in headless Chrome with no console errors: dev server and static build against a hand-made synthetic 0.3 file; dev server against the real back end (`serve --jobs`, synthetic granules): live push, chart and layers work.
+
+For the back-end lane (blocks "Process this place" from a browser):
+- `POST /sites` fails from any page not served by the API itself. The browser first sends `OPTIONS /sites`, and the server answers 400 because CORS allows only GET (`server.py`: `allow_methods=["GET"]`). The app then reports "server not connected".
+- Tried in a scratch copy, not committed: `allow_methods=["GET", "POST"], allow_headers=["content-type", "authorization"]` makes it work (202, site goes to `running`).
+- With an admin token set (always in the cloud) the app has no way to send one, so it reports that a token is needed. Decide whether visitors should be able to request places at all.
 
 Next steps (ordered):
-1. Confirm the Space Apps AI-use rules and adjust the "AI use" section below if needed (the legal page could not be read from the build machine).
-2. Get the globe/filter direction into `specs/F04` through the spec keeper.
-3. Agree a contract field for filter subdivisions and past reports with the back-end lane (`docs/04-contracts.md` change protocol), then drop `TYPES` in `src/logic.ts` and `src/example-areas.ts`.
-4. Plug in real back-end areas and reports when they exist.
-5. Remaining F04 items: before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, more colormaps.
-6. Manual checks not done yet: real phone, screen reader, Firefox/Safari, dragging the wheel by touch.
-7. Pick an example place for "Forecast", or drop that subdivision.
+1. Back-end lane: the CORS change above.
+2. Run against real Mexico City data (needs the Earthdata token): check layer order, legends, swatches, chart, popups.
+3. Add a `LICENSE` at the repo root (outside this lane). Space Apps requires an OSI license; without one NASA applies Apache 2.0.
+4. Get the globe, filters, wheel and menu into `specs/F04` through the spec keeper.
+5. Ask the back-end lane to put class lists and ramp colors in the contract, and to confirm the ground-motion legend direction (red = positive = away).
+6. Have a Spanish and a German speaker read the translations.
+7. Manual checks not done: real phone, screen reader, Firefox/Safari, dragging the wheel by touch.
 
-Blockers / questions:
-- Wheel tools overlap on a globe (Orbit is close to Pan; Up/Down only tilts). MapLibre cannot move the camera independently of its target under globe projection.
-- JS bundle is about 1.1 MB (MapLibre); fine for now, split later if load time matters.
+Known limits:
+- Orbit behaves like dragging the globe; Up/Down only tilts. MapLibre cannot move the camera independently of its target under globe projection.
+- Blue Marble imagery is blurry when zoomed far into an area.
+- JS bundle is about 1.1 MB (MapLibre).
 
-Resume with: `cd frontend && npm ci && npm run dev` (add `VITE_DATA_BASE=./data/` after copying `../data/processed` to `public/data/` to see radar images without the back end).
+Resume with: `cd frontend && npm ci && npm run dev`, with the back end on port 8765 (or `VITE_DATA_BASE=<url>/`).
 
 ## Test
 
@@ -74,4 +107,11 @@ To see the radar path without the back end, copy `../data/processed` to `public/
 
 ## AI use
 
-The code in this folder from the globe viewer onward was written with Claude Code (Anthropic), directed and reviewed by the front-end lane. No AI-generated images, audio or video are used. The basemap is the MapLibre demo tiles; theme names and topics follow NASA ARSET training areas.
+The code in this folder from the globe viewer onward was written with Claude Code (Anthropic), directed and reviewed by the front-end lane, including the Spanish and German translations (machine-written, not yet checked by native speakers). No AI-generated images, audio or video are used.
+
+## Credits
+
+- Radar data: NISAR, NASA/JPL-Caltech and ISRO, distributed by ASF DAAC (each layer carries its own credit line).
+- Blue Marble imagery: NASA Global Imagery Browse Services (GIBS).
+- Street map: © OpenStreetMap contributors, ODbL.
+- Outline map and fonts: MapLibre demo tiles. Map engine: MapLibre GL JS (BSD-3-Clause).

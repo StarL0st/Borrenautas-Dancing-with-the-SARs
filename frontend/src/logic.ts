@@ -41,12 +41,17 @@ export type ManifestArea = {
   bbox?: Bbox;
   center?: [number, number];
   layers: Layer[];
+  timeseries?: SeriesRef[]; // C4 files: the area's own values per date
   credits?: string[];
 };
 
 export type Manifest = { contract_version: string; synthetic: boolean; areas: ManifestArea[] };
 
-export type TimelineEvent = { date: string; title: string; text: string };
+export type SeriesRef = { id: string; title: string; url: string };
+
+// One timeline row. A detected change has `title`, `text` and `confidence`; a plain radar pass
+// has only `pols`. The UI words them in the current language.
+export type TimelineEvent = { date: string; title?: string; text?: string; confidence?: number; pols?: string[] };
 
 // One feature of events.geojson (contract 0.3, C6); properties are flat for MapLibre.
 export type EventFeature = {
@@ -70,6 +75,7 @@ export type AreaView = {
   example?: boolean; // a real place shown as an example, with no data behind it yet
   events: TimelineEvent[];
   layers: Layer[];
+  series: SeriesRef[];
   credits: string[];
 };
 
@@ -114,7 +120,8 @@ const typesOf = (a: ManifestArea) =>
 const report = (e: EventFeature): TimelineEvent => ({
   date: e.properties.to,
   title: e.properties.title,
-  text: `${e.properties.summary} Confidence ${Math.round(e.properties.confidence * 100)}%.`,
+  text: e.properties.summary,
+  confidence: e.properties.confidence,
 });
 
 export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaView {
@@ -136,10 +143,20 @@ export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaV
       ? mine.map(report).sort((x, y) => y.date.localeCompare(x.date))
       : dates.map((date) => ({
           date,
-          title: "Radar pass",
-          text: `Polarizations: ${polarizations(layers.filter((l) => layerDate(l) === date)).join(", ")}`,
+          pols: [...new Set(layers.filter((l) => layerDate(l) === date).map((l) => l.polarization ?? "none"))],
         })),
     layers,
+    series: a.timeseries ?? [],
     credits: a.credits ?? [],
   };
+}
+
+// Round axis ticks covering [min, max]: steps of 1, 2 or 5 times a power of ten, about `n` of them.
+export function ticks(min: number, max: number, n = 4): number[] {
+  if (!(max > min)) return [min];
+  const raw = (max - min) / n, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = mag * ([1, 2, 5, 10].find((m) => m * mag >= raw) ?? 10);
+  const out: number[] = [];
+  for (let v = Math.floor(min / step) * step; v <= max + step * 0.999; v += step) out.push(+v.toFixed(10));
+  return out;
 }

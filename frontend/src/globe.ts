@@ -4,6 +4,7 @@ import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource
 // MapLibre cannot find its worker file by itself once Vite bundles it, so hand it the URL.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { t } from "./i18n";
 import type { AreaView, EventFeature, Layer } from "./logic";
 import { el } from "./ui";
 
@@ -16,8 +17,18 @@ export type ViewMode = "globe" | "closeup";
 // Whole Earth seen from far away, or a low tilted camera with the curved horizon in view.
 const HOME: Record<ViewMode, { center: [number, number]; zoom: number; pitch: number; bearing: number }> = {
   globe: { center: [-40, 20], zoom: 1.4, pitch: 0, bearing: 0 },
-  closeup: { center: [-40, 20], zoom: 3.6, pitch: 70, bearing: 0 },
+  closeup: { center: [-40, 20], zoom: 3.6, pitch: 76, bearing: 0 },
 };
+
+// How the Earth is drawn. Each texture is a set of basemap layers switched on together.
+export type Texture = "bluemarble" | "hologram" | "street";
+const BASE_LAYERS = ["bluemarble", "street", "land", "borders", "grid"];
+const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string }> = {
+  bluemarble: { show: ["bluemarble", "borders"], ocean: "#02101c", border: "#ffffff" },
+  hologram: { show: ["land", "borders", "grid"], ocean: "#071a26", border: "#5fe3e0" },
+  street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
+};
+const SPIN_PX_PER_S = 24; // auto-rotate speed on screen: about one turn a minute when zoomed out
 
 // The background layer is local, so if the basemap tiles fail the globe and overlays still draw.
 const style: StyleSpecification = {
@@ -25,28 +36,48 @@ const style: StyleSpecification = {
   projection: { type: "globe" },
   sky: { "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0] },
   glyphs: `${BASEMAP}font/{fontstack}/{range}.pbf`,
-  sources: { base: { type: "vector", url: `${BASEMAP}tiles/tiles.json` } },
+  sources: {
+    base: { type: "vector", url: `${BASEMAP}tiles/tiles.json` },
+    // NASA Blue Marble imagery from GIBS (public, no key). It stops at zoom 8 and is stretched beyond.
+    bluemarble: {
+      type: "raster", tileSize: 256, maxzoom: 8, attribution: "Imagery: NASA GIBS, Blue Marble",
+      tiles: ["https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg"],
+    },
+    // shortcut: the public OpenStreetMap tile server is for light use only; switch to a hosted
+    // tile service before sending real traffic to the app.
+    street: {
+      type: "raster", tileSize: 256, maxzoom: 19, tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+  },
+  // Basemap layers start hidden; `setTexture` switches on the chosen set, so unused tiles never load.
   layers: [
-    { id: "ocean", type: "background", paint: { "background-color": "#071a26" } },
-    { id: "land", type: "fill", source: "base", "source-layer": "countries", paint: { "fill-color": "#103a4a" } },
+    { id: "ocean", type: "background", paint: { "background-color": "#02101c" } },
+    { id: "bluemarble", type: "raster", source: "bluemarble", layout: { visibility: "none" } },
+    { id: "street", type: "raster", source: "street", layout: { visibility: "none" } },
     {
-      id: "borders", type: "line", source: "base", "source-layer": "countries",
+      id: "land", type: "fill", source: "base", "source-layer": "countries", layout: { visibility: "none" },
+      paint: { "fill-color": "#103a4a" },
+    },
+    {
+      id: "borders", type: "line", source: "base", "source-layer": "countries", layout: { visibility: "none" },
       paint: { "line-color": "#5fe3e0", "line-opacity": 0.45, "line-width": 0.7 },
     },
     {
-      id: "grid", type: "line", source: "base", "source-layer": "geolines",
+      id: "grid", type: "line", source: "base", "source-layer": "geolines", layout: { visibility: "none" },
       paint: { "line-color": "#5fe3e0", "line-opacity": 0.2, "line-dasharray": [3, 3] },
     },
   ],
 };
 
-export function createGlobe(container: string, onPick: (id: string) => void) {
+export function createGlobe(container: string, texture: Texture, onPick: (id: string) => void) {
   const map = new Map({ container, style, ...HOME.globe, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
 
   let mode: ViewMode = "globe";
   let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
+  let spinFrameId = 0, lastFrame = 0; // auto-rotate: 0 means off
   const overlays = new Set<string>();
   const marker = new Marker({ color: "#5fe3e0" });
 
@@ -118,6 +149,27 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
   );
 
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const degPerPx = () => 360 / (512 * 2 ** map.getZoom());
+
+  function applyTexture(next: Texture) {
+    const { show, ocean, border } = TEXTURES[next];
+    for (const id of BASE_LAYERS) map.setLayoutProperty(id, "visibility", show.includes(id) ? "visible" : "none");
+    map.setPaintProperty("ocean", "background-color", ocean);
+    map.setPaintProperty("borders", "line-color", border);
+  }
+  ready.then(() => applyTexture(texture));
+
+  // The Earth turns west to east, so the view drifts toward smaller longitudes.
+  function spinFrame(now: number) {
+    const dt = Math.min(now - lastFrame, 100);
+    lastFrame = now;
+    // Leave the camera alone while the user drags or a flight is running.
+    if (!map.isMoving()) {
+      const c = map.getCenter();
+      map.jumpTo({ center: [c.lng - (dt / 1000) * SPIN_PX_PER_S * degPerPx(), c.lat] });
+    }
+    spinFrameId = requestAnimationFrame(spinFrame);
+  }
 
   const popup = new Popup({ maxWidth: "320px" });
   // Built from DOM nodes, never HTML strings: event text comes from the data.
@@ -129,7 +181,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
-          el("p", { className: "muted" }, `${p.from} to ${p.to} · ${p.area_km2} km² · confidence ${Math.round(p.confidence * 100)}% · ${p.maturity} data`),
+          el("p", { className: "muted" }, t("popup.meta", { from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity })),
           el("p", {}, p.summary),
         ),
       )
@@ -187,6 +239,19 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
       map.easeTo({ pitch, bearing: 0, zoom: mode === "closeup" ? Math.max(map.getZoom(), zoom) : Math.min(map.getZoom(), zoom) });
     },
 
+    async setTexture(next: Texture) {
+      await ready;
+      applyTexture(next);
+    },
+
+    setSpin(on: boolean) {
+      cancelAnimationFrame(spinFrameId);
+      spinFrameId = 0;
+      if (!on) return;
+      lastFrame = performance.now();
+      spinFrameId = requestAnimationFrame(spinFrame);
+    },
+
     // One radar image per open area. `undefined` removes that area's image.
     async showOverlay(areaId: string, layer: Layer | undefined, base: URL, opacity: number) {
       await ready;
@@ -201,7 +266,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
         url: new URL(layer.url, base).href,
         coordinates: [[w, n], [e, n], [e, s], [w, s]],
       });
-      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } }, "areas-box");
+      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity, "raster-fade-duration": 0 } }, "events-fill");
       overlays.add(areaId);
     },
 
@@ -220,20 +285,14 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
       zoom: (_dx: number, dy: number) => map.setZoom(map.getZoom() - dy * 0.02),
       // Circle the camera around the Earth: sideways changes longitude, up and down latitude.
       orbit: (dx: number, dy: number) => {
-        const degPerPx = 360 / (512 * 2 ** map.getZoom()), c = map.getCenter();
-        map.setCenter([c.lng - dx * degPerPx, clamp(c.lat + dy * degPerPx, -85, 85)]);
+        const c = map.getCenter();
+        map.setCenter([c.lng - dx * degPerPx(), clamp(c.lat + dy * degPerPx(), -85, 85)]);
       },
-      pan: (dx: number, dy: number) => map.panBy([-dx, -dy], { animate: false }),
       // Turn and tilt the camera without moving the spot it looks at.
       look: (dx: number, dy: number) =>
         map.jumpTo({ bearing: map.getBearing() + dx * 0.4, pitch: clamp(map.getPitch() - dy * 0.3, 0, MAX_PITCH) }),
       // Tip the camera up toward the horizon or down toward the ground.
       updown: (_dx: number, dy: number) => map.setPitch(clamp(map.getPitch() - dy * 0.4, 0, MAX_PITCH)),
-      // Move forward or back in the direction the camera faces; sideways drag turns.
-      walk: (dx: number, dy: number) => {
-        map.setBearing(map.getBearing() + dx * 0.4);
-        map.panBy([0, dy], { animate: false });
-      },
       // The next click on the globe becomes the middle of the view.
       center: () => {
         picking = true;
@@ -244,7 +303,7 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
           map.easeTo({ center: e.lngLat });
         });
       },
-      // Replaces Revit's Rewind: bring the whole Earth back to the middle.
+      // Bring the whole Earth back to the middle.
       home: () => map.flyTo(HOME[mode]),
     },
   };

@@ -1,54 +1,27 @@
-// Filter groups and their subdivisions. Colors are from the Okabe-Ito colorblind-safe palette;
-// groups are always named in text too, never by color alone.
+// Filter groups and their subdivisions. The ids are the back end's `categories` (contract 0.3);
+// their names live in i18n.ts as `group.<id>` and `type.<id>`. Colors are from the Okabe-Ito
+// colorblind-safe palette; groups are always named in text too, never by color alone.
+import { t, type Key } from "./i18n";
 
-export type Group = { id: string; label: string; color: string; items: { id: string; label: string }[] };
-
-export const GROUPS: Group[] = [
+export const GROUPS: { id: string; color: string; items: string[] }[] = [
   {
     id: "natural",
-    label: "Natural disasters",
     color: "#E69F00",
     items: [
-      { id: "earthquakes", label: "Earthquakes (location and impact assessment)" },
-      { id: "volcanoes", label: "Volcanic eruptions (ground deformation measured with InSAR)" },
-      { id: "landslides", label: "Landslides" },
-      { id: "floods", label: "Floods" },
-      { id: "forecast", label: "Forecast" },
-      { id: "sinkholes", label: "Sinkholes and cave collapses" },
-      { id: "wildfires", label: "Wildfires" },
-      { id: "drought", label: "Drought" },
-      { id: "marine", label: "Marine hazards" },
-      { id: "glaciers", label: "Changes in glaciers" },
-      { id: "ice-sheets", label: "Ice sheets" },
-      { id: "sea-ice", label: "Sea ice" },
-      { id: "permafrost", label: "Permafrost" },
-      { id: "glacial-lakes", label: "Glacial lakes overflowing" },
+      "earthquakes", "volcanoes", "landslides", "floods", "forecast", "sinkholes", "wildfires", "drought",
+      "marine", "glaciers", "ice-sheets", "sea-ice", "permafrost", "glacial-lakes",
     ],
   },
   {
     id: "human",
-    label: "Disasters caused by humans",
     color: "#CC79A7",
-    items: [
-      { id: "induced-seismicity", label: "Induced seismicity: tremors caused by human activity" },
-      { id: "oil-spills", label: "Oil spills" },
-      { id: "groundwater", label: "Groundwater extraction" },
-      { id: "subsidence", label: "Land subsidence" },
-      { id: "logging", label: "Logging and forest disturbance" },
-      { id: "coastal-loss", label: "Coastal land loss" },
-      { id: "reservoirs", label: "Extraction of oil, gas, and water from underground reservoirs" },
-    ],
+    items: ["induced-seismicity", "oil-spills", "groundwater", "subsidence", "logging", "coastal-loss", "reservoirs"],
   },
-  {
-    id: "land",
-    label: "Land use",
-    color: "#F0E442",
-    items: [
-      { id: "deforestation", label: "Deforestation and forest degradation" },
-      { id: "urban", label: "Urban monitoring and change" },
-      { id: "agriculture", label: "Agriculture" },
-    ],
-  },
+  { id: "land", color: "#F0E442", items: ["deforestation", "urban", "agriculture"] },
 ];
 
-export const typeLabel = (id: string) => GROUPS.flatMap((g) => g.items).find((i) => i.id === id)?.label ?? id;
+export const isType = (id: string) => GROUPS.some((g) => g.items.includes(id));
+export const groupLabel = (id: string) => t(`group.${id}` as Key);
+// An id the app does not know (a newer back end) is shown as it is.
+export const typeLabel = (id: string) => (isType(id) ? t(`type.${id}` as Key) : id);
+export const typeColor = (id: string) => GROUPS.find((g) => g.items.includes(id))?.color ?? "#e6f1f5";
