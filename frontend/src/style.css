@@ -202,9 +202,9 @@ button.link { margin-top: 6px; padding: 4px 8px; }
 /* The arrow points the way the panel will move. */
 #nav-toggle[aria-expanded="false"] svg, #detail-toggle[aria-expanded="true"] svg { rotate: 180deg; }
 
-#wheel { position: absolute; left: 10px; bottom: 30px; width: 190px; touch-action: none; user-select: none; }
-#wheel[data-size="medium"] { width: 150px; }
-#wheel[data-size="small"] { width: 116px; }
+#wheel { position: absolute; left: 10px; bottom: 30px; width: 142px; touch-action: none; user-select: none; }
+#wheel[data-size="medium"] { width: 112px; }
+#wheel[data-size="small"] { width: 87px; }
 #wheel[hidden] { display: none; }
 #wheel svg { display: block; width: 100%; }
 #wheel g { cursor: grab; outline: none; }
@@ -343,7 +343,6 @@ th { color: var(--muted); font-weight: 400; }
   #nav, #detail { width: auto; }
   .panel-toggle { display: none; }
   .stage { order: -1; flex: none; height: 60dvh; }
-  #wheel[data-size="large"] { width: 150px; }
   .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
   .settings-body { grid-template-columns: 1fr; }
   .settings-help { border-left: 0; border-top: 1px solid var(--line); }
