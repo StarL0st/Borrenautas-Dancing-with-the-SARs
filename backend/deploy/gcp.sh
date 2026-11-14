@@ -41,6 +41,13 @@ setup)
     gc iam service-accounts create sars-pipeline --display-name "sars-pipeline"
   gc storage buckets add-iam-policy-binding "gs://${BUCKET}" \
     --member "serviceAccount:${SA}" --role roles/storage.objectAdmin >/dev/null
+  # New projects run Cloud Build as the Compute Engine default account, which may lack the rights
+  # to push the image and write build logs.
+  NUM="$(gc projects describe "$PROJECT" --format 'value(projectNumber)')"
+  gc projects add-iam-policy-binding "$PROJECT" --condition None \
+    --member "serviceAccount:${NUM}-compute@developer.gserviceaccount.com" \
+    --role roles/cloudbuild.builds.builder >/dev/null ||
+    echo "note: could not grant Cloud Build rights to ${NUM}-compute; see deploy README" >&2
   # Values go from backend/.env straight into Secret Manager; they are never printed.
   put_secret() {  # name value
     if gc secrets describe "$1" >/dev/null 2>&1; then

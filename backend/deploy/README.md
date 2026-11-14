@@ -19,7 +19,7 @@ Both mount one Cloud Storage bucket at `/data` (`processed/`, `interim/`, `selec
    ```
 2. In the console, link the project to the billing account that holds the credit, and add a budget alert (Billing > Budgets & alerts), for example at 50% and 90% of the credit.
 3. `backend/.env` must hold `ASF_EARTH_DATA_TOKEN=...`; optionally `FIRMS_MAP_KEY=...`.
-4. From the repo root, in Git Bash:
+4. From the repo root of an up-to-date `backend` checkout, in Git Bash. `build` uploads the working tree as it is, uncommitted edits included, so run `git status` and `git pull` first.
    ```
    export GCP_PROJECT=<project-id>
    backend/deploy/gcp.sh setup
@@ -52,6 +52,7 @@ Point the frontend at it with `VITE_DATA_BASE=<url>/` (frontend README).
 - `backend/deploy/.gcloudignore` keeps `.env`, `data/`, `.git`, and the frontend out of the build upload.
 - The first run per site streams every selected granule (about 30 granules, a few minutes for a 20 km site); later runs reuse `/data/interim` and only stream new ones.
 - Job limits: 4 CPU, 8 GiB, 1 h. The API: 2 CPU, 4 GiB, one instance (one job queue).
+- `setup` gives the Compute Engine default account (which new projects use for Cloud Build) `roles/cloudbuild.builds.builder`. If `build` still fails on permissions, check that account in IAM, or rerun `setup` after the first build attempt (the account may not exist before).
 - `schedule` gives the service account `roles/run.invoker` on the job so Cloud Scheduler can start it; if the scheduler call is refused, grant `roles/run.developer` instead (not verified on a live project).
 - Logs: `gcloud run jobs executions list --job sars-batch --region us-west1`, then the console link it prints.
 - Not run yet from this repo: the scripts are syntax-checked and the container start command was tested locally, but no gcloud deploy has happened.
