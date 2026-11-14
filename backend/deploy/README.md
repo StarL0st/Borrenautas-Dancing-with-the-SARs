@@ -26,6 +26,21 @@ How results reach storage (`sync` in `compose.yaml`, rclone):
 - After each full copy it writes its start time to a shared file; the API sends the "new data" push only when that time is later than the manifest's (`SARS_SYNC_MARKER`), so browsers reload when storage has the new files, not before.
 - Files carry `Cache-Control: no-cache`: URLs are reused after a rerun, so browsers revalidate (a cheap "not modified" answer).
 
+## Frontend change this needs (frontend lane, `src/main.ts`)
+
+Today one base URL serves files and calls. With storage they differ. Three lines:
+
+```
+ const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/", location.href);
++const API = new URL(import.meta.env.VITE_API_BASE ?? BASE, location.href); // lookup, push, history
+-    const res = await fetch(new URL("sites", BASE), {
++    const res = await fetch(new URL("sites", API), {
+-const events = new EventSource(new URL("events", BASE));
++const events = new EventSource(new URL("events", API));
+```
+
+Without `VITE_API_BASE` nothing changes (local use, static build). `query` and `history` calls, when added, also go to `API`. Until this is in, build the site with `VITE_DATA_BASE=https://<api host>/` only: everything then comes from the VM (works, no crash protection).
+
 ## Guards against load and crashes
 
 | Risk | Guard |
