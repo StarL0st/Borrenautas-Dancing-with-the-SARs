@@ -55,6 +55,12 @@ One test: categories drive filters, groups drive the picker and its dates, event
   - Mexico City opens with its tags (Deforestation, Land subsidence, Agriculture, Groundwater extraction), the eight layer groups, and its timeline from events;
   - the Ground motion layer and the event outlines and dots draw on the map;
   - no console errors.
+- Static fallback (no server; for judging if the API is down), checked the same way on 2026-11-14 with `vite preview --port 5174`: same status line, areas, layers and events, no console errors. No code change needed; manifest URLs are relative. From `frontend/`:
+  ```
+  mkdir -p public && rm -rf public/data && cp -r ../data/processed public/data   # public/data/ is gitignored
+  VITE_DATA_BASE=./data/ npm run build                                           # dist/ (about 17 MB) is the static site
+  ```
+  Without a server, live updates (`/events`) and the Process button do nothing; everything else works.
 - Not checked: clicking a popup (the map canvas was not clicked), the Process button against a live server (the `/sites` API itself is tested in the backend and was run once by hand), phones, screen readers, other browsers.
 
 ## Not done (frontend lane)
