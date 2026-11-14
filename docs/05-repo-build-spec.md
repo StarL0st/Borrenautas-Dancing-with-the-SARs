@@ -143,7 +143,7 @@ GO unlocks: data download, study-area selection, pipeline, analysis, frontend fe
 3. **Read order**: `docs/00` to `docs/04`, then your assigned spec.
 4. **Commands**: the exact `make` targets and what each does.
 5. **Lanes and ownership**: pointer to `docs/ownership.md`; edit only your lane's paths.
-6. **Source of truth**: specs and contracts win over code; flag mismatches in the PR, never silently fix either side.
+6. **Source of truth**: specs and contracts win over code; flag mismatches in the PR, never silently fix either side. `main` is the ground truth; agents do not modify rule files (`README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/`, `specs/`, `contracts/`, `.claude/`) unless a human prompt explicitly directs it (`docs/06` section 5). Keep the existing root `CLAUDE.md` rules when rewriting it.
 7. **Contracts**: frozen after the freeze time; change protocol from `docs/04`.
 8. **Definition of done**: acceptance criteria met with evidence, `make lint test validate` pass, spec status updated, PR template completed.
 9. **Git rules**: branch naming, commit prefix with spec ID, commit cadence (commit after every passing check and at least every 30 minutes, push at least hourly, never stop with uncommitted work; see `docs/06` section 5), never push to `main`, one task per PR, rebase on `main` before opening a PR.

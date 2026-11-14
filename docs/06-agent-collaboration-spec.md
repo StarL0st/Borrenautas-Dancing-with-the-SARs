@@ -46,8 +46,13 @@ If L1 is overloaded after kickoff (heavy analysis), split it into pipeline (data
 
 ## 5. Git workflow
 
-- **Trunk-based.** `main` is always buildable and always contains a working demo path.
-- **Branches:** `<lane>/F##-short-desc` (e.g. `backend/F02-fetch`, `frontend/F04-map`, `story/F05-content`). Short-lived: hours, not days.
+- **Spec authority (set by the team, binding on every agent):**
+  - `main` holds the ground truth: all specs, contracts, and rules, plus the working product. Nothing reaches `main` unless it works.
+  - Agents **must not modify the guiding rules** on any branch unless a human explicitly directs that change in a prompt: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/`, `specs/`, `contracts/`, `.claude/`. If a rule looks wrong, stop and ask; do not edit it.
+  - Agents never push or merge to `main` on their own. Humans merge branch work into `main` once it is tested and working.
+  - Branch-specific notes (design decisions, how to run) live inside the lane's own folder (for example `pipeline/README.md`), never in the shared rule files.
+- **Lane branches:** `backend` (pipeline and data server, `pipeline/`) and `frontend` (`web/`) are the long-lived lane branches where each lane builds and tests. Each lane agent works only on its own branch and only in its own paths. Feature branches `<lane>/F##-short-desc` may be cut from a lane branch and merged back into it.
+- **Trunk:** `main` is always buildable and always contains a working demo path. Lane branches rebase on `main` regularly so rule updates reach them.
 - **Worktrees:** one per lane agent, created with `make worktree LANE=<lane> NAME=<branch>`. Each starts its Claude Code session inside its own worktree. This also keeps executor runs isolated.
 - **Commits:** prefix with the spec ID: `F02: add granule downloader` (`chore:`, `docs:`, `kickoff:` for work outside a spec). Enforced by the `.githooks/commit-msg` hook.
 - **Commit cadence (constant commits):**

@@ -4,7 +4,7 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 
 ## Principles
 
-1. **Static-first.** The pipeline produces files; the frontend loads files. No server to run during judging.
+1. **Static-first, live-capable.** The pipeline produces contract files; the frontend loads files. The backend (`pipeline/`, a uv project on the `backend` branch) also serves the same files live over HTTP and pushes "data updated" events, so the frontend can work against it during development. The static export stays the judging fallback: no server is required to run the demo.
 2. **Contract-driven.** Pipeline and frontend only meet at the contracts in `docs/04-contracts.md`. Each lane can work alone against fixtures.
 3. **Reproducible.** Any published layer can be regenerated from raw granules by one command, with parameters recorded.
 4. **Small areas, small files.** One compact study area, downsampled web assets, raw data never in git.

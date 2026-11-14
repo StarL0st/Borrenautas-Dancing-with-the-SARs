@@ -49,6 +49,10 @@ Rules:
 
 Space Apps projects are expected to be built during the event. Before the start, the build agent may only create process scaffolding, templates, tooling, CI, empty skeletons, and synthetic labelled fixtures. Data downloads, study-area selection, and feature code are locked behind `KICKOFF.md`. The gate is enforced by a script (`scripts/check_gate.sh`), not just by instruction. Please also read the official rules and confirm this matches them.
 
+## Branches and spec authority
+
+`main` is the ground truth for specs, contracts, and rules, and holds only the working product. Each lane builds and tests on its own branch: `backend` (`pipeline/`) and `frontend` (`web/`). Agents do not modify rule files (`README.md`, `CLAUDE.md`, `docs/`, `specs/`, `contracts/`, `.claude/`) unless a human prompt says so, and never push or merge to `main`. Details: `docs/06-agent-collaboration-spec.md` section 5 and the root `CLAUDE.md`.
+
 ## Commit discipline
 
 Commit early and constantly: after every passing check and at least every 30 minutes (`F##: wip ...` is fine), push at least hourly, and never stop a session with uncommitted work. Commit messages need a prefix (`F##:`, `T-###:`, `chore:`, `docs:`, `fix:`, `kickoff:`). Hooks enforce this; run `make setup` once per clone to turn them on. Details: `docs/06-agent-collaboration-spec.md` section 5.
