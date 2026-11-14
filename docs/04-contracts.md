@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.3.0. 0.2.0 added C7 events and `/query`; 0.3.0 adds categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`. Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.5.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas. Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -40,6 +40,7 @@ These contracts are the only coupling between the pipeline (producer) and the fr
 | `story_url` | string | no | Points to a Story file (C4) |
 | `credits` | string[] | yes | Data and tool attributions |
 | `products` | object | no | Per NISAR product used: `{ maturity, track?, frame?, direction? }` |
+| `friendly` | string | no | URL of this area's friendly cards (C8) |
 
 ### Categories
 
@@ -120,13 +121,15 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /events.geojson` | The same events as a GeoJSON FeatureCollection with flat properties (`id`, `area_id`, `category` (primary), `categories` (comma-separated), `title`, `summary`, `from`, `to`, `confidence`, `area_km2`, `maturity`, `lon`, `lat`), for a MapLibre source. Also in the static export |
 | `GET /sites` | Only with `serve --jobs`. `{ sites: [{ id, title, bbox, requested, status, error?, result?, finished? }] }`; `status` is `idle`, `queued`, `running`, `done`, or `error` |
 | `POST /sites` | Only with `serve --jobs`. Body `{ lat, lon, km? (default 20, max 30), title?, id? }`. Adds a requested site and processes it in the background. 202 `{ id, status }`. When done, `/events` fires a `manifest` event |
+| `GET /sites/<id>` | Only with `serve --jobs`. `{ id, status, position?, processed, error? }`: `position` is the place in the queue (0 = next), `processed` says the area has data |
+| `POST /sites` (public) | Only with `serve --jobs --public`, no token. Body `{ lat, lon }` only. Answers with the curated site at the point, or the grid cell around it (0.2 degree grid, 22 km box, id `cell-<lat>n-<lon>w`). 200 `{ id, status: "done", empty?, message? }` when cached (`empty`: no NISAR data there); 202 `{ id, status, position }` when queued, then `/events` fires a `manifest` event; 429 `{ detail }` over a limit (new places per address per hour, queue length, total places) |
 | `POST /sites/<id>/refresh` | Only with `serve --jobs`. Search the catalog again and process if there are new granules (`?force=true` to reprocess). 202 |
 
 - `/query` also takes optional filters `category=<category>`, `type=<change type>`, `from=YYYY-MM-DD`, `to=YYYY-MM-DD` (event `date_range` overlaps `[from, to]`).
-- POST requests need `Authorization: Bearer <token>` when the server has an admin token set (always in the cloud: they start downloads).
+- POST requests need `Authorization: Bearer <token>` when the server has an admin token set (always in the cloud: they start downloads). On a public server the token is needed only for `km`, `title`, `id` and `/refresh`.
 - CORS is open for GET; responses carry `Cache-Control: no-cache`.
 - `/query` exists only on the server. Against the static export the frontend loads `events.json` and filters it itself.
-- Area IDs are site ids (`cdmx`; requested places `at-<lat>n-<lon>w`, dots as `_`). An area mixes products; each product keeps one viewing geometry and maturity, stated in `products` and in every layer's provenance. Backscatter layer IDs are `<pol>-<YYYY-MM-DD>`.
+- Area IDs are site ids (`cdmx`; requested places `at-<lat>n-<lon>w`, looked-up cells `cell-<lat>n-<lon>w`, dots as `_`; `mexico` is a country mosaic: soil moisture at about 2 km per 12-day cycle, layers with `date_range`, far larger than other areas). An area mixes products; each product keeps one viewing geometry and maturity, stated in `products` and in every layer's provenance. Backscatter layer IDs are `<pol>-<YYYY-MM-DD>`.
 - Layers may carry an extra `stats` object (`mean_db`, `n_pixels`); the frontend must not depend on it.
 - The static build sets the base to the site's own `data/` path; nothing else changes. `/events` does not exist there, so the frontend must work without it.
 
@@ -140,7 +143,7 @@ A detected and classified surface change: "this place shows X between these date
 | `area_id` | string | yes | The C1 area it was found in |
 | `type` | enum | yes | Same values as `change_types` in C1 |
 | `categories` | string[] | yes | Categories (C1), primary first, e.g. `["subsidence", "groundwater"]` |
-| `signature` | string | yes | What the radar saw before interpretation: `darkening_both`, `hv_drop`, `brightening`, `strong_change`, `seasonal_cycle`, `sinking`, `soil_drying` |
+| `signature` | string | yes | What the radar saw before interpretation: `darkening_both`, `hv_drop`, `brightening`, `strong_change`, `seasonal_cycle`, `sinking`, `soil_drying`, `burn_scar` (GCOV plus NASA FIRMS: `date_range` starts at the fire season, `series` has `HV` and `HV_unburned_vegetation`) |
 | `product` | string | yes | NISAR product it comes from: `GCOV`, `GUNW`, `SME2` |
 | `title` | string | yes | Short, plain language |
 | `summary` | string | yes | One or two plain-language sentences, data basis first |
@@ -158,6 +161,37 @@ A detected and classified surface change: "this place shows X between these date
 | `series` | object | no | The region's own values per date, `{ <name>: [{ date, value }] }`, e.g. `HH`/`HV` (dB), `line_of_sight_cm`, `soil_moisture_m3_m3` |
 | `synthetic` | boolean | yes | |
 | `provenance` | Provenance | yes | C3 |
+
+## C8. Friendly cards (`areas/<area>/friendly.json`)
+
+The area's events (C7) summed per category and graded, in plain language, for the friendly mode. No new detections: every card points back to events and a layer. Also in the static export.
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `contract_version` | string | yes | |
+| `area_id` | string | yes | |
+| `title` | string | yes | The area title |
+| `status` | enum | yes | `calm`, `watch`, `alert`: from the highest card level (0-1, 2, 3) |
+| `headline` | string | yes | One plain sentence for the whole area |
+| `cards` | Card[] | yes | Highest level first. May be empty |
+| `data_notes` | string[] | yes | Maturity wording (BETA, PROVISIONAL) and the "hypothesis, not confirmed" note. Must be shown |
+
+Card:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `category` | string | yes | A category id (C1 Categories) |
+| `label` | string | yes | Plain name, e.g. `Flooding` |
+| `level` | integer | yes | 0 = watched for here, nothing found; 1 = found, small or weak; 2 = 1 to 5% of the area; 3 = over 5%. Thresholds in `backend/README.md` |
+| `headline` | string | yes | One plain sentence |
+| `number` | object | when level > 0 | `{ value, unit, label }`, e.g. `{ 12.4, "km2", "area affected" }` |
+| `share_percent` | number | when level > 0 | Share of the area inside this category's events |
+| `places` | integer | when level > 0 | Number of events |
+| `from`, `to` | string | when level > 0 | Dates the events span |
+| `confidence` | number | when level > 0 | Highest event confidence, 0 to 1 |
+| `maturity` | enum | when level > 0 | Lowest maturity among the events |
+| `event_ids` | string[] | when level > 0 | Up to 5 C7 event ids, largest first |
+| `layer_id` | string or null | when level > 0 | A C2 layer that shows it |
 
 ## Validation rules
 
