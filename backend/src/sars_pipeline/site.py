@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 from dataclasses import asdict
 from pathlib import Path
 
@@ -29,6 +30,45 @@ SITES = Path(__file__).resolve().parents[2] / "sites.json"
 
 def load_sites(path: Path = SITES) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+# C1 change_types (docs/04).
+CHANGE_TYPES = {
+    "flood_wetland",
+    "forest_loss",
+    "wildfire",
+    "agriculture",
+    "soil_moisture",
+    "glacier_ice",
+    "deformation",
+    "other",
+}
+
+
+def bbox_around(lon: float, lat: float, km: float) -> list[float]:
+    """A km x km box centered on a point, in degrees."""
+    dlat = km / 2 / 111.32
+    dlon = dlat / math.cos(math.radians(lat))
+    return [round(v, 5) for v in (lon - dlon, lat - dlat, lon + dlon, lat + dlat)]
+
+
+def add_site(site_id: str, site: dict, path: Path = SITES, force: bool = False) -> dict:
+    """Validate a site and write it into sites.json."""
+    w, s, e, n = site["bbox"]
+    if not (-180 <= w < e <= 180 and -90 <= s < n <= 90):
+        raise ValueError(f"bbox must be west,south,east,north in degrees, got {site['bbox']}")
+    if (e - w) * (n - s) > 1:
+        # shortcut: site windows are read at 10 m in one piece; bigger areas need tiling first.
+        raise ValueError("bbox is over 1 square degree; keep sites to about 20-50 km")
+    bad = set(site["change_types"]) - CHANGE_TYPES
+    if bad:
+        raise ValueError(f"unknown change_types {sorted(bad)}; use {sorted(CHANGE_TYPES)}")
+    sites = load_sites(path)
+    if site_id in sites and not force:
+        raise ValueError(f"site {site_id!r} exists; pass --force to replace it")
+    sites[site_id] = site
+    Path(path).write_text(json.dumps(sites, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return site
 
 
 def cached_window(row: dict, bbox, looks: int, interim: Path) -> Window:

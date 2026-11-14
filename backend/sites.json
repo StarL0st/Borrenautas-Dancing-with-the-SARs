@@ -2,8 +2,29 @@
   "sf": {
     "title": "San Francisco (pipeline test)",
     "summary": "Test area for the pipeline, not a demo site. Radar backscatter over San Francisco and the Bay, and what changed between the two latest passes.",
-    "bbox": [-122.52, 37.70, -122.30, 37.85],
-    "change_types": ["other"],
+    "bbox": [
+      -122.52,
+      37.7,
+      -122.3,
+      37.85
+    ],
+    "change_types": [
+      "other"
+    ],
+    "looks": 4
+  },
+  "cdmx": {
+    "title": "Mexico City",
+    "summary": "Mexico City and its surroundings: dense city, lakebed, and farmland at the edges. Radar backscatter and what changed between the latest passes.",
+    "bbox": [
+      -99.22526,
+      19.34017,
+      -99.03474,
+      19.51983
+    ],
+    "change_types": [
+      "other"
+    ],
     "looks": 4
   }
 }

@@ -18,6 +18,8 @@ cd backend && uv add <package>               # add a dependency to the backend
 cd backend
 uv run sars-pipeline run sf            # one site from sites.json (no args: every site)
 uv run sars-pipeline select sf         # only (re)pick granules -> data/selected/sf.json
+uv run sars-pipeline add-site cdmx --center=-99.13,19.43 --km 20 --title "Mexico City" --types other
+                                       # or --bbox=w,s,e,n; validates and writes sites.json
 uv run sars-pipeline serve             # API on http://127.0.0.1:8765/
 uv run pytest && uv run ruff check     # checks
 ```
@@ -52,6 +54,7 @@ Layers carry an extra `role` field (`backscatter` or `change`) so the frontend c
 ## Status (testing branch, 2026-11-13)
 
 - Tested on San Francisco: 6 PROVISIONAL granules (track 135, frame 21, ascending, 2026-08-22 to 2026-10-21), about 2 min 50 s first run, seconds from cache. The 2026-10-09 to 10-21 pair gives 24 events, mostly `other` on the eastern waterfront piers (ships and cargo moving), 2 small `forest_loss`. San Francisco is a test area only; the numbers mean nothing for the demo.
+- Mexico City (`cdmx`, 20 km around the center): 2 VALIDATED granules (track 19, frame 11, ascending, 2026-10-25 and 11-06), 41 s. The whole scene got 1-2 dB brighter on 11-06, strongest around the airport and the southeast; a wetter surface (rain) is the first hypothesis, not yet checked against rainfall data. 6 small, low-confidence events.
 - Cloud: see `deploy/README.md`. Scripted, not deployed yet.
 
 Known limits:

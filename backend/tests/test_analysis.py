@@ -165,3 +165,21 @@ def test_query_finds_event_at_point_and_in_box(flood_site):
 
 def test_to_db_marks_nodata():
     assert np.isnan(to_db(np.array([0.0, np.nan], "float32"))).all()
+
+
+def test_add_site_validates_and_writes(tmp_path):
+    from sars_pipeline.site import add_site, bbox_around, load_sites
+
+    path = tmp_path / "sites.json"
+    path.write_text("{}")
+    bbox = bbox_around(-99.13, 19.43, 20)
+    assert bbox[0] < -99.13 < bbox[2] and abs((bbox[3] - bbox[1]) * 111.32 - 20) < 0.01
+    site = {"title": "T", "summary": "", "bbox": bbox, "change_types": ["other"], "looks": 4}
+    add_site("x", site, path)
+    assert load_sites(path)["x"]["bbox"] == bbox
+    with pytest.raises(ValueError, match="exists"):
+        add_site("x", site, path)
+    with pytest.raises(ValueError, match="change_types"):
+        add_site("y", {**site, "change_types": ["volcano"]}, path)
+    with pytest.raises(ValueError, match="west,south"):
+        add_site("y", {**site, "bbox": [1, 2, 0, 3]}, path)

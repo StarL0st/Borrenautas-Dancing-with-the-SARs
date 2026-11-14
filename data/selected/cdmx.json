@@ -1,0 +1,188 @@
+{
+  "site": "cdmx",
+  "bbox": [
+    -99.22526,
+    19.34017,
+    -99.03474,
+    19.51983
+  ],
+  "window": [
+    "2026-07-17",
+    "2026-11-14"
+  ],
+  "searched": 16,
+  "track": 19,
+  "frame": 11,
+  "direction": "ASCENDING",
+  "maturity": "VALIDATED",
+  "granules": [
+    {
+      "id": "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001",
+      "date": "2026-10-25",
+      "track": 19,
+      "frame": 11,
+      "direction": "ASCENDING",
+      "collection": "NISAR_L2_GCOV_V1",
+      "maturity": "VALIDATED",
+      "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_V1/NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001/NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001.h5",
+      "bytes": {
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001.h5": {
+          "bytes": 7193231360,
+          "format": "HDF5"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_LATLON.png": {
+          "bytes": 4951651,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE.png": {
+          "bytes": 5509831,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_A_HHHH.png": {
+          "bytes": 1848346,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_A_HVHV.png": {
+          "bytes": 1846209,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_B_HHHH.png": {
+          "bytes": 927897,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_B_HVHV.png": {
+          "bytes": 933476,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001.h5.iso.xml": {
+          "bytes": 117162,
+          "format": "XML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_QA_REPORT.pdf": {
+          "bytes": 807894,
+          "format": "PDF"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_QA_STATS.h5": {
+          "bytes": 72839,
+          "format": "HDF5"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_QA_SUMMARY.csv": {
+          "bytes": 1441,
+          "format": "CSV"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_LATLON.kml": {
+          "bytes": 575,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE.kml": {
+          "bytes": 575,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_A_HHHH.kml": {
+          "bytes": 582,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_A_HVHV.kml": {
+          "bytes": 582,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_B_HHHH.kml": {
+          "bytes": 581,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001_NATIVE_B_HVHV.kml": {
+          "bytes": 581,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_034_019_A_011_4005_DHDH_A_20261025T120538_20261025T120613_P05036_N_F_J_001.rc.yaml": {
+          "bytes": 6023,
+          "format": "YAML"
+        }
+      }
+    },
+    {
+      "id": "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001",
+      "date": "2026-11-06",
+      "track": 19,
+      "frame": 11,
+      "direction": "ASCENDING",
+      "collection": "NISAR_L2_GCOV_V1",
+      "maturity": "VALIDATED",
+      "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_V1/NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001/NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001.h5",
+      "bytes": {
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001.h5": {
+          "bytes": 6983516160,
+          "format": "HDF5"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_LATLON.png": {
+          "bytes": 4798973,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE.png": {
+          "bytes": 5342560,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_A_HHHH.png": {
+          "bytes": 1789660,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_A_HVHV.png": {
+          "bytes": 1794367,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_B_HHHH.png": {
+          "bytes": 905593,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_B_HVHV.png": {
+          "bytes": 908614,
+          "format": "PNG"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001.h5.iso.xml": {
+          "bytes": 117181,
+          "format": "XML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_QA_REPORT.pdf": {
+          "bytes": 787691,
+          "format": "PDF"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_QA_STATS.h5": {
+          "bytes": 72834,
+          "format": "HDF5"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_QA_SUMMARY.csv": {
+          "bytes": 1441,
+          "format": "CSV"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_LATLON.kml": {
+          "bytes": 575,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE.kml": {
+          "bytes": 575,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_A_HHHH.kml": {
+          "bytes": 582,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_A_HVHV.kml": {
+          "bytes": 582,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_B_HHHH.kml": {
+          "bytes": 581,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001_NATIVE_B_HVHV.kml": {
+          "bytes": 581,
+          "format": "KML"
+        },
+        "NISAR_L2_PR_GCOV_035_019_A_011_4005_DHDH_A_20261106T120539_20261106T120613_P05036_N_F_J_001.rc.yaml": {
+          "bytes": 6019,
+          "format": "YAML"
+        }
+      }
+    }
+  ]
+}

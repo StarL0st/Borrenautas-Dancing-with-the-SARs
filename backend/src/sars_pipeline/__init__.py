@@ -36,6 +36,18 @@ def main() -> None:
     select_p.add_argument("site")
     select_p.add_argument("--days", type=int, default=120, help="search window, days back")
 
+    add_p = sub.add_parser("add-site", help="add a site to backend/sites.json")
+    add_p.add_argument("site", help="short id, e.g. cdmx")
+    where = add_p.add_mutually_exclusive_group(required=True)
+    where.add_argument("--bbox", help="west,south,east,north in degrees")
+    where.add_argument("--center", help="lon,lat in degrees (box of --km around it)")
+    add_p.add_argument("--km", type=float, default=20, help="box size with --center")
+    add_p.add_argument("--title", required=True)
+    add_p.add_argument("--summary", default="", help="one or two plain-language sentences")
+    add_p.add_argument("--types", default="other", help="comma-separated C1 change_types")
+    add_p.add_argument("--looks", type=int, default=4, help="pixels averaged per side (10 m each)")
+    add_p.add_argument("--force", action="store_true", help="replace an existing site")
+
     run_p = sub.add_parser("run", help="select (if needed), stream, detect change, export a site")
     run_p.add_argument("sites", nargs="*", help="site ids from backend/sites.json (default: all)")
     run_p.add_argument("--reselect", action="store_true", help="search again even if selected")
@@ -49,7 +61,27 @@ def main() -> None:
 
     load_dotenv(BACKEND / ".env")  # local secrets; in the cloud the env is set directly
 
-    if args.cmd in ("select", "run"):
+    if args.cmd == "add-site":
+        from .site import add_site, bbox_around
+
+        if args.bbox:
+            bbox = [float(v) for v in args.bbox.split(",")]
+        else:
+            lon, lat = (float(v) for v in args.center.split(","))
+            bbox = bbox_around(lon, lat, args.km)
+        site = {
+            "title": args.title,
+            "summary": args.summary or f"Radar view of {args.title} and what changed recently.",
+            "bbox": bbox,
+            "change_types": [t.strip() for t in args.types.split(",")],
+            "looks": args.looks,
+        }
+        try:
+            add_site(args.site, site, force=args.force)
+        except ValueError as err:
+            parser.error(str(err))
+        print(f"added {args.site}: bbox {bbox}. Next: uv run sars-pipeline run {args.site}")
+    elif args.cmd in ("select", "run"):
         from .selection import select_site
         from .site import load_sites, run_site
 
