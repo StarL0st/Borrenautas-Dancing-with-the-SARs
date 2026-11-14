@@ -22,6 +22,8 @@ import { createWheel } from "./wheel";
 
 // Live backend by default; set VITE_DATA_BASE=./data/ for the static build (contract C6).
 const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/", location.href);
+// Deployed, files come from storage (BASE) and calls go to the server: set VITE_API_BASE too.
+const API = new URL(import.meta.env.VITE_API_BASE ?? BASE, location.href);
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
@@ -221,7 +223,7 @@ $("process").onclick = async () => {
   const lat = +$<HTMLInputElement>("lat").value, lon = +$<HTMLInputElement>("lon").value;
   setStatus("status.asking");
   try {
-    const res = await fetch(new URL("sites", BASE), {
+    const res = await fetch(new URL("sites", API), {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
     });
     if (res.status === 202 || res.status === 200) setStatus("status.accepted"); // 200: cached (contract 0.5)
@@ -738,7 +740,7 @@ async function loadLiveFeeds() {
 }
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
-const events = new EventSource(new URL("events", BASE));
+const events = new EventSource(new URL("events", API));
 events.addEventListener("manifest", loadLive);
 events.addEventListener("live", loadLiveFeeds);
 setInterval(loadLiveFeeds, 5 * 60 * 1000); // look again; the sources themselves are asked every 15 minutes at most

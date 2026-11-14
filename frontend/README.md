@@ -16,6 +16,7 @@ npm run build     # type-check + static build into dist/
 The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1), layers (C2), and time series (C4), from one base URL.
 
 - **Live backend (default):** `http://127.0.0.1:8765/`. Start it from the `backend` branch with `cd backend && uv run sars-pipeline serve`, then `uv run sars-pipeline synthetic` to feed it test granules. It pushes `event: manifest` on `/events` when data changes (contract C6).
+- **Deployed (Azure):** two addresses. `VITE_DATA_BASE=<storage url>/` for files (manifest, layers, events, live), `VITE_API_BASE=<server url>/` for calls (`sites`, `events`). Without `VITE_API_BASE` calls go to `VITE_DATA_BASE`, as before.
 - **Static build:** set `VITE_DATA_BASE=./data/` and copy the backend output into `public/data/`. There is no `/events` endpoint there, so the app must work without live updates.
 
 ## Current state
