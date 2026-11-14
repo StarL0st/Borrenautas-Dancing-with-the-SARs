@@ -53,7 +53,7 @@ These contracts are the only coupling between the pipeline (producer) and the fr
 | `date_range` | [string, string] | one of | For composites or differences, `[from, to]` |
 | `product` | string | yes | e.g. `GCOV`; `derived` allowed with provenance |
 | `polarization` | string or null | yes | e.g. `HH`, `HV`, `HH/HV`, `null` for non-polarimetric products |
-| `maturity` | enum | yes | `BETA`, `PROVISIONAL`, `OTHER` |
+| `maturity` | enum | yes | `BETA`, `PROVISIONAL`, `VALIDATED`, `OTHER`. Never mix maturities inside one comparison |
 | `units` | string | yes | e.g. `dB`, `dB difference`, `ratio`, `m`, `class` |
 | `value_range` | number[2] | for rasters | Display stretch `[min, max]` |
 | `colormap` | string | for rasters | Named colormap that the frontend implements |

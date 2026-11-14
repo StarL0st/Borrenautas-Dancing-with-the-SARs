@@ -14,8 +14,8 @@ Status: living document. "Verified" means seen in ASF/NASA documentation during 
 | L2 | GSLC, GCOV, GUNW, GOFF | Geocoded counterparts. GCOV = geocoded polarimetric covariance matrix (the usual choice for backscatter change). GUNW = geocoded unwrapped interferogram (deformation) |
 | L3 | SME2 | Soil moisture |
 
-- Data maturity levels: **BETA** (pre-calibration, first released February 2026) and **PROVISIONAL** (calibrated). `asf_search` accepts a `dataMaturity` filter (`BETA` or `PROVISIONAL`). Every layer we publish must state its maturity. **VERIFY** whether newer maturity levels exist.
-- Collection short names follow the pattern `NISAR_L2_GCOV_BETA_V1`, `NISAR_L2_GCOV_PROVISIONAL_V1` (and the same for GUNW, GOFF, GSLC, RUNW, RIFG).
+- Data maturity levels: **BETA** (pre-calibration, released January and February 2026), **PROVISIONAL** (calibrated, released from June 17, 2026) and **VALIDATED** (released November 6, 2026, acquisitions from October 21, 2026). Maturity appears only in the collection name, never in the granule file. Older dates exist in both BETA and PROVISIONAL: use the higher maturity and never mix maturities in one comparison. Every layer we publish must state its maturity.
+- Collection short names: `NISAR_L2_GCOV_BETA_V1`, `NISAR_L2_GCOV_PROVISIONAL_V1`, and `NISAR_L2_GCOV_V1` for VALIDATED (the same pattern for GUNW, GOFF, GSLC, RUNW, RIFG). Urgent Response products appear under `NISAR_UR_L2` / `UR_L2_L_GCOV`.
 - Products reported by ASF documentation as L-band for the BETA and PROVISIONAL releases.
 - Coordinates are encoded with NetCDF CF conventions, so NetCDF drivers may work better than plain HDF5 drivers in GDAL. Files are cloud-optimized and can be streamed.
 - ASF also offers sample datasets and an "Urgent Response" stream for disasters.
@@ -45,13 +45,32 @@ Status: living document. "Verified" means seen in ASF/NASA documentation during 
 - Earthdata NISAR page: https://www.earthdata.nasa.gov/data/platforms/space-based-platforms/nisar
 - NISAR sample data: https://nisar.jpl.nasa.gov/data/sample-data
 
+## GCOV structure (verified on a real granule and the product spec, JPL D-102274 Rev F)
+
+- Identification: `/science/LSAR/identification/` with `granuleId`, `productType`, `trackNumber`, `frameNumber`, `orbitPassDirection` (`Ascending`/`Descending`), `zeroDopplerStartTime` (`YYYY-mm-ddTHH:MM:SS.sssssssss`, UTC), `processingType` (`Nominal`/`Urgent`/`Custom`), `boundingPolygon` (WKT, lon/lat).
+- Grids: `/science/LSAR/GCOV/grids/frequencyA/` (10 or 20 m) and `frequencyB/` (80 m). Diagonal terms `HHHH`, `HVHV` (dual-pol over Mexico) are float32, linear gamma0 power (RTC applied), fill NaN, 512x512 gzip chunks. `xCoordinates`/`yCoordinates` are pixel centers in meters. `projection` holds the EPSG code in attribute `epsg_code` (UTM; EPSG 3413/3031 beyond 60 degrees). `mask`: 0 invalid, 255 outside acquisition, 1..n valid subswath. Skip terms whose `isReceiveOnlyChannel1/2` is `"True"` (noise only).
+- Size: about 6 to 7 GB per granule. One frequencyA term is about 35000 x 35000 pixels (about 4.9 GB in memory); frequencyB is about 4400 x 4400 (about 77 MB).
+- Each granule also ships browse PNGs and KML, a QA report PDF, and QA summary CSV.
+- Remote reads work: `h5py` over HTTPS (`fsspec`, Earthdata bearer token) reads a 20 x 20 km frequencyA window in about 16 s and a full frequencyB term in about 8 s, without downloading the file.
+- `asf_search` token login needs the ASF app EULA approved once per Earthdata account (https://urs.earthdata.nasa.gov/approve_app?client_id=BO_n7nTIlMljdvU6kRRB3g).
+
+## Mexico coverage (searched 2026-11-13)
+
+| Window before latest acquisition (2026-11-13) | Granules | Unique track/pass/frame | Full-granule size |
+|---|---|---|---|
+| 12 days | 65 (32 VALIDATED, 33 Urgent Response) | 41 | 404 GB |
+| 24 days | 177 | 122 | 968 GB |
+| 48 days | 509 | 158 | 2777 GB |
+
+About 158 frames (ascending and descending) cover Mexico. Nominal products lag acquisition, so one complete national snapshot needs roughly the last 24 to 48 days. Mexico spans UTM zones 11 to 16.
+
 ## Challenge resource list
 
 The challenge says to use "the list of resources provided". It was not in the pasted text. **Paste it here:**
 
-```
-(paste the challenge page's resource list)
-```
+- NASA: Earthdata Search, ASF Vertex, the ASF NISAR Data User Guide, Intro to Remote Sensing, Intro to SAR, NASA ARSET trainings, NISAR StoryMaps, NISAR Applications White Papers, UAVSAR Postcards.
+- CSA: RADARSAT Constellation Mission (RCM) data (GeoTIFF + `product.xml`, via EODMS), a SAR Python tutorial, RADARSAT-1 data (open licence; CEOS or GeoTIFF via EODMS, COG on AWS).
+- CONAE: SAOCOM catalogue and registration (L-band; one GeoTIFF per polarization plus XML).
 
 ## Ancillary data candidates (not decisions)
 
@@ -80,9 +99,9 @@ Verify license and attribution requirements before use.
 
 ## To verify at kickoff
 
-- [ ] Resource list from the challenge page pasted above
+- [x] Resource list from the challenge page pasted above
 - [ ] Coverage over each candidate AOI (number of usable acquisitions, same track/frame preferred)
 - [ ] Which maturity levels are available for each candidate
-- [ ] GCOV units and scaling (linear power vs dB) from the product specification before any dB conversion
-- [ ] Earthdata credentials work for each person who will download
+- [x] GCOV units and scaling: linear gamma0 power, convert with 10*log10 after averaging in linear units
+- [ ] Earthdata credentials work for each person who will download (works for one account so far; approve the ASF app EULA first)
 - [ ] Citation text for NISAR data

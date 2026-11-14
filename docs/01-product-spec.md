@@ -60,7 +60,7 @@ Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 
 ## Non-goals
 
-- Global "search any place" coverage or on-demand processing
+- Global "search any place" coverage or on-demand processing. The systems should not block it, but global coverage is post-hackathon scope; the hackathon covers Mexico
 - User accounts, a database, or any server we have to run during judging
 - Writing new SAR processing from raw signal data (we use the mission's higher-level products)
 - Real-time or near-real-time updates
@@ -83,6 +83,6 @@ Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 
 | Decision | Owner | Deadline |
 |---|---|---|
-| Study area and change type(s) (ADR-002) | Team, led by Lane 3 and Lane 1 | T+3h |
+| Study area and change type(s) (ADR-002). **Region decided: Mexico** (national 80 m overview plus 10 m detail at chosen sites); sites and change type still open | Team, led by Lane 3 and Lane 1 | T+3h |
 | Change-detection method (ADR-003) | Lane 1 | T+4h |
 | Final product name | Team | T+6h |
