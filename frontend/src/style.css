@@ -166,3 +166,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
   #wheel { width: 150px; }
   .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
 }
+
+/* Event popups (testing integration): dark like the panels, so data text stays readable. */
+.maplibregl-popup-content { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+.maplibregl-popup-tip { border-top-color: var(--panel) !important; border-bottom-color: var(--panel) !important; }
+.event-popup p { margin: 6px 0 0; }

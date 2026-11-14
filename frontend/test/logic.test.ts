@@ -33,3 +33,21 @@ test("manifest areas map to filter types and survive missing optional fields", (
   assert.ok(inFilter(other, new Set()), "untyped areas always show");
   assert.equal(other.layers.length, 0);
 });
+
+test("contract 0.3: categories drive filters, groups drive the picker, events fill the timeline", () => {
+  const grouped = [
+    layer("HH", "2026-01-01", { group: "HH backscatter" }),
+    layer("HH", "2026-01-13", { group: "HH change", date: undefined, date_range: ["2026-01-01", "2026-01-13"] }),
+  ];
+  const report = (area_id: string, to: string, title: string) =>
+    ({ type: "Feature", geometry: null, properties: { area_id, to, title, summary: "S.", confidence: 0.5 } }) as never;
+  const area = toAreaView(
+    { id: "c", title: "C", summary: "", change_types: ["deformation"], categories: ["subsidence", "other"], layers: grouped },
+    [report("c", "2026-01-13", "Ground sinking"), report("elsewhere", "2026-02-01", "No")],
+  );
+  assert.deepEqual(area.types, ["subsidence"]);
+  assert.deepEqual(datesFor(area.layers, "HH change"), ["2026-01-13"]);
+  assert.deepEqual(datesFor(area.layers, "HH backscatter"), ["2026-01-01"]);
+  assert.deepEqual(area.events.map((e) => e.title), ["Ground sinking"]);
+  assert.match(area.events[0].text, /Confidence 50%/);
+});

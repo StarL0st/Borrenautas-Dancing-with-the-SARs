@@ -4,7 +4,7 @@ import { GROUPS, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import {
   datesFor, inFilter, layerAt, polarizations, supportedVersion, toAreaView,
-  type AreaView, type Layer, type Manifest,
+  type AreaView, type EventFeature, type Layer, type Manifest,
 } from "./logic";
 import { startTour } from "./tour";
 import { el } from "./ui";
@@ -17,6 +17,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
 
 let live: AreaView[] = [];
+let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
 const ticked = new Set(GROUPS.flatMap((g) => g.items.map((i) => i.id))); // filter types switched on
 let opened: string[] = []; // area ids open as tabs, newest first
 const collapsed = new Set<string>();
@@ -25,6 +26,12 @@ const views = new Map<string, { pol: string; date: string; opacity: number }>();
 const areas = () => [...live, ...EXAMPLE_AREAS];
 const colorOf = (a: AreaView) =>
   GROUPS.find((g) => g.items.some((i) => ticked.has(i.id) && a.types.includes(i.id)))?.color ?? "#e6f1f5";
+const categoryColor = (c: string) => GROUPS.find((g) => g.items.some((i) => i.id === c))?.color ?? "#e6f1f5";
+// Like areas: an event whose categories are not filters ("other") is always shown.
+const eventShown = (e: EventFeature) => {
+  const cats = e.properties.categories.split(",").filter((c) => GROUPS.some((g) => g.items.some((i) => i.id === c)));
+  return !cats.length || cats.some((c) => ticked.has(c));
+};
 const dot = (color: string) => {
   const d = el("span", { className: "dot" });
   d.style.background = color;
@@ -75,6 +82,28 @@ $<HTMLFormElement>("coords").onsubmit = (e) => {
   globe.goTo(+$<HTMLInputElement>("lon").value, +$<HTMLInputElement>("lat").value);
 };
 
+// Ask the back end to process the typed place (needs `serve --jobs`). It shows up when ready:
+// the server pushes a manifest event and the app reloads.
+$("process").onclick = async () => {
+  const form = $<HTMLFormElement>("coords");
+  if (!form.reportValidity()) return;
+  const lat = +$<HTMLInputElement>("lat").value, lon = +$<HTMLInputElement>("lon").value;
+  status.className = "muted";
+  status.textContent = "Asking the radar data server to process this place...";
+  try {
+    const res = await fetch(new URL("sites", BASE), {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
+    });
+    status.textContent =
+      res.status === 202 ? "Processing this place. It appears on the globe when ready (a few minutes)."
+      : res.status === 404 ? "This radar data server does not process new places."
+      : res.status === 401 ? "Processing new places needs an access token on this server."
+      : `The server could not take the request (${res.status}).`;
+  } catch {
+    status.textContent = "Radar data server not connected.";
+  }
+};
+
 // ---- Area list, dots and open tabs ----
 
 function render() {
@@ -110,6 +139,9 @@ function render() {
   banner.textContent = notes.join(" ");
 
   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
+  globe.setEvents(
+    reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: categoryColor(e.properties.category) } })),
+  );
   globe.keepOverlays(opened);
   cards.replaceChildren(
     ...(opened.length
@@ -203,7 +235,7 @@ function radarSection(a: AreaView): Node[] {
   setDates();
   return [
     el("h4", {}, "Radar images"),
-    el("label", { htmlFor: polSelect.id }, "Polarization (how the radar wave is sent and received)"), polSelect,
+    el("label", { htmlFor: polSelect.id }, "Layer (radar image per polarization, detected change, ground motion, soil moisture)"), polSelect,
     el("label", { htmlFor: slider.id }, "Date: ", dateOut), slider,
     el("label", { htmlFor: opacity.id }, "Image opacity"), opacity,
     info,
@@ -250,9 +282,14 @@ async function loadLive() {
     if (!res.ok) throw new Error(String(res.status));
     const manifest: Manifest = await res.json();
     if (supportedVersion(manifest.contract_version)) {
-      live = manifest.areas.map(toAreaView);
+      // events.geojson is optional (older back ends have none); the areas still load without it.
+      reports = await fetch(new URL("events.geojson", BASE))
+        .then((r) => (r.ok ? r.json() : { features: [] }))
+        .then((g) => g.features ?? [])
+        .catch(() => []);
+      live = manifest.areas.map((a) => toAreaView(a, reports));
       status.className = "muted";
-      status.textContent = `Radar data connected: ${live.length} area(s).`;
+      status.textContent = `Radar data connected: ${live.length} area(s), ${reports.length} detected change(s).`;
     } else {
       live = [];
       status.className = "error";
@@ -260,6 +297,7 @@ async function loadLive() {
     }
   } catch {
     live = [];
+    reports = [];
     status.className = "muted";
     status.textContent = "Radar data server not connected. Showing example locations only.";
   }
