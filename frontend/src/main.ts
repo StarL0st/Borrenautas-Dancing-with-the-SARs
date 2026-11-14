@@ -8,7 +8,7 @@ import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import {
-  datesFor, inFilter, layerAt, liveShown, polarizations, supportedVersion, toAreaView,
+  ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
@@ -22,6 +22,9 @@ const BASE = new URL(import.meta.env.VITE_DATA_BASE ?? "http://127.0.0.1:8765/",
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
 const liveToggle = $<HTMLInputElement>("live-toggle"), liveStatus = $("live-status");
+const liveListEl = $("live-list"), liveMore = $("live-more");
+const LIVE_PAGE = 15;
+let liveLimit = LIVE_PAGE; // rows shown in the "Happening now" list
 
 const settings = loadSettings();
 setLang(settings.lang);
@@ -162,6 +165,7 @@ function render() {
   globe.setEvents(
     reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
+  renderLiveList();
   globe.setLive(
     liveToggle.checked
       ? liveEvents.filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
@@ -434,6 +438,46 @@ async function loadLive() {
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
 liveToggle.onchange = render;
+liveMore.onclick = () => {
+  liveLimit += LIVE_PAGE;
+  renderLiveList();
+};
+
+// "Happening now": one row per event, saying what, where and when, newest first.
+function renderLiveList() {
+  const rows = liveToggle.checked ? liveList(liveEvents, ticked, isType) : [];
+  const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
+  const now = Date.now();
+  liveListEl.replaceChildren(
+    ...rows.slice(0, liveLimit).map((f) => {
+      const p = f.properties;
+      const ring = el("span", { className: "ring" });
+      ring.style.color = typeColor(p.category);
+      const short = typeLabel(p.category).replace(/\s*[(:].*/, ""); // "Earthquakes", not the long form
+      return el(
+        "li",
+        {},
+        el(
+          "button",
+          {
+            type: "button", className: "result",
+            onclick: () => {
+              setSpin(false);
+              globe.openLive(p);
+            },
+          },
+          el("strong", {}, ring, p.title),
+          el("span", { className: "where" }, liveWhere(p)),
+          el("span", { className: "muted" }, `${short} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
+        ),
+      );
+    }),
+  );
+  if (liveToggle.checked && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
+  const left = rows.length - liveLimit;
+  liveMore.hidden = left <= 0;
+  liveMore.textContent = t("live.showmore", { n: Math.min(left, LIVE_PAGE) });
+}
 
 function showLiveStatus() {
   liveStatus.textContent = liveUpdated

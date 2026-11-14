@@ -6,7 +6,7 @@ EONET = {
     "events": [
         {
             "id": "EONET_1",
-            "title": "Wildfire Red Hill",
+            "title": "Wildfire Red Hill, Perry, Mississippi",
             "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_1",
             "categories": [{"id": "wildfires"}],
             "sources": [{"id": "IRWIN", "url": "https://irwin.example/1"}],
@@ -52,6 +52,7 @@ USGS = {
                 "mag": 5.2,
                 "time": 1763100000000,
                 "title": "M 5.2 - Oaxaca",
+                "place": "15 km S of Oaxaca, Mexico",
                 "url": "u",
             },
             "geometry": {"type": "Point", "coordinates": [-96.7, 16.1, 35.0]},
@@ -101,6 +102,7 @@ def test_eonet_latest_position_and_skips_gdacs_only():
         fire["detail"] == "519 acres · Reported by IRWIN"
         and fire["url"] == "https://irwin.example/1"
     )
+    assert fire["place"] == "Perry, Mississippi"
     storm = out[1]
     assert storm["properties"]["category"] == "storms"
     assert storm["geometry"]["coordinates"] == [1.0, 1.0]  # polygon -> its mean point
@@ -109,7 +111,8 @@ def test_eonet_latest_position_and_skips_gdacs_only():
 def test_usgs():
     (f,) = lf.parse_usgs(USGS)
     p = f["properties"]
-    assert p["category"] == "earthquakes" and p["title"] == "M 5.2 - Oaxaca"
+    assert p["category"] == "earthquakes" and p["title"] == "Magnitude 5.2 earthquake"
+    assert p["place"] == "15 km S of Oaxaca, Mexico"
     assert "depth 35 km" in p["detail"] and p["date"].endswith("Z")
     assert f["geometry"]["coordinates"] == [-96.7, 16.1]  # depth dropped
 
@@ -222,3 +225,28 @@ def test_gdacs_fires_get_their_own_pages():
     assert cats.count("storms") == 5 and cats.count("floods") == 31
     assert cats.count("wildfires") == 207
     assert sum("eventlist=WF" in u for u in asked) == 3
+
+
+def test_every_event_says_where():
+    assert lf.place_from_title("Flood in Guatemala") == "Guatemala"
+    assert lf.place_from_title("Wildfire Red Hill, Perry, Mississippi") == "Perry, Mississippi"
+    assert lf.place_from_title("Iceberg A23A") == ""
+    names = [{"countryname": n} for n in ("Mexico", "Guatemala", "Belize", "Honduras", "Cuba")]
+    assert lf.countries({"affectedcountries": names}) == "Mexico, Guatemala, Belize and 2 more"
+    assert lf.countries({"country": "Mexico"}) == "Mexico"
+    (storm,) = lf.parse_nhc(
+        {
+            "activeStorms": [
+                {
+                    "id": "al01",
+                    "name": "A",
+                    "binNumber": "AT1",
+                    "latitudeNumeric": 20,
+                    "longitudeNumeric": -90,
+                }
+            ]
+        }
+    )
+    assert storm["properties"]["place"] == "Atlantic Ocean"
+    (fire,) = lf.parse_firms(FIRMS, "VIIRS_NOAA20_NRT")
+    assert fire["properties"]["place"] == ""  # the app shows coordinates instead

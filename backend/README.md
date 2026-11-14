@@ -174,10 +174,16 @@ There is no push from ASF, so "live" is polling: `refresh` (or `serve --jobs --w
 - `uv run sars-pipeline live-events`: fetch once, print each feed's count or error.
 - `uv run sars-pipeline serve --live-minutes 15`: refresh in the background; `/events` pushes `event: live` (`{"type": "live", "url": "live.geojson"}`) when the file changes.
 - One failing feed never stops the others: it is listed in `sources` with `ok: false` and the reason.
-- Feature properties: `id`, `source`, `source_name`, `credit`, `category` (frontend filter id; `storms` is new), `title`, `date`, `detail`, `url`, `lon`, `lat`. Points only.
+- Feature properties: `id`, `source`, `source_name`, `credit`, `category` (frontend filter id; `storms` is new), `title` (what, for example "Magnitude 5.5 earthquake"), `place` (where, in words, or "" when the feed gives none), `date`, `detail`, `url`, `lon`, `lat`. Points only.
 - EONET events reported only by GDACS are dropped (they come in from GDACS directly). Other overlaps (for example a storm in both NHC and GDACS) are not merged yet.
 - GDACS returns at most 100 events per request: cyclones, floods, volcanoes and droughts are paged apart from fires (fires capped at 300). Dates are the latest update.
 - Tested against real events: `LIVE_FEEDS_TEST.md` (`scripts/check_live_feeds.py`).
+- Where (`place`): USGS place text; EONET from the title ("Flood in Guatemala" -> "Guatemala"); GDACS affected countries ("Mexico, Guatemala, Belize and 2 more"); NOAA NHC ocean basin; FIRMS none (the app shows coordinates).
+
+Changes:
+- 2026-11-14: `livefeeds.py`, `live-events` command, `serve --live-minutes`, SSE `live` event.
+- 2026-11-14: real-event test (`LIVE_FEEDS_TEST.md`); GDACS paging, latest-update dates, `application/geo+json`.
+- 2026-11-14: `place` on every event; USGS `title` is now "Magnitude N earthquake" (the place moved to `place`).
 - Not in the contract (`docs/04`): adding `live.geojson` and the `live` push event there needs a `contract-change` PR. Sources still need entries in `docs/09-references.md`.
 
 ## Status (backend branch, 2026-11-14)

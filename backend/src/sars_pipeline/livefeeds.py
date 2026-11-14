@@ -104,7 +104,8 @@ def feature(source: str, uid, category: str, title: str, date: str, lon, lat, **
             "source_name": SOURCES[source]["owner"],
             "credit": SOURCES[source]["credit"],
             "category": category,
-            "title": title,
+            "title": title,  # what is happening
+            "place": extra.get("place", ""),  # where, in words; "" when the feed gives none
             "date": date,
             "detail": extra.get("detail", ""),
             "url": extra.get("url", ""),
@@ -112,6 +113,29 @@ def feature(source: str, uid, category: str, title: str, date: str, lon, lat, **
             "lat": lat,
         },
     }
+
+
+def place_from_title(title: str) -> str:
+    """EONET titles carry the place: "Flood in Guatemala", "Wildfire Red Hill, Perry, Texas"."""
+    if " in " in title:
+        return title.split(" in ", 1)[1].strip()
+    if ", " in title:
+        return title.split(", ", 1)[1].strip()
+    return ""
+
+
+def countries(p: dict, most: int = 3) -> str:
+    """GDACS affected countries as words: "Mexico, Guatemala and 4 more"."""
+    names = [
+        c.get("countryname", "") for c in p.get("affectedcountries") or [] if c.get("countryname")
+    ]
+    if not names:
+        return p.get("country") or ""
+    more = len(names) - most
+    return ", ".join(names[:most]) + (f" and {more} more" if more > 0 else "")
+
+
+NHC_BASINS = {"AT": "Atlantic Ocean", "EP": "Eastern Pacific", "CP": "Central Pacific"}
 
 
 def _point(geometry: dict) -> tuple[float, float] | None:
@@ -153,6 +177,7 @@ def parse_eonet(data: dict, skip_sources: set[str] = frozenset()) -> list[dict]:
                 *p,
                 detail=detail,
                 url=url,
+                place=place_from_title(e["title"]),
             )
         )
     return out
@@ -169,12 +194,13 @@ def parse_usgs(data: dict) -> list[dict]:
                 "usgs",
                 f["id"],
                 "earthquakes",
-                p.get("title") or f"M {p.get('mag')} earthquake",
+                f"Magnitude {p.get('mag')} earthquake",
                 when,
                 lon,
                 lat,
                 detail=f"Magnitude {p.get('mag')}{depth}",
                 url=p.get("url", ""),
+                place=p.get("place") or "",
             )
         )
     return out
@@ -204,6 +230,7 @@ def parse_gdacs(data: dict, skip_types: set[str] = frozenset({"EQ"})) -> list[di
                 *pt,
                 detail=detail,
                 url=(p.get("url") or {}).get("report", ""),
+                place=countries(p),
             )
         )
     return out
@@ -231,6 +258,7 @@ def parse_nhc(data: dict) -> list[dict]:
                 lat,
                 detail=f"{kind}{wind}",
                 url=(s.get("publicAdvisory") or {}).get("url", ""),
+                place=NHC_BASINS.get(str(s.get("binNumber", ""))[:2], ""),
             )
         )
     return out

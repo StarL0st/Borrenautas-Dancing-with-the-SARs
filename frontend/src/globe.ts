@@ -6,7 +6,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
 import { typeLabel } from "./filters";
-import type { AreaView, EventFeature, Layer, LiveFeature } from "./logic";
+import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
 import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
@@ -223,6 +223,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
+          el("p", {}, liveWhere(p)),
           el("p", { className: "muted" }, `${p.date} · ${typeLabel(p.category)}`),
           p.detail ? el("p", {}, p.detail) : "",
           el("p", { className: "muted" }, t("live.source", { source: p.credit })),
@@ -274,6 +275,13 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async focus(area: AreaView) {
       await ready;
       map.fitBounds(area.bbox, { padding: 48, maxZoom: 14 });
+    },
+
+    // From the "Happening now" list: fly there and open the same popup as a click on the ring.
+    async openLive(p: LiveFeature["properties"]) {
+      await ready;
+      map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 4) });
+      map.once("moveend", () => showLive(p, { lng: p.lon, lat: p.lat }));
     },
 
     async goTo(lng: number, lat: number) {

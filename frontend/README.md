@@ -66,6 +66,12 @@ Areas take their filter subdivisions from the back end's `categories`. For a bac
 
 "Happening now" in the left panel: hollow rings on the globe from the back end's `live.geojson` (public disaster feeds: NASA EONET, USGS, GDACS, NOAA NHC, NASA FIRMS; see `backend/README.md`). They follow the same filter checklist (new type `storms`), can be switched off, and refresh on the server's `live` push or every 10 minutes. The popup shows the date, category, detail and the source's credit line, with a link to the source. Rings are hollow so they never read as radar detections.
 
+Under the switch, a **list of what is happening and where**, newest first: each row says what (`title`, for example "Magnitude 5.5 earthquake"), where (`place`, for example "40 km S of Puerto San José, Guatemala"; coordinates when the feed gives no place, as for fire detections) and how long ago, with the type and the source. Clicking a row flies the globe there and opens the event's popup. It follows the filters and the switch, shows 15 rows at a time ("Show 15 more"), and scrolls inside the panel.
+
+Changes:
+- 2026-11-14: live layer on the globe (rings, filters, switch, popups, `storms` type).
+- 2026-11-14: "Happening now" list (what, where, when, source; click to fly there). Popups also show where. Logic in `src/logic.ts` (`liveList`, `liveWhere`, `ago`), tested in `test/logic.test.ts`.
+
 ### Not done yet
 
 Before/after swipe, context-layer toggles, `xyz_tiles` and `geojson` layers, charts of each event's own `series` (from `events.json`), a confidence or date filter for events.
