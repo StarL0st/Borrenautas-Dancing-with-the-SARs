@@ -74,10 +74,10 @@ GDACS = {
             "properties": {
                 "eventtype": "TC",
                 "eventid": 7,
+                "severitydata": {"severity": 2, "severitytext": "Category 2"},
                 "name": "Tropical Cyclone Y",
                 "fromdate": "2026-11-13T00:00:00",
                 "alertlevel": "Orange",
-                "severitydata": {"severitytext": "Category 2"},
                 "url": {"report": "https://www.gdacs.org/report.aspx?eventid=7"},
             },
             "geometry": {"type": "Point", "coordinates": [-105.0, 18.0]},
@@ -97,7 +97,10 @@ def test_eonet_latest_position_and_skips_gdacs_only():
     fire = out[0]["properties"]
     assert fire["category"] == "wildfires"
     assert (fire["lon"], fire["lat"], fire["date"]) == (-89.1, 31.1, "2026-11-12")
-    assert "519 acres" in fire["detail"] and fire["url"] == "https://irwin.example/1"
+    assert (
+        fire["detail"] == "519 acres · Reported by IRWIN"
+        and fire["url"] == "https://irwin.example/1"
+    )
     storm = out[1]
     assert storm["properties"]["category"] == "storms"
     assert storm["geometry"]["coordinates"] == [1.0, 1.0]  # polygon -> its mean point
@@ -116,6 +119,28 @@ def test_gdacs_leaves_earthquakes_to_usgs():
     p = f["properties"]
     assert (p["category"], p["date"]) == ("storms", "2026-11-13")
     assert p["detail"] == "Orange alert · Category 2"
+
+
+def test_gdacs_uses_latest_update_and_drops_empty_severity():
+    data = {
+        "features": [
+            {
+                "properties": {
+                    "eventtype": "FL",
+                    "eventid": 3,
+                    "name": "Flood in Mexico",
+                    "fromdate": "2026-08-17T00:00:00",
+                    "todate": "2026-11-12T00:00:00",
+                    "alertlevel": "Green",
+                    "severitydata": {"severity": 0, "severitytext": "Magnitude 0"},
+                },
+                "geometry": {"type": "Point", "coordinates": [-97, 19]},
+            }
+        ]
+    }
+    (f,) = lf.parse_gdacs(data)
+    assert f["properties"]["date"] == "2026-11-12"
+    assert f["properties"]["detail"] == "Green alert · since 2026-08-17"
 
 
 def test_nhc():
@@ -169,3 +194,31 @@ def test_collect_keeps_going_when_a_feed_fails(tmp_path, monkeypatch):
     on_disk = json.loads((tmp_path / "live.geojson").read_text())
     assert on_disk["type"] == "FeatureCollection" and len(on_disk["features"]) == 3
     assert all(f["properties"]["credit"] for f in on_disk["features"])
+
+
+def test_gdacs_fires_get_their_own_pages():
+    """Fires alone fill a page; cyclones and floods must still come through."""
+
+    def page(kind, start, n):
+        return [
+            {
+                "properties": {"eventtype": kind, "eventid": start + i, "name": f"{kind} {i}"},
+                "geometry": {"type": "Point", "coordinates": [0, 0]},
+            }
+            for i in range(n)
+        ]
+
+    asked = []
+
+    def get(url):
+        asked.append(url)
+        if "eventlist=WF" in url:
+            n = int(url.split("pagenumber=")[1])
+            return json.dumps({"features": page("WF", 1000 * n, 100 if n < 3 else 7)}).encode()
+        return json.dumps({"features": page("TC", 0, 5) + page("FL", 100, 31)}).encode()
+
+    out = lf.fetchers(get)["gdacs"]()
+    cats = [f["properties"]["category"] for f in out]
+    assert cats.count("storms") == 5 and cats.count("floods") == 31
+    assert cats.count("wildfires") == 207
+    assert sum("eventlist=WF" in u for u in asked) == 3

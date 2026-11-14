@@ -176,7 +176,8 @@ There is no push from ASF, so "live" is polling: `refresh` (or `serve --jobs --w
 - One failing feed never stops the others: it is listed in `sources` with `ok: false` and the reason.
 - Feature properties: `id`, `source`, `source_name`, `credit`, `category` (frontend filter id; `storms` is new), `title`, `date`, `detail`, `url`, `lon`, `lat`. Points only.
 - EONET events reported only by GDACS are dropped (they come in from GDACS directly). Other overlaps (for example a storm in both NHC and GDACS) are not merged yet.
-- GDACS returns at most 100 events per request (no paging yet).
+- GDACS returns at most 100 events per request: cyclones, floods, volcanoes and droughts are paged apart from fires (fires capped at 300). Dates are the latest update.
+- Tested against real events: `LIVE_FEEDS_TEST.md` (`scripts/check_live_feeds.py`).
 - Not in the contract (`docs/04`): adding `live.geojson` and the `live` push event there needs a `contract-change` PR. Sources still need entries in `docs/09-references.md`.
 
 ## Status (backend branch, 2026-11-14)

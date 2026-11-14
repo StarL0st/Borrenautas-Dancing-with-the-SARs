@@ -33,6 +33,8 @@ log = logging.getLogger(__name__)
 FILE = "live.geojson"
 USER_AGENT = "sars-pipeline live feeds (NASA Space Apps 2026 prototype)"
 MEXICO_BBOX = (-118.5, 14.0, -86.0, 33.0)
+GDACS_PAGE = 100  # the most GDACS returns per request
+GDACS_FIRE_PAGES = 3  # newest 300 fires at most
 
 # Frontend filter ids (frontend/src/filters.ts). "storms" is new with this feed.
 EONET_CATEGORIES = {
@@ -136,11 +138,10 @@ def parse_eonet(data: dict, skip_sources: set[str] = frozenset()) -> list[dict]:
         if not geoms or not (p := _point(geoms[-1])):
             continue
         g = geoms[-1]
-        detail = ", ".join(sorted(sources))
+        detail = f"Reported by {', '.join(sorted(sources))}"
         if g.get("magnitudeValue") is not None:
-            detail = (
-                f"{g['magnitudeValue']:g} {g.get('magnitudeUnit', '')}".strip() + f" · {detail}"
-            )
+            size = f"{g['magnitudeValue']:g} {g.get('magnitudeUnit', '')}".strip()
+            detail = f"{size} · {detail}"
         url = next((s["url"] for s in e.get("sources", []) if s.get("url")), e.get("link", ""))
         out.append(
             feature(
@@ -150,7 +151,7 @@ def parse_eonet(data: dict, skip_sources: set[str] = frozenset()) -> list[dict]:
                 e["title"],
                 g.get("date", "")[:10],
                 *p,
-                detail=f"Reported by {detail}",
+                detail=detail,
                 url=url,
             )
         )
@@ -185,15 +186,21 @@ def parse_gdacs(data: dict, skip_types: set[str] = frozenset({"EQ"})) -> list[di
         p = f["properties"]
         if p.get("eventtype") in skip_types or not (pt := _point(f.get("geometry") or {})):
             continue
-        severity = (p.get("severitydata") or {}).get("severitytext", "")
-        detail = f"{p.get('alertlevel', '')} alert" + (f" · {severity}" if severity else "")
+        sev = p.get("severitydata") or {}
+        severity = sev.get("severitytext", "") if sev.get("severity") else ""  # "Magnitude 0"
+        start, last = (p.get("fromdate") or "")[:10], (p.get("todate") or "")[:10]
+        detail = " · ".join(
+            x
+            for x in (f"{p.get('alertlevel', '')} alert", severity, last and f"since {start}")
+            if x and x != " alert"
+        )
         out.append(
             feature(
                 "gdacs",
                 f"{p['eventtype']}{p['eventid']}",
                 GDACS_CATEGORIES.get(p["eventtype"], "other"),
                 p.get("name") or p.get("description", ""),
-                (p.get("fromdate") or "")[:10],
+                last or start,  # latest update: a live map shows what is current
                 *pt,
                 detail=detail,
                 url=(p.get("url") or {}).get("report", ""),
@@ -270,11 +277,24 @@ def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[
     today = datetime.now(UTC).date()
 
     def gdacs():
-        q = (
-            f"?eventlist=TC;FL;VO;DR;WF&fromDate={today - timedelta(days=14)}&toDate={today}"
-            "&alertlevel=Green;Orange;Red&pagesize=100"
-        )
-        return parse_gdacs(json.loads(get(SOURCES["gdacs"]["url"] + q)))
+        # GDACS answers at most GDACS_PAGE events per request. Fires are many, so they get their
+        # own pages; otherwise they crowd out cyclones, floods and droughts (seen 2026-11-14).
+        seen, out = set(), []
+        for types, pages in (("TC;FL;VO;DR", 5), ("WF", GDACS_FIRE_PAGES)):
+            for page in range(1, pages + 1):
+                q = (
+                    f"?eventlist={types}&fromDate={today - timedelta(days=14)}&toDate={today}"
+                    f"&alertlevel=Green;Orange;Red&pagesize={GDACS_PAGE}&pagenumber={page}"
+                )
+                got = json.loads(get(SOURCES["gdacs"]["url"] + q)).get("features", [])
+                fresh = [
+                    f for f in parse_gdacs({"features": got}) if f["properties"]["id"] not in seen
+                ]
+                seen.update(f["properties"]["id"] for f in fresh)
+                out += fresh
+                if len(got) < GDACS_PAGE or not fresh:
+                    break
+        return out
 
     def firms():
         key = os.environ.get("FIRMS_MAP_KEY")

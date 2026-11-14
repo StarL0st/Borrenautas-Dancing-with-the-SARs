@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import math
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 from itertools import pairwise
@@ -20,6 +21,7 @@ from .granule import open_granule
 from .sites import add_site, bbox_around
 
 log = logging.getLogger(__name__)
+mimetypes.add_type("application/geo+json", ".geojson")  # events.geojson, live.geojson
 
 # Public lookups (serve --public). Points snap to a grid so nearby lookups share one cached cell.
 CELL_DEG = 0.2  # about 22 km
