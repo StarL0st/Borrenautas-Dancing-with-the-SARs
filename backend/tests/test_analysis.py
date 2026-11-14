@@ -321,6 +321,16 @@ def test_sites_api_queues_and_processes(tmp_path):
     jobs = live.Jobs(tmp_path, refresh=fake_refresh)
     with TestClient(create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret")) as c:
         assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).status_code == 401
+        # A site hosted on another domain must be allowed to POST (browser preflight).
+        pre = c.options(
+            "/sites",
+            headers={
+                "Origin": "https://example.org",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        assert pre.status_code == 200 and "POST" in pre.headers["access-control-allow-methods"]
         auth = {"Authorization": "Bearer s3cret"}
         res = c.post("/sites", json={"lat": 19.43, "lon": -99.13, "km": 10}, headers=auth)
         assert res.status_code == 202

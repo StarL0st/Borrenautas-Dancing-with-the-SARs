@@ -117,7 +117,12 @@ def create_app(
         task.cancel()
 
     app = FastAPI(title="sars-pipeline", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["authorization", "content-type"],
+    )
 
     @app.middleware("http")
     async def revalidate(request, call_next):
