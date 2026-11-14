@@ -34,7 +34,8 @@ from .sme2 import read_sm
 
 log = logging.getLogger(__name__)
 
-GUNW_DEFAULTS = {"sinking_cm_yr": 5.0, "min_valid_fraction": 0.6, "min_pixels": 20}
+# 150 px at 80 m = about 1 km2: subsidence bowls are big; smaller blobs are atmospheric noise.
+GUNW_DEFAULTS = {"sinking_cm_yr": 5.0, "min_valid_fraction": 0.6, "min_pixels": 150}
 SME2_DEFAULTS = {"drying_drop": 0.05, "min_dates": 4}
 
 
@@ -167,7 +168,8 @@ TITLES = {
 WHY = {
     "darkening_both": "HH and HV both turned much darker, and HH is now as dark as open water, "
     "which reflects radar away like a mirror.",
-    "hv_drop": "HV, which comes mostly from leaves and branches, dropped much more than HH.",
+    "hv_drop": "HV, which comes mostly from leaves and branches, dropped much more than HH. "
+    "Clearing and burning look like this, but so can harvest or plants drying out.",
     "brightening": "HH got much brighter: new walls and roofs bounce radar straight back.",
     "strong_change": "The radar signal changed strongly but matches none of our specific patterns.",
     "seasonal_cycle": "HV rose and fell across the passes, the pattern of crops growing and "
@@ -345,12 +347,12 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
         colormap="classes",
         provenance={
             "source_granules": [w.granule.granule_id for w in windows],
-            "steps": [*steps, "mean of all dates in linear power", "thresholds on HH, HV, HH-HV"],
+            "steps": [*steps, "mean of all dates in linear power", "thresholds on HH and HV"],
             "params": {
                 **params,
                 "water_db": cfg["water_db"],
-                "vegetation_hv_db": cfg["vegetation_hv_db"],
-                "urban": "HH > -8 dB and HH - HV > 7 dB",
+                **categorize.COVER_THRESHOLDS,
+                **cfg.get("cover", {}),
             },
         },
     )
@@ -398,7 +400,14 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
         sig, d_hh, d_hv = classify.signature_map(
             db[k - 1]["HH"], db[k - 1]["HV"], db[k]["HH"], db[k]["HV"], cfg
         )
-        diff_steps = [*steps, "converted to dB", f"after minus before, {cfg['smooth_px']}px mean"]
+        offsets = {pol: classify.scene_offset(db[k - 1][pol], db[k][pol]) for pol in ("HH", "HV")}
+        diff_steps = [
+            *steps,
+            "converted to dB",
+            "after minus before",
+            f"removed the scene-wide change (HH {offsets['HH']:+} dB, HV {offsets['HV']:+} dB)",
+            f"{cfg['smooth_px']}px mean",
+        ]
         pair_prov = {
             "source_granules": [a.granule.granule_id, b.granule.granule_id],
             "steps": diff_steps,
@@ -462,6 +471,16 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
             cats = decide(r["signature"], before, after, fires or 0)
             if not cats or (cats == ["other"] and r["confidence"] < cfg["other_min_confidence"]):
                 continue
+            # Land change must still be there on the next pass; the latest pair cannot be
+            # checked yet, so its events are kept with lower confidence.
+            persistent = (
+                classify.persists(r["signature"], r["mask"], db[k - 1], db[k + 1], cfg)
+                if k + 1 < len(windows)
+                else None
+            )
+            if persistent is False:
+                continue
+            conf = r["confidence"] if persistent else round(r["confidence"] * 0.7, 2)
             run.event(
                 "GCOV",
                 i,
@@ -470,7 +489,7 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
                 date_range=(a.granule.date, b.granule.date),
                 region=shape,
                 maturity=maturity,
-                confidence=r["confidence"],
+                confidence=conf,
                 polarization="HH/HV",
                 layer_ids=[sig_id, f"change-hh-{span}", f"change-hv-{span}", "surface-type"],
                 granules=[a.granule.granule_id, b.granule.granule_id],
@@ -487,10 +506,24 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
                     "surface_before": COVER_NAMES.get(before),
                     "surface_after": COVER_NAMES.get(after),
                     "fire_detections": fires,  # None: no FIRMS key configured, not checked
+                    # None: latest pair, not checked yet; True: still there next pass
+                    "persistent": persistent,
+                    "scene_offset_db": offsets,
                     "n_pixels": r["n_pixels"],
                 },
                 series=region_series(r["mask"]),
-                extra_summary=(f"NASA FIRMS saw {fires} fire detections there." if fires else ""),
+                extra_summary=" ".join(
+                    t
+                    for t in (
+                        f"NASA FIRMS saw {fires} fire detections there." if fires else "",
+                        "Still visible on the next pass."
+                        if persistent
+                        else "Latest pass: not yet confirmed by a later one."
+                        if r["signature"] != "darkening_both"
+                        else "",
+                    )
+                    if t
+                ),
             )
 
     # Crops: HV swinging across all dates (needs a real time series).
@@ -543,7 +576,8 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
 
 
 def run_gunw(run: Run, sel: dict, cfg: dict) -> None:
-    cfg = {**GUNW_DEFAULTS, **cfg}
+    # Product defaults win over the GCOV ones (both have min_pixels); a site can still override.
+    cfg = {**cfg, **GUNW_DEFAULTS, **run.site.get("thresholds_gunw", {})}
     maturity = sel["maturity"]
     bbox = analysis_bbox(run.site)
     loaded = [cached_pair(row, bbox, run.interim) for row in sel["granules"]]
@@ -671,7 +705,7 @@ def run_gunw(run: Run, sel: dict, cfg: dict) -> None:
 
 
 def run_sme2(run: Run, sel: dict, cfg: dict) -> None:
-    cfg = {**SME2_DEFAULTS, **cfg}
+    cfg = {**cfg, **SME2_DEFAULTS, **run.site.get("thresholds_sme2", {})}
     maturity = sel["maturity"]
     bbox = run.site["bbox"]
     loaded = sorted(

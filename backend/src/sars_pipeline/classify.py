@@ -18,7 +18,8 @@ DEFAULTS = {
     "vegetation_hv_db": -18.0,  # ...from at least this bright before (volume scattering present)
     "brighten_db": 4.0,  # brightening: HH rises this much (new walls, roofs, cleared and built)
     "other_db": 5.0,  # strong change: any other change this large in HH or HV
-    "min_pixels": 12,  # smaller connected regions are dropped as noise
+    "min_pixels": 25,  # smaller connected regions are dropped as noise (25 px = 0.04 km2 at 40 m)
+    "persist_fraction": 0.5,  # a land change must still show this much of its threshold next pass
     "seasonal_std_db": 2.0,  # seasonal cycle: HV swings with at least this std across dates
     "other_min_confidence": 0.5,  # weaker "other" events are not published
 }
@@ -45,8 +46,39 @@ def _smooth(d: np.ndarray, size: int) -> np.ndarray:
 
 
 def difference(before_db: np.ndarray, after_db: np.ndarray, smooth_px: int) -> np.ndarray:
-    """after - before in dB, smoothed. Negative = surface got darker to the radar."""
-    return _smooth(after_db - before_db, smooth_px)
+    """after - before in dB, smoothed, minus the scene-wide median change.
+
+    A whole scene getting darker or brighter is weather (wet or dry soil, wind on water) or
+    calibration, not land change; only change relative to the rest of the scene is kept.
+    Negative = the surface got darker to the radar.
+    """
+    d = after_db - before_db
+    offset = np.nanmedian(d) if np.isfinite(d).any() else 0.0
+    return _smooth(d - offset, smooth_px)
+
+
+def scene_offset(before_db: np.ndarray, after_db: np.ndarray) -> float:
+    d = after_db - before_db
+    return round(float(np.nanmedian(d)), 2) if np.isfinite(d).any() else 0.0
+
+
+def persists(signature: str, mask, before: dict, later: dict, cfg: dict) -> bool:
+    """Is a land change still there on the next pass (later vs before, same region)?
+
+    Ships, wet patches and one-off glints disappear; cleared forest and new buildings stay.
+    Floods are allowed to recede, so darkening is never checked.
+    """
+    if signature == "darkening_both":
+        return True
+    d_hh = difference(before["HH"], later["HH"], cfg["smooth_px"])[mask]
+    d_hv = difference(before["HV"], later["HV"], cfg["smooth_px"])[mask]
+    k = cfg["persist_fraction"]
+    if signature == "hv_drop":
+        return float(np.nanmean(d_hv)) < -k * cfg["forest_hv_drop_db"]
+    if signature == "brightening":
+        return float(np.nanmean(d_hh)) > k * cfg["brighten_db"]
+    big = max(abs(float(np.nanmean(d_hh))), abs(float(np.nanmean(d_hv))))
+    return big > k * cfg["other_db"]
 
 
 def signature_map(hh0, hv0, hh1, hv1, cfg: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

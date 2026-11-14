@@ -24,15 +24,28 @@ COVER_COLORS = {
 }
 
 
+# Thresholds checked on known places (40 m, L-band, 2026-11-14): city blocks HH -4 to +2 dB
+# (Mexico City centro, Polanco, SF downtown, Sunset); parks and forest HH about -6.5, HV -13
+# (Golden Gate Park, Presidio); wind-roughened ocean and bay HH -11 to -15 but HV -19 to -22;
+# beach dunes HH -9, HV -16.5; airport grass and runways HH -11.5, HV -15.6. HV or HH-HV alone does not separate city from forest at L-band; HH brightness does.
+COVER_THRESHOLDS = {"urban_hh_db": -4.5, "vegetation_hv_db": -15.0, "water_hv_db": -19.0,
+                    "water_hh_db": -11.0}  # fmt: skip
+
+
 def cover_map(hh_db: np.ndarray, hv_db: np.ndarray, cfg: dict) -> np.ndarray:
-    """Water: HH darker than water_db. Built-up: HH bright and much brighter than HV (walls and
-    ground act as corner reflectors). Vegetation: HV bright (leaves and branches scatter). Else bare.
+    """Built-up: HH very bright (walls and ground make corner reflectors). Water: HV very dark and
+    HH dark, or HH below the flood water level. Vegetation: HV bright (leaves and branches scatter).
+    Everything else: bare or low (grass, fields, runways). Rough: a guide for interpretation.
     """
+    t = {**COVER_THRESHOLDS, **cfg.get("cover", {})}
     cover = np.full(hh_db.shape, BARE, dtype="uint8")
     with np.errstate(invalid="ignore"):
-        cover[hv_db > cfg["vegetation_hv_db"]] = VEGETATION
-        cover[(hh_db > -8.0) & (hh_db - hv_db > 7.0)] = URBAN
-        cover[hh_db < cfg["water_db"]] = WATER
+        cover[hv_db > t["vegetation_hv_db"]] = VEGETATION
+        cover[hh_db > t["urban_hh_db"]] = URBAN
+        water = ((hv_db < t["water_hv_db"]) & (hh_db < t["water_hh_db"])) | (
+            hh_db < cfg["water_db"]
+        )
+        cover[water] = WATER
     cover[~(np.isfinite(hh_db) & np.isfinite(hv_db))] = 0
     return cover
 
@@ -62,6 +75,8 @@ def decide(signature: str, before: int, after: int, fires: int = 0) -> list[str]
     """The decision table (docs/04 C7, backend/README). First category is the primary one."""
     if signature == "darkening_both":
         return ["floods"] if before != WATER else []  # water that stays water is not a flood
+    if before == WATER and signature != "sinking":
+        return []  # waves, wind and ships change water all the time; only floods count there
     if signature == "hv_drop":
         if before == VEGETATION:
             return ["wildfires", "deforestation"] if fires else ["deforestation"]

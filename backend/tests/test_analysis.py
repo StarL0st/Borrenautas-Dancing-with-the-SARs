@@ -86,11 +86,13 @@ def test_decision_table():
     assert categorize.decide("sinking", U, U) == ["subsidence", "groundwater"]
     assert categorize.decide("soil_drying", 0, 0) == ["drought"]
     assert categorize.decide("strong_change", V, V) == ["other"]
+    assert categorize.decide("brightening", W, W) == []  # ships on water are not land change
 
 
 def test_cover_map_classes():
-    hh = np.array([[-25.0, -5.0, -9.0, -12.0]])
-    hv = np.array([[-30.0, -14.0, -15.0, -22.0]])
+    # Bay water (HH -15, HV -22), downtown, park, airport grass.
+    hh = np.array([[-15.0, -2.0, -6.5, -11.5]])
+    hv = np.array([[-22.0, -8.4, -13.3, -15.6]])
     assert categorize.cover_map(hh, hv, CFG).tolist() == [
         [categorize.WATER, categorize.URBAN, categorize.VEGETATION, categorize.BARE]
     ]
@@ -326,3 +328,18 @@ def test_add_site_validates_and_writes(tmp_path):
 
 def test_to_db_marks_nodata():
     assert np.isnan(to_db(np.array([0.0, np.nan], "float32"))).all()
+
+
+def test_scene_wide_shift_is_not_change():
+    hh0, hv0, _, _ = _pair(0, 0)
+    # The whole scene 5 dB darker in HV (wet soil, calibration): no local change.
+    assert classify.regions(*classify.signature_map(hh0, hv0, hh0, hv0 - 5, CFG), CFG) == []
+
+
+def test_persistence_rejects_changes_that_vanish():
+    hh0, hv0, hh1, hv1 = _pair(LAND_HH - 1, LAND_HV - 6)
+    [r] = classify.regions(*classify.signature_map(hh0, hv0, hh1, hv1, CFG), CFG)
+    before, stays, gone = {"HH": hh0, "HV": hv0}, {"HH": hh1, "HV": hv1}, {"HH": hh0, "HV": hv0}
+    assert classify.persists("hv_drop", r["mask"], before, stays, CFG)
+    assert not classify.persists("hv_drop", r["mask"], before, gone, CFG)
+    assert classify.persists("darkening_both", r["mask"], before, gone, CFG)  # floods recede
