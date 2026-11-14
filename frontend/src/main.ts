@@ -4,13 +4,19 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
-import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
+import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
+import { icon } from "./icons";
 import {
-  ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
+  ago, datesFor, inFilter, layerAt, liveFiltered, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView, topLive,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
+import {
+  HISTORY, INFRA, INFRA_THRESHOLDS, LEARN, REGION_BBOX, infraNear, mostDestructive, statusOf, tx, zoneHistory, zoneNote,
+  type HistoryEvent, type Infra, type Source, type Status,
+} from "./mexico";
+import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
@@ -91,7 +97,19 @@ function buildFilters() {
         { open: open[n] ?? n === 0 },
         el("summary", {}, dot(g.color), groupLabel(g.id)),
         el("label", { className: "check all" }, all, t("filter.all")),
-        ...boxes.map((box, i) => el("label", { className: "check" }, box, simple() ? typeLabel(g.items[i]).replace(/\s*[(:].*/, "") : typeLabel(g.items[i]))),
+        // One icon per type: filled with the group color when on, outline only when off. The
+        // checkbox stays (hidden but focusable) so keyboards and screen readers work as before.
+        el(
+          "div",
+          { className: "ftypes" },
+          ...boxes.map((box, i) => {
+            const id = g.items[i];
+            box.className = "vh";
+            const tile = el("label", { className: "ftype", title: typeLabel(id) }, box, icon(id), el("span", {}, simple() ? shortLabel(id) : typeLabel(id)));
+            tile.style.setProperty("--c", g.color);
+            return tile;
+          }),
+        ),
       );
     }),
   );
@@ -102,7 +120,9 @@ function buildFilters() {
 $<HTMLFormElement>("coords").onsubmit = (e) => {
   e.preventDefault(); // the browser has already checked both numbers are present and in range
   setSpin(false);
-  globe.goTo(+$<HTMLInputElement>("lon").value, +$<HTMLInputElement>("lat").value);
+  const lon = +$<HTMLInputElement>("lon").value, lat = +$<HTMLInputElement>("lat").value;
+  globe.goTo(lon, lat);
+  setInfraFrom([lon, lat], "coords");
 };
 
 // Ask the back end to process the typed place (needs `serve --jobs`). It shows up when ready:
@@ -169,9 +189,12 @@ function render() {
     reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
   renderLiveList();
+  renderRecent();
+  renderInfra();
+  // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
   globe.setLive(
     liveToggle.checked
-      ? liveEvents.filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
+      ? liveFiltered(liveEvents, ticked, isType, liveView()).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
       : [],
   );
   globe.keepOverlays(opened);
@@ -193,6 +216,8 @@ function toggle(id: string) {
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
     globe.focus(a);
+    // Infrastructure risks follow the place just opened, unless the user shared their location.
+    if (infraFrom?.kind !== "you") setInfraFrom(a.center, "area", a.title);
   }
   render();
   if (opening) cards.querySelector<HTMLElement>("summary")?.focus();
@@ -234,10 +259,16 @@ function card(a: AreaView) {
     tags,
     el("p", {}, a.summary),
     ...radarSection(a),
+    satSection(a),
     simple() ? el("div") : chartSection(a),
+    // "What changed": the zone's notes (including plants and animals), then the detected changes.
+    // Simple mode already titles the detected changes "What changed", so the notes join them.
+    ...(simple() ? [] : changesSection(a, true)),
     el("h4", {}, t(simple() ? "simple.changes" : "card.timeline")),
+    ...(simple() ? changesSection(a, false) : []),
     ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
+    ...historySection(a),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
   box.ontoggle = () => (box.open ? collapsed.delete(a.id) : collapsed.add(a.id));
@@ -410,6 +441,314 @@ function chartSection(a: AreaView): Node {
   return box;
 }
 
+// ---- Zone notes, history, satellite view (jopa-testing; data in mexico.ts, satview.ts) ----
+
+const lang = () => settings.lang;
+
+// Source names, linked when there is a link. Built as nodes, never HTML.
+function sourceList(sources: Source[]): Node {
+  return el(
+    "p",
+    { className: "muted sources" },
+    ...sources.flatMap((s, i) => {
+      const node = s.url ? el("a", { href: s.url, target: "_blank", rel: "noopener noreferrer" }, s.name) : el("span", {}, s.name);
+      return i ? ["; ", node] : [node];
+    }),
+  );
+}
+
+// A small filled silhouette in its group color (lists, timeline rows, popups).
+function typeIcon(type: string): SVGSVGElement {
+  const ic = icon(type, "ticon sm on");
+  ic.style.color = typeColor(type);
+  return ic;
+}
+
+// What changed in the zone, plants and animals included. Empty when the zone has no notes.
+function changesSection(a: AreaView, heading: boolean): Node[] {
+  const note = zoneNote(a.id, a.center);
+  if (!note) return [];
+  return [
+    ...(heading ? [el("h4", {}, t("zone.changes"))] : []),
+    el("p", {}, tx(note.changes, lang())),
+    el("h5", {}, t("zone.nature")),
+    el("p", {}, tx(note.nature, lang())),
+    el("details", {}, el("summary", {}, t("zone.sources")), sourceList(note.sources)),
+  ];
+}
+
+const sevLabel = (n: number) => t(`sev.${Math.max(0, Math.min(3, n))}` as Key);
+
+function historyPopup(e: HistoryEvent): Node {
+  return el(
+    "div",
+    { className: "event-popup" },
+    el("strong", {}, tx(e.title, lang())),
+    el("p", { className: "muted" }, `${e.date} · ${shortLabel(e.type)} · ${sevLabel(e.severity)}`),
+    el("p", {}, tx(e.impact, lang())),
+    sourceList(e.sources),
+  );
+}
+
+function historyItem(e: HistoryEvent): HTMLDetailsElement {
+  return el(
+    "details",
+    { className: "hist" },
+    el("summary", {}, el("time", { dateTime: e.date }, e.date.slice(0, 4)), typeIcon(e.type), el("strong", {}, tx(e.title, lang()))),
+    el("p", {}, tx(e.impact, lang())),
+    sourceList(e.sources),
+  );
+}
+
+// Remarkable events that touched this zone: a strip of years with one mark per event (click a
+// mark to open its row), then the rows, oldest first.
+function historySection(a: AreaView): Node[] {
+  const events = zoneHistory(HISTORY, a.bbox);
+  const head = el("h4", {}, t("zone.history"));
+  if (!events.length) return [head, el("p", { className: "muted" }, t("zone.history.none"))];
+  const first = Math.min(1975, +events[0].date.slice(0, 4)), last = new Date().getUTCFullYear();
+  const items = events.map(historyItem);
+  const strip = el("div", { className: "years" });
+  strip.setAttribute("role", "group");
+  strip.setAttribute("aria-label", t("zone.history"));
+  events.forEach((e, i) => {
+    const label = `${e.date.slice(0, 4)} · ${tx(e.title, lang())}`;
+    const mark = el("button", { type: "button", className: `mark s${e.severity}`, title: label });
+    mark.setAttribute("aria-label", label);
+    mark.style.left = `${((+e.date.slice(0, 4) - first) / Math.max(1, last - first)) * 100}%`;
+    mark.style.setProperty("--c", typeColor(e.type));
+    mark.onclick = () => {
+      items[i].open = true;
+      items[i].scrollIntoView({ block: "nearest" });
+      items[i].querySelector("summary")?.focus();
+    };
+    strip.append(mark);
+  });
+  const axis = el("div", { className: "years-axis" }, el("span", {}, String(first)), el("span", {}, String(last)));
+  return [head, strip, axis, el("ol", { className: "timeline history" }, ...items.map((d) => el("li", {}, d)))];
+}
+
+// Satellite view: "now" and "before" pictures from NASA GIBS with a swipe to compare. Searches are
+// cached, because the cards are rebuilt on every filter change.
+const MONTHS = [1, 3, 6, 12, 24, 60, 120];
+const satViews = new Map<string, { layer: string; ago: number; swipe: number }>();
+const satCache = new Map<string, Promise<Found | undefined>>();
+
+function satFind(layerId: string, bbox: AreaView["bbox"], from: Date): Promise<Found | undefined> {
+  const layer = SAT_LAYERS.find((l) => l.id === layerId) ?? SAT_LAYERS[0];
+  const key = `${layer.id}|${bbox.join(",")}|${isoDay(from)}`;
+  let found = satCache.get(key);
+  if (!found) {
+    found = findClear(layer, bbox, from, layer.daily ? 12 : 60);
+    satCache.set(key, found);
+  }
+  return found;
+}
+
+function satSection(a: AreaView): Node {
+  const wide = a.bbox[2] - a.bbox[0] > 1.5; // a region or the whole country: daily VIIRS, not 30 m HLS
+  const v = satViews.get(a.id) ?? { layer: wide ? "viirs" : "hls", ago: 3, swipe: 50 };
+  satViews.set(a.id, v);
+  const layerId = () => (simple() ? (wide ? "viirs" : "hls") : v.layer);
+
+  const status = el("p", { className: "muted" });
+  const after = el("img", { className: "sat-now", alt: "" });
+  const before = el("img", { className: "sat-before", alt: "" });
+  const swipe = el("input", { type: "range", min: "0", max: "100", step: "1", value: String(v.swipe), className: "swipe" });
+  swipe.setAttribute("aria-label", t("sat.swipe"));
+  const frame = el("div", { className: "compare" }, after, before, el("span", { className: "tag-now" }, t("sat.now")), el("span", { className: "tag-before" }, t("sat.before")), swipe);
+  frame.hidden = true;
+  const setSwipe = () => frame.style.setProperty("--x", `${(v.swipe = +swipe.value)}%`);
+  swipe.oninput = setSwipe;
+  setSwipe();
+  const credit = el("p", { className: "muted sources" });
+
+  const agoOut = el("output");
+  const ago = el("input", { type: "range", id: `sat-ago-${a.id}`, min: "0", max: String(MONTHS.length - 1), step: "1", value: String(v.ago) });
+  const select = el("select", { id: `sat-layer-${a.id}` }, ...SAT_LAYERS.map((l) => el("option", { value: l.id, selected: l.id === v.layer }, t(`sat.layer.${l.id}` as Key))));
+
+  const label = () => {
+    agoOut.textContent = t("sat.ago.value", { n: MONTHS[+ago.value] });
+    ago.setAttribute("aria-valuetext", agoOut.textContent);
+  };
+  let run = 0;
+  const load = () => {
+    const mine = ++run;
+    label();
+    frame.hidden = true;
+    credit.textContent = "";
+    status.textContent = t("sat.finding");
+    const today = new Date(Date.now() - 86400000); // GIBS publishes about a day late
+    const then = new Date(today.getTime() - MONTHS[+ago.value] * 30.44 * 86400000);
+    const id = layerId();
+    Promise.all([satFind(id, a.bbox, today), satFind(id, a.bbox, then)]).then(([now, old]) => {
+      if (mine !== run) return; // a newer choice replaced this one
+      if (!now || !old) {
+        status.textContent = t("sat.none", { n: id === "hls" ? 60 : 12 });
+        return;
+      }
+      after.src = now.url;
+      before.src = old.url;
+      after.alt = `${t("sat.now")}: ${now.date}`;
+      before.alt = `${t("sat.before")}: ${old.date}`;
+      status.textContent = t("sat.swipe");
+      frame.hidden = false;
+      credit.textContent = `${t("sat.credit", { layer: now.layer, date: now.date })} ${t("sat.credit", { layer: old.layer, date: old.date })}`;
+    });
+  };
+  ago.oninput = label; // the label follows the thumb; the search waits for the release
+  ago.onchange = () => {
+    v.ago = +ago.value;
+    load();
+  };
+  select.onchange = () => {
+    v.layer = select.value;
+    load();
+  };
+  load();
+  return el(
+    "div",
+    { className: "sat" },
+    el("h4", {}, t("sat.title")),
+    ...(simple() ? [] : [el("label", { htmlFor: select.id }, t("sat.layer")), select]),
+    el("label", { htmlFor: ago.id }, t("sat.ago"), " ", agoOut),
+    ago,
+    status,
+    frame,
+    credit,
+    el("p", { className: "muted small" }, t("sat.note")),
+  );
+}
+
+// ---- Most destructive recent events (left panel) ----
+
+const recentList = $("recent-list");
+const RECENT_SINCE = 2015;
+
+function renderRecent() {
+  $("recent-note").textContent = t("recent.since", { year: RECENT_SINCE });
+  // The type filters apply here too, so ticking off "Earthquakes" hides quakes everywhere.
+  const shown = mostDestructive(HISTORY.filter((e) => !isType(e.type) || ticked.has(e.type)), RECENT_SINCE, simple() ? 5 : 8);
+  recentList.replaceChildren(
+    ...shown.map((e) =>
+      el(
+        "li",
+        {},
+        el(
+          "button",
+          {
+            type: "button", className: "result",
+            onclick: () => {
+              setSpin(false);
+              globe.openInfo(e.places[0][0], e.places[0][1], historyPopup(e), 6);
+            },
+          },
+          el("strong", {}, typeIcon(e.type), tx(e.title, lang())),
+          el("span", { className: "muted" }, `${e.date.slice(0, 7)} · ${sevLabel(e.severity)}`),
+        ),
+      ),
+    ),
+  );
+  if (!shown.length) recentList.append(el("li", { className: "muted" }, t("list.none")));
+}
+
+// ---- Infrastructure risks near the user (left panel) ----
+
+type From = { pos: [number, number]; kind: "you" | "coords" | "area"; name?: string };
+let infraFrom: From | undefined;
+const infraRadius = $<HTMLInputElement>("infra-radius"), infraList = $("infra-list"), infraStatus = $("infra-status");
+// Always named in text too (status chip), never by color alone.
+const STATUS_COLOR: Record<Status, string> = { fast: "#e5484d", watch: "#f5a524", ok: "#3fb950", unknown: "#8eb1c7" };
+
+function setInfraFrom(pos: [number, number], kind: From["kind"], name?: string) {
+  infraFrom = { pos, kind, name };
+  renderInfra();
+}
+
+function statusChip(st: Status): HTMLElement {
+  const chip = el("span", { className: "status" }, t(`status.${st}` as Key));
+  chip.style.setProperty("--c", STATUS_COLOR[st]);
+  return chip;
+}
+
+function infraBody(site: Infra): Node[] {
+  const measured = site.mmYr !== undefined ? t("infra.rate", { n: Math.abs(site.mmYr) }) : site.reported ? t("infra.reported") : t("infra.nodata");
+  return [
+    el("p", {}, tx(site.note, lang())),
+    el("p", { className: "muted" }, `${measured} ${t("infra.threshold", { n: INFRA_THRESHOLDS[site.kind][1] })}`),
+    el("details", {}, el("summary", {}, t("infra.learn")), el("p", {}, tx(LEARN[site.kind], lang()))),
+    sourceList(site.sources),
+  ];
+}
+
+function openInfra(id: string) {
+  const site = INFRA.find((s) => s.id === id);
+  if (!site) return;
+  setSpin(false);
+  globe.openInfo(
+    site.lon, site.lat,
+    el("div", { className: "event-popup" }, el("strong", {}, site.name), el("p", {}, statusChip(statusOf(site)), " ", t(`kind.${site.kind}` as Key)), ...infraBody(site)),
+    7,
+  );
+}
+
+function renderInfra() {
+  const r = +infraRadius.value;
+  const value = t("infra.radius.value", { n: r });
+  $("infra-radius-out").textContent = value;
+  infraRadius.setAttribute("aria-valuetext", value);
+  globe.setInfra(INFRA.map((s) => ({ id: s.id, lon: s.lon, lat: s.lat, color: STATUS_COLOR[statusOf(s)] })), openInfra);
+  if (!infraFrom) {
+    infraStatus.textContent = t("infra.pick");
+    infraList.replaceChildren();
+    return;
+  }
+  const place = infraFrom.kind === "you" ? t("infra.place.you") : infraFrom.kind === "coords" ? t("infra.place.coords") : t("infra.place.area", { name: infraFrom.name ?? "" });
+  infraStatus.textContent = t("infra.from", { place });
+  const near = infraNear(INFRA, infraFrom.pos, r).slice(0, simple() ? 5 : 12);
+  infraList.replaceChildren(
+    ...near.map(({ site, km }) =>
+      el(
+        "li",
+        {},
+        el(
+          "details",
+          { className: "infra-item" },
+          el(
+            "summary",
+            {},
+            statusChip(statusOf(site)),
+            el("strong", {}, site.name),
+            el("span", { className: "muted" }, `${t(`kind.${site.kind}` as Key)} · ${t("infra.km", { n: Math.round(km) })}`),
+          ),
+          ...infraBody(site),
+        ),
+      ),
+    ),
+  );
+  if (!near.length) infraList.append(el("li", { className: "muted" }, t("infra.none", { n: r })));
+}
+
+infraRadius.oninput = renderInfra;
+// The browser asks the user first; nothing is stored or sent anywhere.
+$("infra-locate").onclick = () => {
+  if (!navigator.geolocation) {
+    infraStatus.textContent = t("infra.denied");
+    return;
+  }
+  infraStatus.textContent = t("infra.locating");
+  navigator.geolocation.getCurrentPosition(
+    (p) => {
+      const pos: [number, number] = [p.coords.longitude, p.coords.latitude];
+      setInfraFrom(pos, "you");
+      setSpin(false);
+      globe.goTo(pos[0], pos[1]);
+    },
+    () => (infraStatus.textContent = t("infra.denied")),
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
+  );
+};
+
 // ---- Live data from the back end (optional: the app works without it) ----
 
 async function loadLive() {
@@ -443,45 +782,70 @@ async function loadLive() {
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
 liveToggle.onchange = render;
+// Simple mode lists fewer events at a time.
+const livePage = () => (simple() ? 6 : LIVE_PAGE);
 liveMore.onclick = () => {
-  liveLimit += LIVE_PAGE;
+  liveLimit += livePage();
   renderLiveList();
 };
 
-// "Happening now": one row per event, saying what, where and when, newest first.
-function renderLiveList() {
-  const rows = liveToggle.checked ? liveList(liveEvents, ticked, isType) : [];
-  const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
-  const now = Date.now();
-  liveListEl.replaceChildren(
-    ...rows.slice(0, liveLimit).map((f) => {
-      const p = f.properties;
-      const ring = el("span", { className: "ring" });
-      ring.style.color = typeColor(p.category);
-      const short = typeLabel(p.category).replace(/\s*[(:].*/, ""); // "Earthquakes", not the long form
-      return el(
-        "li",
-        {},
-        el(
-          "button",
-          {
-            type: "button", className: "result",
-            onclick: () => {
-              setSpin(false);
-              globe.openLive(p);
-            },
-          },
-          el("strong", {}, ring, p.title),
-          el("span", { className: "where" }, liveWhere(p)),
-          el("span", { className: "muted" }, `${short} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
-        ),
-      );
-    }),
+// Two sliders instead of more checkboxes: how far back, and how dangerous.
+const DAYS = [1, 3, 7, 14, 30];
+const liveDays = $<HTMLInputElement>("live-days"), liveLevel = $<HTMLInputElement>("live-level");
+const liveView = () => ({ now: Date.now(), days: DAYS[+liveDays.value], minSeverity: +liveLevel.value, region: REGION_BBOX });
+function showLiveControls() {
+  const days = t("live.window.value", { n: DAYS[+liveDays.value] });
+  $("live-days-out").textContent = days;
+  liveDays.setAttribute("aria-valuetext", days);
+  const level = t(`level.${liveLevel.value}` as Key);
+  $("live-level-out").textContent = level;
+  liveLevel.setAttribute("aria-valuetext", level);
+}
+liveDays.oninput = liveLevel.oninput = () => {
+  liveLimit = livePage();
+  showLiveControls();
+  render();
+};
+
+// One row: what, where, type, how long ago, who reported it, and how dangerous when serious.
+function liveRow(f: LiveFeature, now: number, fmt: Intl.RelativeTimeFormat): HTMLElement {
+  const p = f.properties;
+  const sev = severityOf(f);
+  return el(
+    "li",
+    {},
+    el(
+      "button",
+      {
+        type: "button", className: "result",
+        onclick: () => {
+          setSpin(false);
+          globe.openLive(p);
+        },
+      },
+      el("strong", {}, typeIcon(p.category), p.title),
+      el("span", { className: "where" }, liveWhere(p)),
+      el("span", { className: "muted" }, `${shortLabel(p.category)} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
+      ...(sev >= 2 ? [el("span", { className: `sev s${sev}` }, sevLabel(sev))] : []),
+    ),
   );
-  if (liveToggle.checked && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
+}
+
+// "Happening now": the most dangerous events first, then every event, newest first.
+function renderLiveList() {
+  const view = liveView();
+  const on = liveToggle.checked;
+  const rows = on ? liveFiltered(liveEvents, ticked, isType, view) : [];
+  const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
+  // "Most dangerous right now" follows the filters and the time window, whatever the danger slider says.
+  const top = on ? topLive(liveFiltered(liveEvents, ticked, isType, { ...view, minSeverity: 0 })) : [];
+  $("live-top").hidden = !on || !liveUpdated;
+  $("live-top-list").replaceChildren(...(top.length ? top.map((f) => liveRow(f, view.now, fmt)) : [el("li", { className: "muted" }, t("live.top.none"))]));
+  liveListEl.replaceChildren(...rows.slice(0, liveLimit).map((f) => liveRow(f, view.now, fmt)));
+  if (on && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
   const left = rows.length - liveLimit;
   liveMore.hidden = left <= 0;
-  liveMore.textContent = t("live.showmore", { n: Math.min(left, LIVE_PAGE) });
+  liveMore.textContent = t("live.showmore", { n: Math.min(left, livePage()) });
 }
 
 function showLiveStatus() {
@@ -589,6 +953,7 @@ function applyLanguage() {
   buildWheel();
   showStatus();
   showLiveStatus();
+  showLiveControls();
   render();
   renderSettings(dialog, settings, onSetting);
 }
@@ -610,8 +975,9 @@ wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
 loadLiveFeeds();
-// The Earth turns by itself on arrival; opening an area or the Auto-rotate button stops it.
-setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+// Scope is Mexico (jopa-testing): the globe stays on it at first instead of turning away.
+// The Auto-rotate button still turns the Earth.
+setSpin(false);
 
 // ---- Tour ----
 

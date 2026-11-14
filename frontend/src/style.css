@@ -287,6 +287,83 @@ th, td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: rig
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--muted); font-weight: 400; }
 
+/* ---- jopa-testing: event icons, live controls, recent events, infrastructure, history, satellite ---- */
+
+/* Visually hidden but still focusable and read by screen readers (the filter checkboxes). */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* Event icons: one silhouette, outline only when off, filled with the group color when on. */
+.ticon { flex: none; width: 22px; height: 22px; color: var(--c, currentColor); }
+.ticon path { fill: transparent; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; transition: fill 150ms ease; }
+.ticon.on path, .ftype input:checked + .ticon path { fill: currentColor; }
+.ticon.sm { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
+.ticon.sm path { stroke-width: 1.6; }
+
+.ftypes { display: grid; gap: 2px; margin-top: 6px; }
+.ftype { display: flex; align-items: center; gap: 10px; margin: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.ftype:has(input:checked) { color: var(--text); }
+.ftype:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .ftype:hover { background: var(--raised); }
+}
+/* Simple mode: a grid of big icon tiles with short names, easier to tap than a checklist. */
+:root[data-mode="simple"] .ftypes { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+:root[data-mode="simple"] .ftype { flex-direction: column; gap: 4px; padding: 8px 4px; text-align: center; font-size: 0.86rem; line-height: 1.2; border: 1px solid var(--line); }
+:root[data-mode="simple"] .ftype .ticon { width: 30px; height: 30px; }
+:root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+
+/* A labeled slider with its value on the right. */
+.slider-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; margin-top: 10px; }
+.slider-row label { margin: 0; }
+.slider-row input { grid-column: 1 / -1; }
+.slider-row output { font-size: 0.93rem; }
+
+/* Most dangerous right now. */
+.top { margin: 12px 0 4px; padding: 4px 8px 6px; border: 1px solid var(--line); border-left: 3px solid #e5484d; border-radius: 4px; background: var(--raised); }
+.top[hidden] { display: none; }
+.top h4 { margin: 6px 0 2px; }
+.top ul, #recent-list, #infra-list { list-style: none; padding: 0; }
+.top li + li, #recent-list li + li, #infra-list li + li { border-top: 1px solid var(--line); }
+#live-list .result strong, .top .result strong, #recent-list .result strong { display: flex; align-items: center; }
+.sev { display: inline-block; margin-top: 4px; padding: 0 6px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.sev.s2 { background: #f5a524; }
+.sev.s3 { background: #e5484d; color: var(--text); }
+
+/* Infrastructure: status chip (dot + words, never color alone). */
+#infra-locate { margin-top: 4px; }
+.infra-item { margin: 0; padding: 8px 0; }
+.infra-item > summary { display: grid; gap: 2px; color: var(--text); }
+.infra-item > summary strong { font-weight: 600; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 600; color: var(--text); }
+.status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+
+/* Zone history: a strip of years with one mark per event, then the rows. */
+.years { position: relative; height: 26px; margin: 8px 6px 0; border-bottom: 1px solid var(--line); }
+.years .mark { position: absolute; bottom: -6px; translate: -50% 0; width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); }
+.years .mark.s3 { width: 16px; height: 16px; bottom: -8px; }
+.years-axis { display: flex; justify-content: space-between; margin: 10px 0 4px; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.timeline.history li::before { display: none; }
+.hist { margin: 0; }
+.hist > summary { color: var(--text); }
+.hist > summary time { display: inline; margin-right: 8px; }
+
+h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--muted); }
+.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
+.sources a, .event-popup .sources a { color: var(--muted); }
+.small { font-size: 0.8rem; }
+
+/* Satellite view: "now" underneath, "before" on top, clipped at the swipe position. */
+.compare { position: relative; display: grid; margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: #000; }
+.compare[hidden] { display: none; }
+.compare img { grid-area: 1 / 1; display: block; width: 100%; height: auto; }
+.compare .sat-before { clip-path: inset(0 calc(100% - var(--x, 50%)) 0 0); }
+.compare::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: var(--text); box-shadow: 0 0 4px #000; pointer-events: none; }
+.compare .swipe { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.compare .swipe:focus-visible { opacity: 0.25; }
+.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
+.tag-before { left: 6px; }
+.tag-now { right: 6px; }
+
 /* ---- Tour ---- */
 
 .tour {

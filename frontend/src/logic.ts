@@ -169,8 +169,36 @@ export type LiveFeature = {
   properties: {
     id: string; source: string; source_name: string; credit: string; category: string;
     title: string; place?: string; date: string; detail: string; url: string; lon: number; lat: number;
+    severity?: number; // 0 minor .. 3 most dangerous (livefeeds.py); older files have none
   };
 };
+
+// Severity 1 ("notable") when an older back end sends none, so nothing disappears by default.
+export const severityOf = (f: LiveFeature) => f.properties.severity ?? 1;
+
+const timeOf = (date: string) => Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
+
+export type LiveView = { now: number; days: number; minSeverity: number; region?: [number, number, number, number] };
+
+// What the "Happening now" list and the globe show: the filters, plus the time window, the
+// danger slider and (for older files that are worldwide) the Mexico region.
+export const liveFiltered = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: (id: string) => boolean, v: LiveView) =>
+  liveList(fs, ticked, known).filter((f) => {
+    const p = f.properties;
+    const [w, s, e, n] = v.region ?? [-180, -90, 180, 90];
+    return (
+      v.now - timeOf(p.date) <= v.days * 86400000 &&
+      severityOf(f) >= v.minSeverity &&
+      p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n
+    );
+  });
+
+// "Most dangerous right now": serious (2) and extreme (3) events, worst first, then newest.
+export const topLive = (fs: LiveFeature[], n = 3) =>
+  fs
+    .filter((f) => severityOf(f) >= 2)
+    .sort((a, b) => severityOf(b) - severityOf(a) || (a.properties.date < b.properties.date ? 1 : -1))
+    .slice(0, n);
 
 // A live event shows when its category is ticked; categories the filters do not know always show.
 export const liveShown = (f: LiveFeature, ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
@@ -187,7 +215,7 @@ export const liveList = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: 
 
 // "3 hours ago" in the largest whole unit, for Intl.RelativeTimeFormat. Dates without a time are midnight UTC.
 export function ago(date: string, now: number): [number, "minute" | "hour" | "day"] {
-  const t = Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
+  const t = timeOf(date);
   const minutes = Math.max(0, Math.round((now - t) / 60000));
   if (minutes < 60) return [-minutes, "minute"];
   if (minutes < 48 * 60) return [-Math.round(minutes / 60), "hour"];

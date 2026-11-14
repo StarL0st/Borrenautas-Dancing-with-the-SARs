@@ -21,10 +21,37 @@
         <h3 data-i18n="h.filters"></h3>
         <div id="filters"></div>
         <h3 data-i18n="h.live"></h3>
+        <p class="muted" data-i18n="live.scope"></p>
         <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
+        <div class="slider-row">
+          <label for="live-days" data-i18n="live.window"></label>
+          <input type="range" id="live-days" min="0" max="4" step="1" value="2" />
+          <output id="live-days-out" for="live-days"></output>
+        </div>
+        <div class="slider-row">
+          <label for="live-level" data-i18n="live.level"></label>
+          <input type="range" id="live-level" min="0" max="3" step="1" value="1" />
+          <output id="live-level-out" for="live-level"></output>
+        </div>
+        <section id="live-top" class="top" aria-labelledby="live-top-title">
+          <h4 id="live-top-title" data-i18n="h.top"></h4>
+          <ul id="live-top-list"></ul>
+        </section>
         <p id="live-status" class="muted" role="status"></p>
         <ul id="live-list" data-i18n-label="live.list"></ul>
         <button type="button" id="live-more" class="link" hidden></button>
+        <h3 data-i18n="h.recent"></h3>
+        <p id="recent-note" class="muted"></p>
+        <ol id="recent-list" class="recent"></ol>
+        <h3 data-i18n="h.infra"></h3>
+        <button type="button" id="infra-locate" class="primary" data-i18n="infra.locate"></button>
+        <p id="infra-status" class="muted" role="status"></p>
+        <div class="slider-row">
+          <label for="infra-radius" data-i18n="infra.radius"></label>
+          <input type="range" id="infra-radius" min="25" max="400" step="25" value="150" />
+          <output id="infra-radius-out" for="infra-radius"></output>
+        </div>
+        <ul id="infra-list" class="infra"></ul>
         <h3 class="tech" data-i18n="h.coords"></h3>
         <form id="coords" class="tech">
           <label for="lat" data-i18n="coords.lat"></label>
