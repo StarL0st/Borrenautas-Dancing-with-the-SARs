@@ -1,6 +1,6 @@
 # 10. Status, to-do and time log
 
-Updated: 2026-11-14 16:30 (local time, UTC-7). Judging starts 2026-11-16.
+Updated: 2026-11-14 15:50 (local time, UTC-7). Judging starts 2026-11-16.
 
 This file records what is built, what is left, and the time spent, for the project submission. Add a row to the time log at the end of each work session.
 
@@ -97,6 +97,6 @@ Times come from git commit timestamps (local time, UTC-7), rounded to the quarte
 | 2026-11-14 | 09:15 | 12:45 | 3.5 | Frontend | Contract 0.3, accessibility menu, Simple and Technical modes, imagery, redesign |
 | 2026-11-14 | 12:55 | 14:35 | 1.75 | Backend, docs | Mexico clipped to the border, contract v0.5.0 merged, branch clean-up, five cities processed in advance, references |
 | 2026-11-14 | 12:45 | 13:30 | 0.75 | Frontend | Live events panel, zoom slider, texture names |
-| 2026-11-14 | 14:35 | 16:30 | 2.0 | Backend, docs | Live feeds onto `backend`, license checks, history API, Azure launch design (Blob Storage, guards, scripts), load test |
+| 2026-11-14 | 14:35 | 15:50 | 1.25 | Backend, docs | Live feeds onto `backend`, license checks, history API, Azure launch design (Blob Storage, guards, scripts), load test |
 
-Total so far: backend and docs 14.25 h, frontend 6.25 h, 20.5 h in all (frontend after 13:30 not counted yet).
+Total so far: backend and docs 13.5 h, frontend 6.25 h, 19.75 h in all (frontend after 13:30 not counted yet).
