@@ -163,6 +163,12 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - **Start and house button animation:** on Start the button fades and the title ("Welcome to G.I.G.A.S") circles the Earth and ends hidden behind it; the house button plays it backwards. The title is HTML over the map, so "behind" is a circular mask measured from the map (`hideBehind`, `orbitTitle` in `src/main.ts`). With reduced motion the screens simply cross-fade.
 - **Live events not refreshing:** the 15-minute refresh is done by the back end (`serve --live-minutes 15`). Without a back end running, the page reads a fixed `public/data/live.geojson`, which never changes. The page now re-reads the file every 5 minutes and never from the browser cache.
 
+### Ninth batch
+
+- **Live events work without a back end.** `src/livefeeds.ts` is a port of the back end's `livefeeds.py` (branch `jopa-testing`; keep the two in step). When no back end keeps `live.geojson` fresh (older than 30 minutes, or missing), the page asks USGS, GDACS and NASA EONET itself, at most every 15 minutes, and drops events older than 24 hours. A fresh back-end file still wins, because only the back end can add NOAA NHC (its server refuses requests from web pages) and NASA FIRMS (needs a key).
+- **Start animation, letter by letter:** the name's letters leave the title one after another, cross the front of the Earth as a line, round its side and go behind it; the house button plays it backwards. Each letter is drawn in two layers, over the map and under it (`#fly-front`, `#fly-back`); the map is see-through around the globe, so the Earth itself hides the letters behind it. This replaces the mask of the eighth batch.
+- Checked in headless Chrome at desktop size: events loaded with no data file (194 events), and still frames of both animations. Not checked: the animation playing in a real browser, phone size, other browsers.
+
 ## Test
 
 ```

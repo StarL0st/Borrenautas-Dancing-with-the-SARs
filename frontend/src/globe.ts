@@ -327,13 +327,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.easeTo({ ...HOME.globe, center: [map.getCenter().lng, HOME.globe.center[1]], padding: { top: 0 }, duration });
     },
 
-    // The globe's radius on screen right now, in pixels (level camera): the distance from the
-    // middle to a point a quarter turn away. It depends on the window size, so it is measured.
-    radius() {
-      const c = map.getCenter(), p = map.project(c), q = map.project([c.lng + 90, 0]);
-      return Math.hypot(q.x - p.x, q.y - p.y);
-    },
-    // About that radius in the whole-Earth view, for planning a path before the camera gets there.
+    // About the globe's radius on screen in the whole-Earth view, in pixels (it varies a little
+    // with the window size), for planning a path round it.
     roughRadius: (0.85 * 512 * 2 ** HOME.globe.zoom) / (2 * Math.PI * Math.cos((HOME.globe.center[1] * Math.PI) / 180)),
 
     welcome(on: boolean, duration: number) {

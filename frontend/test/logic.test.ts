@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
 import { readFileSync } from "node:fs";
+import { collectLive, eonetCategory, parseEonet, parseGdacs, parseUsgs, quakeSeverity, recent } from "../src/livefeeds.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
 import { ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
@@ -132,4 +133,43 @@ test("country filter: a point is inside its own country only", () => {
   assert.ok(!inside(-99.13, 19.43, polys("USA")));
   assert.ok(inside(-149.9, 61.2, polys("USA")), "Anchorage: countries with several pieces");
   assert.ok(!inside(28.2, -29.6, polys("ZAF")) && inside(28.2, -29.6, polys("LSO")), "Lesotho is a hole in South Africa");
+});
+
+// ---- Live events asked by the page (a port of the back end's livefeeds.py) ----
+
+const usgs = { features: [{ id: "us1", properties: { mag: 6.1, time: Date.parse("2026-11-14T10:30:00Z"), place: "7 km SE of Tagbina, Philippines", tsunami: 1, url: "https://earthquake.usgs.gov/x" }, geometry: { coordinates: [126.2, 8.4, 35.2] } }] };
+const gdacs = { features: [
+  { properties: { eventtype: "TC", eventid: 7, name: "Tropical Cyclone ANA", alertlevel: "Red", fromdate: "2026-11-12T00:00:00", todate: "2026-11-14T06:00:00", affectedcountries: [{ countryname: "Mexico" }], url: { report: "https://www.gdacs.org/r" } }, geometry: { type: "Point", coordinates: [-100, 15] } },
+  { properties: { eventtype: "EQ", eventid: 8, name: "Quake" }, geometry: { type: "Point", coordinates: [0, 0] } },
+] };
+const eonet = { events: [
+  { id: "E1", title: "Typhoon Kiko", categories: [{ id: "severeStorms" }], sources: [{ id: "JTWC", url: "https://x" }], geometry: [{ date: "2026-11-13T00:00:00Z", type: "Point", coordinates: [130, 20] }, { date: "2026-11-14T00:00:00Z", type: "Point", coordinates: [131, 21] }] },
+  { id: "E2", title: "Flood in Guatemala", categories: [{ id: "floods" }], sources: [{ id: "GDACS" }], geometry: [{ date: "2026-11-14T00:00:00Z", type: "Point", coordinates: [-90, 15] }] },
+] };
+
+test("live feeds: each source becomes events with a type, a place, a source and a danger score", () => {
+  const [q] = parseUsgs(usgs);
+  assert.deepEqual([q.properties.id, q.properties.category, q.properties.date, q.properties.severity, q.properties.lon], ["usgs-us1", "earthquakes", "2026-11-14T10:30Z", 2, 126.2]);
+  assert.match(q.properties.detail, /depth 35 km · Tsunami/);
+  const g = parseGdacs(gdacs);
+  assert.deepEqual(g.map((f) => [f.properties.id, f.properties.category, f.properties.date, f.properties.severity, f.properties.place]), [["gdacs-TC7", "hurricanes", "2026-11-14", 3, "Mexico"]]);
+  const e = parseEonet(eonet, ["GDACS"]); // the flood reached EONET through GDACS: taken from GDACS only
+  assert.deepEqual(e.map((f) => [f.properties.category, f.properties.lon, f.properties.date]), [["hurricanes", 131, "2026-11-14"]]);
+  assert.equal(eonetCategory("tempExtremes", "Cold wave in Peru"), "cold");
+  assert.equal(eonetCategory("somethingNew", "x"), "other");
+  assert.deepEqual([4.9, 5, 6.5, 7.2].map((m) => quakeSeverity(m)), [0, 1, 2, 3]);
+});
+
+test("live feeds: events expire after 24 hours; one source failing does not stop the others", async () => {
+  const now = Date.parse("2026-11-15T12:00:00Z");
+  const at = (date: string) => ({ properties: { date } }) as LiveFeature;
+  // A date without a time counts to the end of that day.
+  assert.deepEqual(recent([at("2026-11-15T09:00Z"), at("2026-11-14T11:00Z"), at("2026-11-14"), at("2026-11-13")], now).map((f) => f.properties.date), ["2026-11-15T09:00Z", "2026-11-14"]);
+  const got = await collectLive(async (url) => {
+    if (url.includes("usgs")) return usgs;
+    if (url.includes("gdacs")) throw new Error("down");
+    return eonet;
+  });
+  assert.equal(got.ok, 2);
+  assert.deepEqual(got.features.map((f) => f.properties.source).sort(), ["eonet", "usgs"]);
 });

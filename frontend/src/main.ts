@@ -14,6 +14,7 @@ import {
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
+import { collectLive, LIVE_MINUTES, recent } from "./livefeeds";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
@@ -703,19 +704,35 @@ function showLiveStatus() {
     : t("live.offline");
 }
 
+let askedAt = 0; // when the page last asked the sources itself
+
+// A running back end keeps live.geojson fresh, and its file is used. Without one (a static copy
+// of the app, or a file nobody rewrites) the page asks the public sources itself, so the events
+// refresh wherever the app is opened.
 async function loadLiveFeeds() {
+  const now = Date.now();
+  let doc: { features?: LiveFeature[]; generated_at?: string; refresh_minutes?: number } | undefined;
   try {
     const res = await fetch(new URL("live.geojson", BASE), { cache: "no-store" }); // never an old copy
-    if (!res.ok) throw new Error(String(res.status));
-    const doc = await res.json();
-    liveEvents = doc.features ?? [];
-    liveUpdated = doc.generated_at ?? "";
-    liveEvery = Number(doc.refresh_minutes) || 0;
+    if (res.ok) doc = await res.json();
   } catch {
-    liveEvents = [];
-    liveUpdated = "";
-    liveEvery = 0;
+    // no back end and no file: the sources are asked directly below
   }
+  if (doc?.generated_at && now - Date.parse(doc.generated_at) < 2 * LIVE_MINUTES * 60000) {
+    liveEvents = doc.features ?? [];
+    liveUpdated = doc.generated_at;
+    liveEvery = Number(doc.refresh_minutes) || 0;
+  } else if (now - askedAt > (LIVE_MINUTES - 1) * 60000) {
+    const got = await collectLive();
+    // With no source answering (offline), what is already on the globe stays until it expires.
+    if (got.ok) {
+      askedAt = now;
+      liveEvents = got.features;
+      liveUpdated = got.generated_at;
+      liveEvery = LIVE_MINUTES;
+    }
+  }
+  liveEvents = recent(liveEvents, Date.now()); // events past 24 hours leave the globe and the list
   showLiveStatus();
   render();
 }
@@ -724,7 +741,7 @@ async function loadLiveFeeds() {
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
 events.addEventListener("live", loadLiveFeeds);
-setInterval(loadLiveFeeds, 5 * 60 * 1000); // also re-read the file when the push stream is gone
+setInterval(loadLiveFeeds, 5 * 60 * 1000); // look again; the sources themselves are asked every 15 minutes at most
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
 
 // ---- View switch, auto-rotate and view wheel ----
@@ -778,69 +795,86 @@ function homeUi(on: boolean) {
   for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === "globe"));
 }
 
-// Start sends the title round the Earth until it is hidden behind it; the house button brings
-// it back the same way. `u` is the share of that half turn: 0 in its place, 0.5 beside the
-// globe, 1 behind it.
-const title = $("home-title"), homeEl = $("home");
+// Start sends the name round the Earth letter by letter, like type on a ring: across the front
+// of the globe, round its side and out of sight behind it. The house button plays it backwards.
+// Each letter is drawn twice: once over the map and once under it, where the Earth itself hides
+// it (the map is see-through around the globe). A letter shows in one layer or the other.
+const nameEl = document.querySelector<HTMLElement>(".home-name")!;
+nameEl.replaceChildren(...[...nameEl.textContent!].map((ch) => el("span", {}, ch)));
+const layers = [$("fly-front"), $("fly-back")];
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));
+const LAP_MS = 2000; // one letter's whole trip
+const GAP_MS = 55; // between one letter and the next
 let orbiting = false; // an animation is running: Start and the house button wait for it
 
-// Where the whole globe sits on screen, with the side panels in place or pushed away.
+// The middle of the whole globe on screen, with the side panels in place or pushed away.
 // The panel widths and the phone layout mirror the stylesheet (`.app`, `.stage`).
-function globeDisc(panels: boolean) {
+function globeCenter(panels: boolean) {
   const m = document.querySelector("main")!.getBoundingClientRect();
   const wide = !matchMedia("(max-width: 900px)").matches;
   const left = m.left + (panels && wide ? 300 : 0), right = m.right - (panels && wide ? 360 : 0);
   const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.6 : 1);
   return { x: (left + right) / 2, y: (m.top + bottom) / 2 };
 }
-type Disc = ReturnType<typeof globeDisc>;
+type Point = ReturnType<typeof globeCenter>;
 
-function orbitTitle(from: number, to: number, at: { x: number; y: number }, g: Disc, duration: number, easing: string) {
-  const far = globe.roughRadius + title.offsetWidth * 0.15 + 12; // far enough to clear the globe at its side
-  const frames = Array.from({ length: 13 }, (_, i) => {
-    const u = from + ((to - from) * i) / 12;
-    const k = Math.min(1, 2 * u), drift = k * k * (3 - 2 * k); // the turn's axis slides over to the globe
-    const x = (g.x - at.x) * drift + far * Math.sin(Math.PI * u), y = (g.y - at.y) * drift;
-    const scale = u < 0.5 ? 1 - 1.4 * u : 0.3 - 0.1 * (u - 0.5); // smaller as it goes round to the far side
-    return { transform: `translate(${x}px, ${y}px) scale(${scale})` };
+// One letter's trip from its place in the title (first frame) to behind the globe (last frame):
+// it joins the ring at the globe's left edge, crosses the front, rounds the right edge and ends
+// behind the middle. `behind` picks the layer under the map.
+function letterPath(home: Point, g: Point, far: number, size: number, behind: boolean): Keyframe[] {
+  const STEPS = 27; // the right edge falls exactly on step 18
+  return Array.from({ length: STEPS + 1 }, (_, i) => {
+    const u = i / STEPS, turn = ((-90 + 270 * u) * Math.PI) / 180;
+    const k = Math.min(1, u / 0.35), join = k * k * (3 - 2 * k); // leaving the title for the ring
+    // The ring is tipped toward the viewer: the front runs a little lower than the back.
+    const ringX = g.x + far * Math.sin(turn), ringY = g.y + 0.12 * far * Math.cos(turn);
+    const scale = 1 + (size * (0.75 + 0.25 * Math.cos(turn)) - 1) * join; // smaller on the far side
+    return {
+      transform: `translate(${home.x + (ringX - home.x) * join}px, ${home.y + (ringY - home.y) * join}px) translate(-50%, -50%) scale(${scale})`,
+      opacity: i > 18 === behind ? 1 : 0,
+    };
   });
-  return title.animate(frames, { duration, easing, fill: "forwards" }).finished;
 }
-// Behind the globe: the part of the title that the Earth covers is cut away. Call it only
-// while the camera rests on the whole Earth, because the globe is measured as it is drawn.
-function hideBehind(g?: Disc) {
-  const r = g ? globe.radius() : 0;
-  const mask = g ? `radial-gradient(circle at ${g.x}px ${g.y}px, transparent ${r - 1}px, #000 ${r}px)` : "";
-  homeEl.style.setProperty("-webkit-mask-image", mask);
-  homeEl.style.maskImage = mask;
+
+// Fly every letter out (or, reversed, back in). Resolves when the last one has landed.
+async function flyName(g: Point, reverse: boolean) {
+  const spans = [...nameEl.children] as HTMLElement[];
+  const type = getComputedStyle(nameEl);
+  const far = Math.min(globe.roughRadius * 1.15, innerWidth * 0.46);
+  const size = Math.min(1, 46 / parseFloat(type.fontSize));
+  const last = (spans.length - 1) * GAP_MS;
+  await Promise.all(
+    spans.flatMap((span, i) => {
+      const r = span.getBoundingClientRect();
+      const home = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      // Going out, the last letter leads, so the word reads left to right as it crosses the front.
+      // Coming back is the same film backwards.
+      const delay = reverse ? i * GAP_MS : last - i * GAP_MS;
+      return layers.map((layer, n) => {
+        const letter = el("span", { className: "fly" }, span.textContent!);
+        Object.assign(letter.style, { fontSize: type.fontSize, fontWeight: type.fontWeight, fontFamily: type.fontFamily });
+        layer.append(letter);
+        return letter.animate(letterPath(home, g, far, size, n === 1), {
+          duration: LAP_MS, delay, direction: reverse ? "reverse" : "normal", fill: "both", easing: "cubic-bezier(0.4, 0, 0.6, 1)",
+        }).finished;
+      });
+    }),
+  );
+  for (const layer of layers) layer.replaceChildren();
 }
-const titleCenter = () => {
-  const r = title.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-};
-// One motion in two parts (in front, then behind), so the first speeds up and the second slows down.
-const SPEED_UP = "cubic-bezier(0.5, 0, 0.9, 0.6)", SLOW_DOWN = "cubic-bezier(0.1, 0.4, 0.5, 1)";
 
 async function leaveHome() {
   if (orbiting) return;
   orbiting = true;
-  const at = titleCenter();
   const move = !calm.matches;
-  if (move) document.body.classList.add("orbiting"); // keeps the title on screen, without Start
+  if (move) document.body.classList.add("orbiting"); // the flying letters stand in for the name
   homeUi(false);
-  globe.welcome(false, 1700); // at rest just before the title goes behind the globe
+  globe.welcome(false, 1700);
   $("home-btn").focus();
   if (move) {
-    const g = globeDisc(true);
-    await orbitTitle(0, 0.5, at, g, 1800, SPEED_UP); // in front, while the camera pulls back
-    hideBehind(g);
-    await orbitTitle(0.5, 1, at, g, 800, SLOW_DOWN);
-    title.style.visibility = "hidden";
+    await flyName(globeCenter(true), false);
     document.body.classList.remove("orbiting");
-    for (const a of title.getAnimations()) a.cancel();
-    hideBehind();
   }
   orbiting = false;
   try {
@@ -856,24 +890,17 @@ async function leaveHome() {
 async function goHome() {
   if (orbiting) return;
   orbiting = true;
-  setSpin(false); // the globe holds still while the title comes round
+  setSpin(false); // the globe holds still while the letters come round
   if (!calm.matches) {
     document.body.classList.add("orbiting");
     homeUi(true);
-    globe.whole(700); // the title can only come out from behind a whole Earth
+    globe.whole(700); // the letters can only come out from behind a whole Earth
     await wait(700);
-    const at = titleCenter(), g = globeDisc(false);
-    hideBehind(g);
-    void orbitTitle(1, 1, at, g, 1, "linear"); // parked behind the globe before it shows
-    title.style.visibility = "";
-    await orbitTitle(1, 0.5, at, g, 800, SPEED_UP);
-    hideBehind();
-    globe.welcome(true, 1400);
-    await orbitTitle(0.5, 0, at, g, 1400, SLOW_DOWN);
-    for (const a of title.getAnimations()) a.cancel();
+    // The camera drops to the horizon once the last letter is out from behind the globe.
+    setTimeout(() => globe.welcome(true, 1400), (nameEl.children.length - 1) * GAP_MS + LAP_MS / 3);
+    await flyName(globeCenter(false), true);
     document.body.classList.remove("orbiting");
   } else {
-    title.style.visibility = "";
     homeUi(true);
     globe.welcome(true, 0);
   }
