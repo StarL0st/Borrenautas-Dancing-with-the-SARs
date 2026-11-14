@@ -44,6 +44,11 @@ def main() -> None:
     serve_p.add_argument(
         "--watch-hours", type=float, help="with --jobs: re-check every site this often"
     )
+    serve_p.add_argument(
+        "--live-minutes", type=float, help="refresh live.geojson (public disaster feeds) this often"
+    )
+
+    sub.add_parser("live-events", help="fetch public disaster feeds once into live.geojson")
 
     synth_p = sub.add_parser("synthetic", help="write synthetic GCOV-shaped granules (for testing)")
     synth_p.add_argument("--out", type=Path, default=DATA / "inbox")
@@ -143,6 +148,12 @@ def main() -> None:
 
         for f in args.files:
             print(f"{f.name}: {', '.join(ingest(f, args.data_dir))}")
+    elif args.cmd == "live-events":
+        from .livefeeds import write
+
+        doc = write(args.data_dir)
+        for src in doc["sources"]:
+            print(f"{src['id']:6} {src['count']:5}  {'ok' if src['ok'] else src['error']}")
     elif args.cmd == "serve":
         import uvicorn
 
@@ -156,6 +167,14 @@ def main() -> None:
             from .live import Jobs
 
             jobs = Jobs(DATA, args.watch_hours)
+        if args.live_minutes:
+            import threading
+
+            from .livefeeds import poll
+
+            threading.Thread(
+                target=poll, args=(args.data_dir, args.live_minutes), daemon=True, name="live"
+            ).start()
         token = os.environ.get("SARS_ADMIN_TOKEN")
         app = create_app(
             args.data_dir, inbox, args.poll, jobs=jobs, admin_token=token, public=args.public
