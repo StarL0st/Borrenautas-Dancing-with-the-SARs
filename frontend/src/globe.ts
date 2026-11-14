@@ -1,10 +1,11 @@
 // The globe and the zoomed-in map are one MapLibre map: the "globe" projection turns flat on
 // its own as you zoom in.
-import { Map, Marker, NavigationControl, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
+import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
 // MapLibre cannot find its worker file by itself once Vite bundles it, so hand it the URL.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { AreaView, Layer } from "./logic";
+import type { AreaView, EventFeature, Layer } from "./logic";
+import { el } from "./ui";
 
 setWorkerUrl(workerUrl);
 
@@ -84,6 +85,30 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
         },
         paint: { "text-color": "#e6f1f5", "text-halo-color": "#03060a", "text-halo-width": 1.5 },
       });
+      // Detected changes (events.geojson): outlines when close, dots at every zoom.
+      const empty = { type: "FeatureCollection" as const, features: [] };
+      map.addSource("events", { type: "geojson", data: empty });
+      map.addSource("event-points", { type: "geojson", data: empty });
+      map.addLayer({
+        id: "events-fill", type: "fill", source: "events", minzoom: 8,
+        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 },
+      }, "areas-box");
+      map.addLayer({
+        id: "events-line", type: "line", source: "events", minzoom: 8,
+        paint: { "line-color": ["get", "color"], "line-width": 1.5 },
+      }, "areas-box");
+      map.addLayer({
+        id: "events-dot", type: "circle", source: "event-points",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
+          "circle-color": ["get", "color"], "circle-stroke-color": "#03060a", "circle-stroke-width": 1,
+        },
+      });
+      for (const layer of ["events-fill", "events-dot"]) {
+        map.on("click", layer, (e) => picking || showEvent(e.features![0].properties as EventFeature["properties"], e.lngLat));
+        map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
+      }
       // The halo is the click target so the dots are easy to hit on touch screens.
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
@@ -93,6 +118,23 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
   );
 
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+  const popup = new Popup({ maxWidth: "320px" });
+  // Built from DOM nodes, never HTML strings: event text comes from the data.
+  function showEvent(p: EventFeature["properties"], at: { lng: number; lat: number }) {
+    popup
+      .setLngLat(at)
+      .setDOMContent(
+        el(
+          "div",
+          { className: "event-popup" },
+          el("strong", {}, p.title),
+          el("p", { className: "muted" }, `${p.from} to ${p.to} · ${p.area_km2} km² · confidence ${Math.round(p.confidence * 100)}% · ${p.maturity} data`),
+          el("p", {}, p.summary),
+        ),
+      )
+      .addTo(map);
+  }
 
   return {
     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
@@ -110,6 +152,19 @@ export function createGlobe(container: string, onPick: (id: string) => void) {
             },
           ];
         }),
+      });
+    },
+
+    // Events already carry their display color; `shown` is the subset that passes the filters.
+    async setEvents(shown: (EventFeature & { properties: { color: string } })[]) {
+      await ready;
+      map.getSource<GeoJSONSource>("events")!.setData({ type: "FeatureCollection", features: shown as never });
+      map.getSource<GeoJSONSource>("event-points")!.setData({
+        type: "FeatureCollection",
+        features: shown.map((f) => ({
+          type: "Feature" as const, properties: f.properties,
+          geometry: { type: "Point" as const, coordinates: [f.properties.lon, f.properties.lat] },
+        })),
       });
     },
 
