@@ -31,6 +31,7 @@ document.documentElement.dataset.mode = settings.mode;
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
+let stagger = true; // the area list cascades in while the page loads, not on later updates
 let opened: string[] = []; // area ids open as tabs, newest first
 let entering: string | undefined; // the tab that was just opened, so only it animates in
 const collapsed = new Set<string>();
@@ -136,7 +137,7 @@ function render() {
   opened = opened.filter((id) => shown.some((a) => a.id === id));
 
   results.replaceChildren(
-    ...shown.map((a) => {
+    ...shown.map((a, n) => {
       const dates = a.events.map((e) => e.date).sort();
       const when = dates.length ? t("list.dates", { from: dates[0], to: dates.at(-1)! }) : t("list.nodates");
       const row = el(
@@ -146,7 +147,9 @@ function render() {
         el("span", { className: "muted" }, a.example ? t("list.example") : `${when} · ${t("list.images", { n: a.layers.length })}`),
       );
       row.setAttribute("aria-pressed", String(opened.includes(a.id)));
-      return el("li", {}, row);
+      const li = el("li", { className: stagger ? "stagger" : "" }, row);
+      li.style.setProperty("--i", String(Math.min(n, 12)));
+      return li;
     }),
   );
   if (!shown.length) results.append(el("li", { className: "muted" }, t("list.none")));
@@ -173,6 +176,7 @@ function toggle(id: string) {
   const opening = !opened.includes(id);
   opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
   if (opening) {
+    showPanel("detail", true); // an area opened from the globe must not land in a hidden panel
     collapsed.delete(id);
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
@@ -421,6 +425,7 @@ async function loadLive() {
     setStatus("status.offline");
   }
   render();
+  stagger = false;
 }
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
@@ -457,6 +462,17 @@ const buildWheel = () =>
     wheelBtn.focus();
   });
 
+// ---- Side panels: the arrows on the edges of the globe push them away and pull them back ----
+
+function showPanel(id: "nav" | "detail", on: boolean) {
+  $(id).inert = !on;
+  $(id).parentElement!.classList.toggle(`no-${id}`, !on);
+  $(`${id}-toggle`).setAttribute("aria-expanded", String(on));
+}
+for (const id of ["nav", "detail"] as const) {
+  $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
+}
+
 // ---- Accessibility menu and language ----
 
 const dialog = $<HTMLDialogElement>("settings");
@@ -470,11 +486,16 @@ function applyLanguage() {
     ...(["simple", "technical"] as const).map((mode) => {
       const input = el("input", { type: "radio", name: "mode", checked: settings.mode === mode });
       input.onchange = () => {
-        settings.mode = mode;
-        saveSettings(settings);
-        document.documentElement.dataset.mode = mode;
-        buildFilters();
-        render();
+        const flip = () => {
+          settings.mode = mode;
+          saveSettings(settings);
+          document.documentElement.dataset.mode = mode;
+          buildFilters();
+          render();
+        };
+        // The two panels cross-fade between modes (see `view-transition-name` in the stylesheet).
+        if (document.startViewTransition) document.startViewTransition(flip);
+        else flip();
       };
       return el("label", {}, input, el("span", {}, t(`mode.${mode}`)));
     }),
@@ -502,6 +523,8 @@ $("settings-btn").onclick = () => dialog.showModal();
 wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
+// The Earth turns by itself on arrival; opening an area or the Auto-rotate button stops it.
+setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
 
 // ---- Tour ----
 

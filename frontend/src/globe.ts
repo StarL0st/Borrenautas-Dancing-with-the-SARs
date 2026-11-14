@@ -22,10 +22,10 @@ const HOME: Record<ViewMode, { center: [number, number]; zoom: number; pitch: nu
 };
 
 // How the Earth is drawn. Each texture is a set of basemap layers switched on together.
-export type Texture = "bluemarble" | "hologram" | "street";
-const BASE_LAYERS = ["bluemarble", "street", "land", "borders", "grid"];
+export type Texture = "sentinel" | "hologram" | "street";
+const BASE_LAYERS = ["sentinel", "street", "land", "borders", "grid"];
 const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string }> = {
-  bluemarble: { show: ["bluemarble", "borders"], ocean: "#02101c", border: "#ffffff" },
+  sentinel: { show: ["sentinel", "borders"], ocean: "#02101c", border: "#ffffff" },
   hologram: { show: ["land", "borders", "grid"], ocean: "#071a26", border: "#5fe3e0" },
   street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
 };
@@ -39,10 +39,12 @@ const style: StyleSpecification = {
   glyphs: `${BASEMAP}font/{fontstack}/{range}.pbf`,
   sources: {
     base: { type: "vector", url: `${BASEMAP}tiles/tiles.json` },
-    // NASA Blue Marble imagery from GIBS (public, no key). It stops at zoom 8 and is stretched beyond.
-    bluemarble: {
-      type: "raster", tileSize: 256, maxzoom: 8, attribution: "Imagery: NASA GIBS, Blue Marble",
-      tiles: ["https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg"],
+    // Sentinel-2 cloudless: a cloud-free mosaic of Copernicus Sentinel-2 images by EOX (public,
+    // no key, CC BY 4.0 for this 2016 edition). Sharp down to zoom 14, stretched beyond.
+    sentinel: {
+      type: "raster", tileSize: 256, maxzoom: 14,
+      tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg"],
+      attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016)',
     },
     // shortcut: the public OpenStreetMap tile server is for light use only; switch to a hosted
     // tile service before sending real traffic to the app.
@@ -54,7 +56,7 @@ const style: StyleSpecification = {
   // Basemap layers start hidden; `setTexture` switches on the chosen set, so unused tiles never load.
   layers: [
     { id: "ocean", type: "background", paint: { "background-color": "#02101c" } },
-    { id: "bluemarble", type: "raster", source: "bluemarble", layout: { visibility: "none" } },
+    { id: "sentinel", type: "raster", source: "sentinel", layout: { visibility: "none" } },
     { id: "street", type: "raster", source: "street", layout: { visibility: "none" } },
     {
       id: "land", type: "fill", source: "base", "source-layer": "countries", layout: { visibility: "none" },
@@ -72,7 +74,7 @@ const style: StyleSpecification = {
 };
 
 export function createGlobe(container: string, texture: Texture, onPick: (id: string) => void) {
-  const map = new Map({ container, style, ...HOME.globe, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
+  const map = new Map({ container, style, ...HOME.globe, zoom: 0.5, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
 
@@ -80,7 +82,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   let picking = false; // the wheel's "Center" tool is waiting for a click on the globe
   let spinFrameId = 0, lastFrame = 0; // auto-rotate: 0 means off
   const overlays = new Set<string>();
-  const marker = new Marker({ color: "#ededeb" });
+  const marker = new Marker({ color: "#ef946c" });
 
   const point = ["==", ["geometry-type"], "Point"] as ["==", ["geometry-type"], "Point"];
   // Dots fade out once you are close enough to see the area's outline and radar image.
@@ -115,7 +117,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "text-field": ["get", "title"], "text-font": ["Open Sans Semibold"], "text-size": 12,
           "text-offset": [0, 1.3], "text-anchor": "top",
         },
-        paint: { "text-color": "#ededeb", "text-halo-color": "#0a0a0b", "text-halo-width": 1.5 },
+        paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.5 },
       });
       // Detected changes (events.geojson): outlines when close, dots at every zoom.
       const empty = { type: "FeatureCollection" as const, features: [] };
@@ -133,7 +135,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         id: "events-dot", type: "circle", source: "event-points",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
-          "circle-color": ["get", "color"], "circle-stroke-color": "#0a0a0b", "circle-stroke-width": 1,
+          "circle-color": ["get", "color"], "circle-stroke-color": "#010d15", "circle-stroke-width": 1,
         },
       });
       for (const layer of ["events-fill", "events-dot"]) {
@@ -146,6 +148,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = picking ? "crosshair" : ""));
       map.addLayer(satelliteLayer(map));
+      // The Earth glides in from far away on arrival (MapLibre skips this for reduced motion).
+      map.easeTo({ zoom: HOME.globe.zoom, duration: 1600 });
       resolve();
     }),
   );

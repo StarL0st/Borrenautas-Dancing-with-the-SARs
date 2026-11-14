@@ -32,9 +32,12 @@ A globe that zooms into a map (one MapLibre map, `globe` projection).
 - **Views:** "Globe view", "Close-up view" (low, tilted camera with the horizon in view), and "Auto-rotate" (turns the Earth slowly; stops when you open an area).
 - **View wheel** (`src/wheel.ts`): Zoom, Orbit, Home, Center, Look, Up/Down. Hold a button and drag, or focus it and use the arrow keys.
 - **Accessibility menu** (`src/settings.ts`): language (English, Spanish, German), wheel size (large, medium, small; medium is the default) and globe texture. Choices are saved in the browser.
-- **Mode switch** (header, between Tutorial and Accessibility): **Simple** (default) or **Technical**. Technical shows everything the back end sends. Simple uses larger text, short filter names, no coordinate form, and in each open area: one radar picture chosen by the app (detected change, else surface type, else the first layer) with a date slider and color key, one sentence about the radar passes, and the detected changes without confidence figures. No chart and no provenance in Simple mode.
+- **Mode switch** (header, between Tutorial and Accessibility): **Simple** (default) or **Technical**. Technical shows everything the back end sends. Simple uses short filter names (same text size as Technical), no coordinate form, and in each open area: one radar picture chosen by the app (detected change, else surface type, else the first layer) with a date slider and color key, one sentence about the radar passes, and the detected changes without confidence figures. No chart and no provenance in Simple mode.
 - **Satellite** (`src/satellite.ts`, mesh in `src/assets/satellite.bin`): a model circling the globe, drawn as a MapLibre custom layer. It is an illustration: the orbit has NISAR's 98.4° tilt, but position, height and size are not real, and the tutorial says so. It fades out when zooming in and stands still when the system asks for reduced motion.
-- **Look**: neutral gray interface so that color only means data; IBM Plex Sans and IBM Plex Mono (bundled, no font server).
+- **Look**: the team palette (Ink Black `#031927` surfaces, White `#fefdff` text, Powder Blue `#8eb1c7` secondary text, Tangerine Dream `#ef946c` for what is on or primary, Brick Ember `#ba1200` as the fill behind warnings); roles are documented at the top of `src/style.css`. IBM Plex Sans and IBM Plex Mono (bundled, no font server). The page title is **G.I.G.A.S**.
+- **Side panels**: the arrows on the left and right edges of the globe push a panel off screen and pull it back. Opening an area brings the right panel back by itself.
+- **Motion**: the Earth glides in and turns by itself on arrival (Auto-rotate starts on), the area list cascades in on load, switching mode cross-fades the two panels, tutorial steps fade. All of it is reduced to fades or switched off when the system asks for reduced motion.
+- **Satellite looks**: painted (white body, blue wings) in Simple mode, a blueprint grid in Technical mode.
 - **Tutorial:** a step-by-step tour (`src/tour.ts`), shown on first visit and from the Tutorial button.
 - **Manifest:** an unsupported major `contract_version` shows an error and the app keeps working. Refetches on each `manifest` event from the live server.
 
@@ -46,7 +49,7 @@ All interface text is in `src/i18n.ts`; a test checks every language has every k
 
 | Name | What it is | Source |
 |---|---|---|
-| Blue Marble (default) | NASA satellite imagery; sharp to zoom 8, stretched beyond | NASA GIBS, `BlueMarble_ShadedRelief_Bathymetry` |
+| Sentinel-2 (default) | Cloud-free mosaic of Copernicus Sentinel-2 images; sharp to zoom 14 (city blocks), stretched beyond | EOX `s2cloudless_3857` (2016 edition, CC BY 4.0), public tile server, no key |
 | Hologram | Dark outline map | MapLibre demo tiles |
 | Street map | Roads and place names | OpenStreetMap standard tiles, © OpenStreetMap contributors |
 
@@ -95,7 +98,6 @@ Next steps (ordered):
 
 Known limits:
 - Orbit behaves like dragging the globe; Up/Down only tilts. MapLibre cannot move the camera independently of its target under globe projection.
-- Blue Marble imagery is blurry when zoomed far into an area.
 - JS bundle is about 1.1 MB (MapLibre).
 
 Resume with: `cd frontend && npm ci && npm run dev`, with the back end on port 8765 (or `VITE_DATA_BASE=<url>/`).
@@ -110,6 +112,14 @@ Not done or not checked:
 - Simple mode's short filter names are the full names cut at the first bracket or colon, not separately written text.
 - Spanish and German text for the new parts is machine-written.
 - Not checked: real phone, screen reader, Firefox, Safari, real back-end data.
+
+### Later the same day (fourth batch)
+
+Sentinel-2 imagery instead of Blue Marble, team palette, title G.I.G.A.S, panel arrows, more motion, one text size for both modes, smaller satellite with a look per mode. Checked in headless Chrome (no console errors); `npm test` and `npm run build` pass.
+
+- The EOX tile server is a free public service with no uptime promise; for real traffic, host the tiles or get a Copernicus Data Space account.
+- The natural-disasters dot color (`#E69F00`) is close to the Tangerine accent; they never mean the same thing but sit near each other in the filter list.
+- Sliding a panel resizes the globe every frame; not checked on a slow machine.
 
 ## Test
 
@@ -126,7 +136,7 @@ The code in this folder from the globe viewer onward was written with Claude Cod
 ## Credits
 
 - Radar data: NISAR, NASA/JPL-Caltech and ISRO, distributed by ASF DAAC (each layer carries its own credit line).
-- Blue Marble imagery: NASA Global Imagery Browse Services (GIBS).
+- Globe imagery: Sentinel-2 cloudless (https://s2maps.eu) by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2016, CC BY 4.0. The newer editions are non-commercial only, which is why the 2016 one is used.
 - Street map: © OpenStreetMap contributors, ODbL.
 - Outline map and fonts: MapLibre demo tiles. Map engine: MapLibre GL JS (BSD-3-Clause).
 - Typefaces: IBM Plex Sans and IBM Plex Mono, SIL Open Font License 1.1, via the `@fontsource` packages.

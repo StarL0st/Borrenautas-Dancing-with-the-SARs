@@ -4,7 +4,7 @@ import type { CustomLayerInterface, Map } from "maplibre-gl";
 import meshUrl from "./assets/satellite.bin?url";
 
 const ALTITUDE = 0.22; // above the surface, in Earth radii (the real orbit is 0.12)
-const SIZE = 0.12; // half the model's length, in Earth radii
+const SIZE = 0.08; // half the model's length, in Earth radii
 const LAP_S = 90; // seconds per orbit on screen (the real one takes about 100 minutes)
 const DRIFT_S = 1500; // seconds for the track to shift once around the Earth
 const INCLINATION = (98.4 * Math.PI) / 180;
@@ -29,6 +29,7 @@ in vec3 v_world;
 in vec3 v_model;
 uniform vec3 u_cam;
 uniform float u_alpha;
+uniform float u_blueprint;
 out vec4 color;
 void main() {
   // The planet is a unit sphere: hide what sits behind it as seen from the camera.
@@ -43,7 +44,11 @@ void main() {
   // (the far ends of the long axis) are painted as solar panels.
   vec3 n = normalize(cross(dFdx(v_world), dFdy(v_world)));
   float light = 0.3 + 0.7 * abs(dot(n, normalize(d)));
-  vec3 base = abs(v_model.z) > 0.36 ? vec3(0.16, 0.3, 0.62) : vec3(0.82, 0.8, 0.74);
+  vec3 painted = abs(v_model.z) > 0.36 ? vec3(0.16, 0.3, 0.62) : vec3(0.95, 0.93, 0.9);
+  // Technical mode draws it as a blueprint: pale grid lines over a dim blue body.
+  vec3 cell = abs(fract(v_model * 7.0) - 0.5);
+  vec3 blueprint = mix(vec3(0.07, 0.2, 0.3), vec3(0.56, 0.69, 0.78), step(0.42, max(cell.x, max(cell.y, cell.z))));
+  vec3 base = mix(painted, blueprint, u_blueprint);
   color = vec4(base * light * u_alpha, u_alpha);
 }`;
 
@@ -127,6 +132,7 @@ export function satelliteLayer(map: Map): CustomLayerInterface {
       gl.uniformMatrix3fv(gl.getUniformLocation(program, "u_basis"), false, [...ahead, ...up, ...side].map((x) => x * SIZE));
       gl.uniform3fv(gl.getUniformLocation(program, "u_cam"), cam);
       gl.uniform1f(gl.getUniformLocation(program, "u_alpha"), alpha);
+      gl.uniform1f(gl.getUniformLocation(program, "u_blueprint"), document.documentElement.dataset.mode === "technical" ? 1 : 0);
       // The layer is drawn last and hides itself behind the planet, so it can own the depth buffer.
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LESS);

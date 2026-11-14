@@ -9,7 +9,7 @@ export type Settings = { lang: Lang; wheel: "large" | "medium" | "small"; textur
 const OPTIONS: { [K in keyof Settings]: readonly Settings[K][] } = {
   lang: ["en", "es", "de"],
   wheel: ["large", "medium", "small"],
-  texture: ["bluemarble", "hologram", "street"],
+  texture: ["sentinel", "hologram", "street"],
   mode: ["simple", "technical"],
 };
 const KEYS = Object.keys(OPTIONS) as (keyof Settings)[];
@@ -18,7 +18,7 @@ type Row = "lang" | "wheel" | "texture";
 const ROWS: Row[] = ["lang", "wheel", "texture"];
 
 export function loadSettings(): Settings {
-  const out: Record<string, string> = { lang: "en", wheel: "medium", texture: "bluemarble", mode: "simple" };
+  const out: Record<string, string> = { lang: "en", wheel: "medium", texture: "sentinel", mode: "simple" };
   try {
     const saved = JSON.parse(localStorage.getItem("settings") ?? "{}") ?? {};
     // Only known values are accepted: storage can hold anything.

@@ -47,6 +47,8 @@ export function startTour(returnFocus?: HTMLElement) {
     target = document.querySelector(steps[i][0]);
     target?.classList.add("tour-target");
     target?.scrollIntoView({ block: "nearest" });
+    // The words of each step fade in, so a change of step reads as a change.
+    for (const node of [title, text]) node.animate({ opacity: [0, 1] }, { duration: 220, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
     title.textContent = t(`tour.${steps[i][1]}.title` as Key);
     text.textContent = t(`tour.${steps[i][1]}.text` as Key);
     count.textContent = t("tour.count", { i: i + 1, n: steps.length });
