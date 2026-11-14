@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
-import { ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
+import { readFileSync } from "node:fs";
+import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
+import { ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -86,7 +88,10 @@ test("live events follow the filters; unknown categories always show", () => {
 
 test("every live category the back end sends is a filter or 'other'", () => {
   // Mirrors backend/src/sars_pipeline/livefeeds.py (EONET_CATEGORIES, GDACS_CATEGORIES).
-  const sent = ["wildfires", "volcanoes", "floods", "landslides", "drought", "earthquakes", "sea-ice", "storms", "marine"];
+  const sent = [
+    "wildfires", "volcanoes", "floods", "landslides", "drought", "earthquakes", "sea-ice", "storms", "marine",
+    "hurricanes", "heat", "cold", "dust", "industrial", "oil-spills",
+  ];
   for (const id of sent) assert.ok(STRINGS.en[`type.${id}` as keyof typeof STRINGS.en], id);
 });
 
@@ -109,4 +114,22 @@ test("relative time picks a readable unit", () => {
   assert.deepEqual(ago("2026-11-14T11:30Z", now), [-30, "minute"]);
   assert.deepEqual(ago("2026-11-14T02:00Z", now), [-10, "hour"]);
   assert.deepEqual(ago("2026-11-10", now), [-5, "day"]);
+});
+
+test("GIBS requests use WMS 1.3.0 axis order and a sharp box", () => {
+  const url = new URL(gibsUrl("HLS_S30_Nadir_BRDF_Adjusted_Reflectance", [-99.23, 19.34, -99.03, 19.52], "2026-11-01", 512));
+  assert.equal(url.searchParams.get("BBOX"), "19.34,-99.23,19.52,-99.03");
+  assert.equal(url.searchParams.get("TIME"), "2026-11-01");
+  const hls = SAT_LAYERS.find((l) => l.id === "hls")!;
+  const [w, , e] = viewBox([-118, 14, -86, 33], hls);
+  assert.ok(e - w <= hls.maxSpanDeg + 1e-9);
+});
+
+test("country filter: a point is inside its own country only", () => {
+  const countries: { id: string; polys: number[][][][] }[] = JSON.parse(readFileSync(new URL("../src/assets/countries.json", import.meta.url), "utf8"));
+  const polys = (id: string) => countries.find((c) => c.id === id)!.polys;
+  assert.ok(inside(-99.13, 19.43, polys("MEX")), "Mexico City is in Mexico");
+  assert.ok(!inside(-99.13, 19.43, polys("USA")));
+  assert.ok(inside(-149.9, 61.2, polys("USA")), "Anchorage: countries with several pieces");
+  assert.ok(!inside(28.2, -29.6, polys("ZAF")) && inside(28.2, -29.6, polys("LSO")), "Lesotho is a hole in South Africa");
 });

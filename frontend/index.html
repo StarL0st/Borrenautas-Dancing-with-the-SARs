@@ -7,7 +7,7 @@
   </head>
   <body class="at-home">
     <section id="home" aria-labelledby="home-title">
-      <h2 id="home-title" data-i18n="home.title"></h2>
+      <h2 id="home-title"><span class="home-hello" data-i18n="home.welcome"></span> <span class="home-name">G.I.G.A.S</span></h2>
       <button type="button" id="start" class="primary" data-i18n="home.start"></button>
     </section>
     <header>
@@ -22,6 +22,13 @@
     </header>
     <main class="app no-nav no-detail">
       <nav id="nav" data-i18n-label="nav.label">
+        <h3 data-i18n="h.countries"></h3>
+        <form id="country-form">
+          <input type="search" id="country-search" list="country-names" autocomplete="off" data-i18n-label="country.search" />
+          <datalist id="country-names"></datalist>
+        </form>
+        <p id="country-status" class="muted" role="status"></p>
+        <ul id="country-picked" class="chips"></ul>
         <h3 data-i18n="h.filters"></h3>
         <div id="filters"></div>
         <h3 data-i18n="h.live"></h3>

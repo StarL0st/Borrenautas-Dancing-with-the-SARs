@@ -4,13 +4,16 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
-import { GROUPS, groupLabel, isType, typeColor, typeLabel } from "./filters";
+import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./filters";
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
+import { icon } from "./icons";
+import countriesUrl from "./assets/countries.json?url";
 import {
-  ago, datesFor, inFilter, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
+  ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, polarizations, SOURCE_SHORT, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
+import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
@@ -37,6 +40,7 @@ let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
 let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
 let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
+let liveEvery = 0; // how often the back end refreshes live.geojson, in minutes (0: unknown)
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
 let stagger = true; // the area list cascades in while the page loads, not on later updates
 let opened: string[] = []; // area ids open as tabs, newest first
@@ -67,6 +71,25 @@ column.append($("ctrl-view"));
 
 // ---- Left panel: filters ----
 
+// How many types each group shows before "Show more": two rows of three tiles in Simple mode.
+const FIRST_TYPES = () => 6;
+const expanded = new Set<string>(); // groups whose full list is open
+
+function moreButton(g: (typeof GROUPS)[number]): Node[] {
+  const hidden = g.items.length - FIRST_TYPES();
+  if (hidden <= 0) return [];
+  const open = expanded.has(g.id);
+  const button = el("button", { type: "button", className: "link more" }, open ? t("filter.less") : t("filter.more", { n: hidden }));
+  button.setAttribute("aria-expanded", String(open));
+  button.onclick = () => {
+    if (open) expanded.delete(g.id);
+    else expanded.add(g.id);
+    buildFilters();
+    filters.querySelector<HTMLElement>(`[data-group="${g.id}"] .more`)?.focus();
+  };
+  return [button];
+}
+
 function buildFilters() {
   const open = [...filters.children].map((d) => (d as HTMLDetailsElement).open);
   filters.replaceChildren(
@@ -91,16 +114,95 @@ function buildFilters() {
         render();
       };
       syncAll();
-      return el(
+      const group = el(
         "details",
         { open: open[n] ?? n === 0 },
         el("summary", {}, dot(g.color), groupLabel(g.id)),
         el("label", { className: "check all" }, all, t("filter.all")),
-        ...boxes.map((box, i) => el("label", { className: "check" }, box, simple() ? typeLabel(g.items[i]).replace(/\s*[(:].*/, "") : typeLabel(g.items[i]))),
+        // One icon per type: filled with the group color when on, outline only when off. The
+        // checkbox stays (hidden but focusable) so keyboards and screen readers work as before.
+        el(
+          "div",
+          { className: "ftypes" },
+          ...boxes.map((box, i) => {
+            const id = g.items[i];
+            box.className = "vh";
+            const tile = el("label", { className: "ftype", title: typeLabel(id) }, box, icon(id), el("span", {}, simple() ? shortLabel(id) : typeLabel(id)));
+            tile.style.setProperty("--c", g.color);
+            // Only the first few types show until "Show more" is pressed, so the panel stays short.
+            tile.hidden = !expanded.has(g.id) && i >= FIRST_TYPES();
+            return tile;
+          }),
+        ),
+        ...moreButton(g),
       );
+      group.dataset.group = g.id;
+      return group;
     }),
   );
 }
+
+// ---- Left panel: country search ----
+
+// Natural Earth outlines (public domain), with each country's name in the three languages.
+type Country = { id: string; en: string; es: string; de: string; at: [number, number]; polys: number[][][][] };
+let countries: Country[] = [];
+const picked = new Set<string>(); // ids of the countries searched for; empty means everywhere
+const inPicked = (lon: number, lat: number) => !picked.size || countries.some((c) => picked.has(c.id) && inside(lon, lat, c.polys));
+const countrySearch = $<HTMLInputElement>("country-search");
+
+function buildCountries() {
+  const chosen = countries.filter((c) => picked.has(c.id));
+  countrySearch.placeholder = t("country.search");
+  $("country-names").replaceChildren(...countries.map((c) => el("option", { value: c[settings.lang] })));
+  $("country-status").textContent = chosen.length ? t("country.note") : "";
+  $("country-picked").replaceChildren(
+    ...chosen.map((c) => {
+      const remove = el("button", { type: "button", className: "chip", onclick: () => pickCountry(c, false) }, c[settings.lang], " ×");
+      remove.setAttribute("aria-label", t("country.remove", { name: c[settings.lang] }));
+      return el("li", {}, remove);
+    }),
+  );
+  globe.setCountries(chosen.map((c) => c.polys));
+}
+
+function pickCountry(c: Country, on: boolean) {
+  if (on) picked.add(c.id);
+  else picked.delete(c.id);
+  buildCountries();
+  render();
+  if (on) {
+    setSpin(false); // or the globe would drift away from the country
+    globe.lookAt(c.at);
+  } else countrySearch.focus(); // the chip that had the focus is gone
+}
+
+// `loose`: Enter also takes the first country that starts with what was typed.
+function searchCountry(loose: boolean) {
+  const typed = countrySearch.value.trim().toLowerCase();
+  if (!typed) return;
+  const name = (c: Country) => c[settings.lang].toLowerCase();
+  const found = countries.find((c) => name(c) === typed) ?? (loose ? countries.find((c) => name(c).startsWith(typed)) : undefined);
+  if (found) {
+    countrySearch.value = "";
+    pickCountry(found, true);
+  } else if (loose) $("country-status").textContent = t("country.none");
+}
+// Choosing from the suggestions arrives as a replacement (or a plain event), typing does not:
+// typing "Niger" must not pick Niger on the way to Nigeria.
+countrySearch.oninput = (e) => ((e as InputEvent).inputType ?? "insertReplacementText") === "insertReplacementText" && searchCountry(false);
+$<HTMLFormElement>("country-form").onsubmit = (e) => {
+  e.preventDefault();
+  searchCountry(true);
+};
+fetch(countriesUrl)
+  .then((r) => r.json())
+  .then((list: Country[]) => {
+    countries = list;
+    buildCountries();
+    render();
+  })
+  .catch(() => (countrySearch.disabled = true)); // without the outlines there is nothing to search
 
 // ---- Left panel: coordinates ----
 
@@ -144,7 +246,7 @@ function showStatus() {
 // ---- Area list, dots and open tabs ----
 
 function render() {
-  const shown = areas().filter((a) => inFilter(a, ticked));
+  const shown = areas().filter((a) => inFilter(a, ticked) && inPicked(...a.center));
   opened = opened.filter((id) => shown.some((a) => a.id === id));
 
   results.replaceChildren(
@@ -171,12 +273,12 @@ function render() {
 
   globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
-    reports.filter(eventShown).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
+    reports.filter((e) => eventShown(e) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
   renderLiveList();
   globe.setLive(
     liveToggle.checked
-      ? liveEvents.filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
+      ? liveHere().filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
       : [],
   );
   globe.keepOverlays(opened);
@@ -240,6 +342,7 @@ function card(a: AreaView) {
     tags,
     el("p", {}, a.summary),
     ...radarSection(a),
+    satSection(a),
     simple() ? el("div") : chartSection(a),
     el("h4", {}, t(simple() ? "simple.changes" : "card.timeline")),
     ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
@@ -419,6 +522,99 @@ function chartSection(a: AreaView): Node {
   return box;
 }
 
+// Satellite view (from the `jopa-testing` branch): "now" and "before" pictures from NASA GIBS with a swipe to compare. Searches are
+// cached, because the cards are rebuilt on every filter change.
+const MONTHS = [1, 3, 6, 12, 24, 60, 120];
+const satViews = new Map<string, { layer: string; ago: number; swipe: number }>();
+const satCache = new Map<string, Promise<Found | undefined>>();
+
+function satFind(layerId: string, bbox: AreaView["bbox"], from: Date): Promise<Found | undefined> {
+  const layer = SAT_LAYERS.find((l) => l.id === layerId) ?? SAT_LAYERS[0];
+  const key = `${layer.id}|${bbox.join(",")}|${isoDay(from)}`;
+  let found = satCache.get(key);
+  if (!found) {
+    found = findClear(layer, bbox, from, layer.daily ? 12 : 60);
+    satCache.set(key, found);
+  }
+  return found;
+}
+
+function satSection(a: AreaView): Node {
+  const wide = a.bbox[2] - a.bbox[0] > 1.5; // a region or the whole country: daily VIIRS, not 30 m HLS
+  const v = satViews.get(a.id) ?? { layer: wide ? "viirs" : "hls", ago: 3, swipe: 50 };
+  satViews.set(a.id, v);
+  const layerId = () => (simple() ? (wide ? "viirs" : "hls") : v.layer);
+
+  const status = el("p", { className: "muted" });
+  const after = el("img", { className: "sat-now", alt: "" });
+  const before = el("img", { className: "sat-before", alt: "" });
+  const swipe = el("input", { type: "range", min: "0", max: "100", step: "1", value: String(v.swipe), className: "swipe" });
+  swipe.setAttribute("aria-label", t("sat.swipe"));
+  const frame = el("div", { className: "compare" }, after, before, el("span", { className: "tag-now" }, t("sat.now")), el("span", { className: "tag-before" }, t("sat.before")), swipe);
+  frame.hidden = true;
+  const setSwipe = () => frame.style.setProperty("--x", `${(v.swipe = +swipe.value)}%`);
+  swipe.oninput = setSwipe;
+  setSwipe();
+  const credit = el("p", { className: "muted sources" });
+
+  const agoOut = el("output");
+  const ago = el("input", { type: "range", id: `sat-ago-${a.id}`, min: "0", max: String(MONTHS.length - 1), step: "1", value: String(v.ago) });
+  const select = el("select", { id: `sat-layer-${a.id}` }, ...SAT_LAYERS.map((l) => el("option", { value: l.id, selected: l.id === v.layer }, t(`sat.layer.${l.id}` as Key))));
+
+  const label = () => {
+    agoOut.textContent = t("sat.ago.value", { n: MONTHS[+ago.value] });
+    ago.setAttribute("aria-valuetext", agoOut.textContent);
+  };
+  let run = 0;
+  const load = () => {
+    const mine = ++run;
+    label();
+    frame.hidden = true;
+    credit.textContent = "";
+    status.textContent = t("sat.finding");
+    const today = new Date(Date.now() - 86400000); // GIBS publishes about a day late
+    const then = new Date(today.getTime() - MONTHS[+ago.value] * 30.44 * 86400000);
+    const id = layerId();
+    const pair = (layer: string) => Promise.all([satFind(layer, a.bbox, today), satFind(layer, a.bbox, then)]);
+    // The sharp 30 m pictures skip many days and the open sea: fall back to the daily ones.
+    pair(id).then((found) => (id === "hls" && !(found[0] && found[1]) ? pair("viirs") : found)).then(([now, old]) => {
+      if (mine !== run) return; // a newer choice replaced this one
+      if (!now || !old) {
+        status.textContent = t("sat.none", { n: id === "hls" ? 60 : 12 });
+        return;
+      }
+      after.src = now.url;
+      before.src = old.url;
+      after.alt = `${t("sat.now")}: ${now.date}`;
+      before.alt = `${t("sat.before")}: ${old.date}`;
+      status.textContent = t("sat.swipe");
+      frame.hidden = false;
+      credit.textContent = `${t("sat.credit", { layer: now.layer, date: now.date })} ${t("sat.credit", { layer: old.layer, date: old.date })}`;
+    });
+  };
+  ago.oninput = label; // the label follows the thumb; the search waits for the release
+  ago.onchange = () => {
+    v.ago = +ago.value;
+    load();
+  };
+  select.onchange = () => {
+    v.layer = select.value;
+    load();
+  };
+  load();
+  return el(
+    "div",
+    { className: "sat" },
+    el("h4", {}, t("sat.title")),
+    ...(simple() ? [] : [el("label", { htmlFor: select.id }, t("sat.layer")), select]),
+    el("label", { htmlFor: ago.id }, t("sat.ago"), " ", agoOut),
+    ago,
+    status,
+    frame,
+    credit,
+  );
+}
+
 // ---- Live data from the back end (optional: the app works without it) ----
 
 async function loadLive() {
@@ -452,22 +648,27 @@ async function loadLive() {
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
 liveToggle.onchange = render;
+const liveHere = () => liveEvents.filter((f) => inPicked(f.properties.lon, f.properties.lat));
 liveMore.onclick = () => {
   liveLimit += LIVE_PAGE;
   renderLiveList();
 };
 
+// A small filled silhouette in its group color (lists, timeline rows, popups).
+function typeIcon(type: string): SVGSVGElement {
+  const ic = icon(type, "ticon sm on");
+  ic.style.color = typeColor(type);
+  return ic;
+}
+
 // "Happening now": one row per event, saying what, where and when, newest first.
 function renderLiveList() {
-  const rows = liveToggle.checked ? liveList(liveEvents, ticked, isType) : [];
+  const rows = liveToggle.checked ? liveList(liveHere(), ticked, isType) : [];
   const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
   const now = Date.now();
   liveListEl.replaceChildren(
     ...rows.slice(0, liveLimit).map((f) => {
       const p = f.properties;
-      const ring = el("span", { className: "ring" });
-      ring.style.color = typeColor(p.category);
-      const short = typeLabel(p.category).replace(/\s*[(:].*/, ""); // "Earthquakes", not the long form
       return el(
         "li",
         {},
@@ -480,9 +681,9 @@ function renderLiveList() {
               globe.openLive(p);
             },
           },
-          el("strong", {}, ring, p.title),
+          el("strong", {}, typeIcon(p.category), p.title),
           el("span", { className: "where" }, liveWhere(p)),
-          el("span", { className: "muted" }, `${short} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
+          el("span", { className: "muted" }, `${shortLabel(p.category)} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
         ),
       );
     }),
@@ -495,7 +696,10 @@ function renderLiveList() {
 
 function showLiveStatus() {
   liveStatus.textContent = liveUpdated
-    ? t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) })
+    ? [
+        t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) }),
+        liveEvery ? t("live.every", { n: liveEvery }) : "",
+      ].join(" ").trim()
     : t("live.offline");
 }
 
@@ -506,9 +710,11 @@ async function loadLiveFeeds() {
     const doc = await res.json();
     liveEvents = doc.features ?? [];
     liveUpdated = doc.generated_at ?? "";
+    liveEvery = Number(doc.refresh_minutes) || 0;
   } catch {
     liveEvents = [];
     liveUpdated = "";
+    liveEvery = 0;
   }
   showLiveStatus();
   render();
@@ -617,6 +823,7 @@ function applyLanguage() {
     }),
   );
   buildFilters();
+  buildCountries();
   buildWheel();
   showStatus();
   showLiveStatus();

@@ -145,6 +145,19 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - Fix: going from close-up view back to globe view keeps the zoom; it only levels the camera.
 - Checked in headless Chrome at desktop and phone size (no console errors). Not checked: other browsers, a real phone, a screen reader, more than three open areas in the date bar.
 
+### Seventh batch
+
+- **Country search** (left panel): pick one or more countries; they are outlined on the globe, and the area list, detected changes and live events keep only what lies inside them. Outlines and names (EN/ES/DE) are Natural Earth 1:110m (public domain), stored in `src/assets/countries.json`. Limits: a point just off the coast (many earthquakes) counts as outside, and the smallest countries are not in that file (177 countries).
+- **Welcome screen** redrawn: small "Welcome to", large "G.I.G.A.S", the Earth higher on the screen.
+- **"On" color** is light blue (Powder Blue, `--on`); the main action (Start, Go) stays tangerine.
+- **From the `jopa-testing` branch** (its front-end code, not merged as a whole):
+  - type icons (`src/icons.ts`) in the filters and the "Happening now" list, with "Show N more". The polar types that branch had dropped keep their place here and got three new drawings.
+  - satellite before/now comparison in each open area (`src/satview.ts`, NASA GIBS). Added here: when the 30 m pictures have nothing (open sea, many days), it falls back to the daily VIIRS pictures.
+  - the new live types (hurricanes, heat, cold, dust, industrial) and the line "The server checks the sources every N minutes", read from `refresh_minutes` in `live.geojson`.
+  - Not taken: Mexico-only scope, most dangerous now, recent destructive events, zone timelines, and the panel hidden in Simple mode.
+- The 15-minute refresh itself is back-end code (`serve --live-minutes 15`, `livefeeds.py` on `jopa-testing`); this branch holds no back end. With an older back end the page still works, without the new types or the refresh line.
+- Checked in headless Chrome at desktop size with a live file made by that branch's `livefeeds.py` (FIRMS needs a key and was off). Not checked: phone layout of the new parts, other browsers, a screen reader.
+
 ## Test
 
 ```
@@ -158,6 +171,9 @@ To see the radar path without the back end, copy `../data/processed` to `public/
 The code in this folder from the globe viewer onward was written with Claude Code (Anthropic), directed and reviewed by the front-end lane, including the Spanish and German translations (machine-written, not yet checked by native speakers). No AI-generated images, audio or video are used.
 
 ## Credits
+
+- Country outlines and names: Natural Earth (public domain), naturalearthdata.com.
+- Before/now satellite pictures: NASA GIBS (Global Imagery Browse Services), credited under each picture.
 
 - Radar data: NISAR, NASA/JPL-Caltech and ISRO, distributed by ASF DAAC (each layer carries its own credit line).
 - Globe imagery: Sentinel-2 cloudless (https://s2maps.eu) by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2016, CC BY 4.0. The newer editions are non-commercial only, which is why the 2016 one is used.

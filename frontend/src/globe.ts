@@ -30,7 +30,7 @@ const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string 
   hologram: { show: ["land", "borders", "grid"], ocean: "#071a26", border: "#5fe3e0" },
   street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
 };
-const WELCOME_DROP = 0.5; // how far down the welcome screen pushes the horizon, as a share of the height
+const WELCOME_DROP = 0.36; // how far down the welcome screen pushes the horizon, as a share of the height
 const SPIN_PX_PER_S = 24; // auto-rotate speed on screen: about one turn a minute when zoomed out
 
 // The background layer is local, so if the basemap tiles fail the globe and overlays still draw.
@@ -92,6 +92,10 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
 
   const ready = new Promise<void>((resolve) =>
     map.on("load", () => {
+      // Countries picked in the search: a light blue wash and outline, under everything else.
+      map.addSource("picked", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "picked-fill", type: "fill", source: "picked", paint: { "fill-color": "#8eb1c7", "fill-opacity": 0.3 } });
+      map.addLayer({ id: "picked-line", type: "line", source: "picked", paint: { "line-color": "#fefdff", "line-width": 1.5 } });
       map.addSource("areas", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
         id: "areas-box", type: "line", source: "areas", minzoom: 4,
@@ -241,6 +245,20 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
       await ready;
       map.getSource<GeoJSONSource>("live")!.setData({ type: "FeatureCollection", features: shown as never });
+    },
+
+    // Outlines of the countries picked in the search, as MultiPolygon coordinates.
+    async setCountries(shapes: number[][][][][]) {
+      await ready;
+      map.getSource<GeoJSONSource>("picked")!.setData({
+        type: "FeatureCollection",
+        features: shapes.map((coordinates) => ({ type: "Feature" as const, properties: {}, geometry: { type: "MultiPolygon" as const, coordinates } })),
+      });
+    },
+
+    // Turn the globe to a country, close enough to see it whole.
+    lookAt(center: [number, number]) {
+      map.flyTo({ center, zoom: Math.min(Math.max(map.getZoom(), 2.5), 4) });
     },
 
     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
