@@ -9,7 +9,7 @@ import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
 import {
-  ago, datesFor, inFilter, layerAt, liveFiltered, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView, topLive,
+  ago, datesFor, inFilter, layerAt, liveFiltered, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import {
@@ -764,16 +764,12 @@ function liveRow(f: LiveFeature, now: number, fmt: Intl.RelativeTimeFormat): HTM
   );
 }
 
-// "Happening now": the most dangerous events first, then every event, newest first.
+// "Happening now": every event that passes the filters, newest first.
 function renderLiveList() {
   const view = liveView();
   const on = liveToggle.checked;
   const rows = on ? liveFiltered(liveEvents, ticked, isType, view) : [];
   const fmt = new Intl.RelativeTimeFormat(settings.lang, { numeric: "auto" });
-  // "Most dangerous right now": the worst of the events that pass the filters.
-  const top = on ? topLive(rows) : [];
-  $("live-top").hidden = !on || !liveUpdated;
-  $("live-top-list").replaceChildren(...(top.length ? top.map((f) => liveRow(f, view.now, fmt)) : [el("li", { className: "muted" }, t("live.top.none"))]));
   liveListEl.replaceChildren(...rows.slice(0, liveLimit).map((f) => liveRow(f, view.now, fmt)));
   if (on && liveUpdated && !rows.length) liveListEl.append(el("li", { className: "muted" }, t("live.none")));
   const left = rows.length - liveLimit;

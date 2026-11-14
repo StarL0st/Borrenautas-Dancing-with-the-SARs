@@ -319,13 +319,10 @@ button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86
 :root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
 
 
-/* Most dangerous right now. */
-.top { margin: 12px 0 4px; padding: 4px 8px 6px; border: 1px solid var(--line); border-left: 3px solid #e5484d; border-radius: 4px; background: var(--raised); }
-.top[hidden] { display: none; }
-.top h4 { margin: 6px 0 2px; }
-.top ul, #recent-list { list-style: none; padding: 0; }
-.top li + li, #recent-list li + li { border-top: 1px solid var(--line); }
-#live-list .result strong, .top .result strong, #recent-list .result strong { display: flex; align-items: center; }
+/* Recent events list; serious and extreme live events carry a danger label. */
+#recent-list { list-style: none; padding: 0; }
+#recent-list li + li { border-top: 1px solid var(--line); }
+#live-list .result strong, #recent-list .result strong { display: flex; align-items: center; }
 .sev { display: inline-block; margin-top: 4px; padding: 0 6px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 .sev.s2 { background: #f5a524; }
 .sev.s3 { background: #e5484d; color: var(--text); }

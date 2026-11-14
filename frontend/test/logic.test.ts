@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
-import { ago, datesFor, inFilter, layerAt, liveFiltered, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, topLive, type Layer, type LiveFeature } from "../src/logic.ts";
+import { ago, datesFor, inFilter, layerAt, liveFiltered, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 import { HISTORY, distanceKm, mostDestructive, zoneHistory, zoneNote } from "../src/mexico.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
 
@@ -121,7 +121,7 @@ test("relative time picks a readable unit", () => {
 const ev = (id: string, category: string, date: string, severity: number | undefined, lon = -99.1, lat = 19.4) =>
   ({ properties: { id, category, date, place: "", lon, lat, severity } }) as LiveFeature;
 
-test("live view: time window and region; most dangerous first", () => {
+test("live view: time window and region", () => {
   const now = Date.parse("2026-11-14T12:00:00Z");
   const known = () => true;
   const all = new Set(["earthquakes", "hurricanes"]);
@@ -135,7 +135,6 @@ test("live view: time window and region; most dangerous first", () => {
   const view = { now, days: 7, region: [-125, 8, -78, 34] as [number, number, number, number] };
   assert.deepEqual(liveFiltered(fs, all, known, view).map((f) => f.properties.id), ["minor", "big", "nosev"]);
   assert.deepEqual(liveFiltered(fs, all, known, { now, days: 7 }).map((f) => f.properties.id), ["minor", "tokyo", "big", "nosev"]);
-  assert.deepEqual(topLive(fs).map((f) => f.properties.id), ["big", "old", "tokyo"]);
 });
 
 test("Mexico data: every event is in Mexico or its seas, with sources", () => {

@@ -192,13 +192,6 @@ export const liveFiltered = (fs: LiveFeature[], ticked: ReadonlySet<string>, kno
     );
   });
 
-// "Most dangerous right now": serious (2) and extreme (3) events, worst first, then newest.
-export const topLive = (fs: LiveFeature[], n = 3) =>
-  fs
-    .filter((f) => severityOf(f) >= 2)
-    .sort((a, b) => severityOf(b) - severityOf(a) || (a.properties.date < b.properties.date ? 1 : -1))
-    .slice(0, n);
-
 // A live event shows when its category is ticked; categories the filters do not know always show.
 export const liveShown = (f: LiveFeature, ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
   !known(f.properties.category) || ticked.has(f.properties.category);
