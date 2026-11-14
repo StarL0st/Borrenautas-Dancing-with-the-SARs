@@ -184,3 +184,15 @@ Known limits:
 ## Cloud
 
 `backend/deploy/README.md`: an Azure VM (Docker, HTTPS) for the backend, a Static Web App for the frontend.
+
+
+## Live disaster feeds (branch `jopa-testing`)
+
+`src/sars_pipeline/livefeeds.py` (ported from `testing-live-events`) writes `live.geojson`: public events from NASA EONET, USGS, GDACS, NOAA NHC and NASA FIRMS. On this branch:
+
+- **Weather types:** `hurricanes` (NHC, GDACS TC, EONET tropical names), `storms`, `heat`, `cold`, `dust`, and `industrial` for human-made events.
+- **Smaller earthquakes:** USGS from M2.5.
+- **Danger score:** every event has a `severity` from 0 to 3.
+- **Mexico only:** events are kept inside `LIVE_REGION` (default Mexico and nearby seas; set `LIVE_REGION=world` to keep all).
+
+Run once with `uv run sars-pipeline live-events`, or keep it fresh with `serve --live-minutes 15`. See `frontend/JOPA_TESTING.md`.

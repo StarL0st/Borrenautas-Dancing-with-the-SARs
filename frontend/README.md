@@ -20,6 +20,8 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
+> **Branch `jopa-testing` (local):** Mexico-only scope, an icon per event type (filled when on, outline when off), live weather events (hurricanes, storms, heat, cold, dust) with danger levels, "Most dangerous right now", "Most destructive recent events", a remarkable-events timeline per zone, infrastructure risks near you, a satellite before/now view (NASA GIBS) and notes on plants and animals in each area card, and a simpler Simple mode with sliders. See [JOPA_TESTING.md](JOPA_TESTING.md).
+
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 
 - **Filters:** three groups in the left sidebar (Natural disasters, Disasters caused by humans, Land use), each opening to a checklist of subdivisions with "Select all". Only areas matching a ticked subdivision are marked. Ids in `src/filters.ts` are the back end's `categories`.
