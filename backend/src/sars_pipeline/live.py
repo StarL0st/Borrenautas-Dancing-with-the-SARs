@@ -24,6 +24,8 @@ def refresh_site(site_id: str, site: dict, data: Path, force: bool = False, days
     path = data / "selected" / f"{site_id}.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     new = select_site(site_id, site, path, days)
+    if not new["products"]:  # nothing to show; the selection file's age stops repeat searches
+        return {"site": site_id, "status": "unchanged", "new_granules": 0, "empty": True}
     added = granule_ids(new) - granule_ids(old)
     have_area = any(a["id"] == site_id for a in load_manifest(data / "processed")["areas"])
     if not (added or force or not have_area):
@@ -49,13 +51,32 @@ class Jobs:
     def sites(self) -> dict:
         return site_config.load_sites(requested=self.data / "sites.json")
 
-    def submit(self, site_id: str, force: bool = False) -> dict:
+    def submit(self, site_id: str, force: bool = False, front: bool = False) -> dict:
+        """`front`: ahead of everything queued (a visitor is waiting; timer refreshes are not)."""
         with self._cv:
             if not any(s == site_id for s, _ in self._queue):
-                self._queue.append((site_id, force))
+                self._queue.insert(0 if front else len(self._queue), (site_id, force))
             self.status[site_id] = {**self.status.get(site_id, {}), "status": "queued"}
             self._cv.notify()
-        return self.status[site_id]
+        return self.state(site_id)
+
+    def queued(self) -> int:
+        with self._cv:
+            return len(self._queue)
+
+    def state(self, site_id: str) -> dict:
+        """Status of one site, with its place in the queue (0 = next) while it waits."""
+        with self._cv:
+            state = dict(self.status.get(site_id, {"status": "idle"}))
+            order = [s for s, _ in self._queue]
+        if site_id in order:
+            state["position"] = order.index(site_id)
+        return state
+
+    def checked_hours_ago(self, site_id: str) -> float | None:
+        """Hours since the catalog was last searched for this site (survives restarts)."""
+        path = self.data / "selected" / f"{site_id}.json"
+        return (time.time() - path.stat().st_mtime) / 3600 if path.exists() else None
 
     def wait_idle(self, timeout: float = 30) -> bool:
         """For tests: block until the queue is empty and nothing is running."""
@@ -91,6 +112,7 @@ class Jobs:
 
     def _watch(self, hours: float):
         while True:
-            for site_id in self.sites():
+            # Curated sites only: requested places are re-checked when someone asks again.
+            for site_id in site_config.load_sites(requested=None):
                 self.submit(site_id)
             time.sleep(hours * 3600)

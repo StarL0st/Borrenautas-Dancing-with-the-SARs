@@ -345,6 +345,50 @@ def test_sites_api_queues_and_processes(tmp_path):
         assert c.post("/sites/nope/refresh", headers=auth).status_code == 404
 
 
+def test_public_lookup_snaps_caches_and_limits(tmp_path, monkeypatch):
+    import threading
+
+    from sars_pipeline import server
+
+    gate, ran = threading.Event(), []
+
+    def fake_refresh(site_id, site, data, force):
+        gate.wait(5)
+        ran.append(site_id)
+        (data / "selected").mkdir(exist_ok=True)
+        (data / "selected" / f"{site_id}.json").write_text("{}")
+        return {"site": site_id, "status": "updated"}
+
+    monkeypatch.setattr(server, "MAX_NEW_PER_HOUR", 3)
+    jobs = live.Jobs(tmp_path, refresh=fake_refresh)
+    app = create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret", public=True)
+    with TestClient(app) as c:
+        jobs.submit("sf")  # a timer refresh: holds the worker until the gate opens
+        first = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
+        assert first.status_code == 202 and first.json()["id"] == "cell-21_1n-101_3w"
+        # A nearby point is the same cell; no second job.
+        near = c.post("/sites", json={"lat": 21.15, "lon": -101.39})
+        assert near.json()["id"] == first.json()["id"]
+        jobs.submit("cdmx")  # timer
+        second = c.post("/sites", json={"lat": 25.0, "lon": -100.0}).json()
+        assert second["position"] == 0  # visitors go ahead of timer refreshes
+        # Inside a curated site: that site answers, no cell is made.
+        assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).json()["id"] == "cdmx"
+        assert c.post("/sites", json={"lat": 1, "lon": 1, "km": 30}).status_code == 401
+        assert c.post("/sites", json={"lat": 30.0, "lon": -110.0}).status_code == 202
+        assert c.post("/sites", json={"lat": 31.0, "lon": -111.0}).status_code == 429
+        gate.set()
+        assert jobs.wait_idle()
+        assert ran[1] == "cell-30_1n-109_9w"  # the latest visitor request ran first
+        again = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
+        # Checked a moment ago, nothing processed (fake): cached answer, flagged empty.
+        assert again.status_code == 200 and again.json()["empty"]
+        assert c.get(f"/sites/{first.json()['id']}").json()["status"] == "done"
+        auth = {"Authorization": "Bearer s3cret"}
+        admin = c.post("/sites", json={"lat": 1, "lon": 1, "km": 10}, headers=auth)
+        assert admin.status_code == 202 and admin.json()["id"].startswith("at-")
+
+
 def test_refresh_skips_when_nothing_new(tmp_path, monkeypatch):
     sel = {"products": {"GCOV": {"granules": [{"id": "A"}]}}}
     (tmp_path / "selected").mkdir()

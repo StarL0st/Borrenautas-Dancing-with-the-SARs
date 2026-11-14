@@ -3,11 +3,13 @@
 import asyncio
 import json
 import logging
+import math
+import time
 from contextlib import asynccontextmanager
 from itertools import pairwise
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,11 +21,21 @@ from .sites import add_site, bbox_around
 
 log = logging.getLogger(__name__)
 
+# Public lookups (serve --public). Points snap to a grid so nearby lookups share one cached cell.
+CELL_DEG = 0.2  # about 22 km
+CELL_KM = 22
+CELL_MAX_DATES = {"GCOV": 4, "GUNW": 4, "SME2": 6}  # few dates: a visitor is waiting
+RECHECK_HOURS = 12
+MAX_QUEUED = 20
+MAX_CELLS = 300
+MAX_NEW_PER_HOUR = 5  # per client address
+
 
 class SiteRequest(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
-    km: float = Field(20, gt=1, le=30)  # on-demand sites stay small: they stream on request
+    # The fields below need the admin token when the server is public.
+    km: float | None = Field(None, gt=1, le=30)  # on-demand sites stay small: they stream
     title: str | None = Field(None, max_length=80)
     id: str | None = Field(None, pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")
 
@@ -89,13 +101,20 @@ def query(
 
 
 def create_app(
-    data_dir, inbox=None, poll_seconds: float = 5.0, jobs=None, admin_token: str | None = None
+    data_dir,
+    inbox=None,
+    poll_seconds: float = 5.0,
+    jobs=None,
+    admin_token: str | None = None,
+    public: bool = False,
 ) -> FastAPI:
     """`jobs` (live.Jobs) enables /sites; without it the server is read-only. With `admin_token`
-    set, POST requests need `Authorization: Bearer <token>` (they start downloads)."""
+    set, POST requests need `Authorization: Bearer <token>` (they start downloads). `public`
+    lets anyone POST /sites {lat, lon} without a token, within limits (see lookup)."""
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     clients: set[asyncio.Queue] = set()
+    recent: dict[str, list[float]] = {}  # client address -> times of its new cells
 
     async def watch():
         manifest, last, failed = data_dir / "manifest.json", None, {}
@@ -140,6 +159,67 @@ def create_app(
         if admin_token and authorization != f"Bearer {admin_token}":
             raise HTTPException(401, "missing or wrong token")
 
+    def processed(site_id: str) -> bool:
+        return any(a["id"] == site_id for a in load_manifest(data_dir)["areas"])
+
+    def lookup(req: SiteRequest, request: Request, response: Response) -> dict:
+        """A visitor's lookup: the curated site at the point, or the grid cell around it.
+        Cached cells answer 200 at once; new or stale ones are queued first in line (202)."""
+        sites = jobs.sites()
+        site_id = next(
+            (
+                k
+                for k, s in sites.items()
+                if not s.get("requested")
+                and s.get("kind") != "mosaic"
+                and _overlaps(s["bbox"], [req.lon, req.lat, req.lon, req.lat])
+            ),
+            None,
+        )
+        if site_id is None:
+            lat = (math.floor(req.lat / CELL_DEG) + 0.5) * CELL_DEG
+            lon = (math.floor(req.lon / CELL_DEG) + 0.5) * CELL_DEG
+            ns, ew = "ns"[lat < 0], "ew"[lon < 0]
+            site_id = f"cell-{abs(lat):.1f}{ns}-{abs(lon):.1f}{ew}".replace(".", "_")
+        state = jobs.state(site_id)
+        if state["status"] in ("queued", "running"):
+            response.status_code = 202
+            return {"id": site_id, **state}
+        age = jobs.checked_hours_ago(site_id)
+        if site_id in sites and age is not None and age < RECHECK_HOURS:
+            if not processed(site_id):
+                state["empty"] = True
+                state["message"] = state.get("error") or "No NISAR data for this place yet."
+            response.status_code = 200
+            return {"id": site_id, **state, "status": "done"}
+        if jobs.queued() >= MAX_QUEUED:
+            raise HTTPException(429, "the processing queue is full; try again in a few minutes")
+        if site_id not in sites:
+            if sum(bool(s.get("requested")) for s in sites.values()) >= MAX_CELLS:
+                raise HTTPException(429, "this server holds its maximum number of places")
+            # Behind the reverse proxy the last X-Forwarded-For entry is the one it added.
+            forwarded = request.headers.get("x-forwarded-for", "")
+            who = forwarded.split(",")[-1].strip() or (request.client and request.client.host)
+            now = time.monotonic()
+            mine = recent[who] = [t for t in recent.get(who, []) if now - t < 3600]
+            if len(mine) >= MAX_NEW_PER_HOUR:
+                raise HTTPException(429, "too many new places from this address; try in an hour")
+            site = {
+                "title": f"Around {lat:.1f}, {lon:.1f}",
+                "summary": "A place looked up from the app, processed on demand.",
+                "bbox": bbox_around(lon, lat, CELL_KM),
+                "change_types": ["other"],
+                "looks": 4,
+                "max_dates": CELL_MAX_DATES,
+            }
+            try:
+                add_site(site_id, site, path=jobs.data / "sites.json", max_sq_deg=0.1)
+            except ValueError as err:
+                raise HTTPException(400, str(err)) from err
+            mine.append(now)
+        response.status_code = 202
+        return {"id": site_id, **jobs.submit(site_id, front=True)}
+
     @app.get("/sites")
     def list_sites():
         if jobs is None:
@@ -151,16 +231,32 @@ def create_app(
                     "title": site["title"],
                     "bbox": site["bbox"],
                     "requested": site.get("requested", False),
-                    **jobs.status.get(site_id, {"status": "idle"}),
+                    **jobs.state(site_id),
                 }
                 for site_id, site in jobs.sites().items()
             ]
         }
 
+    @app.get("/sites/{site_id}")
+    def site_status(site_id: str):
+        if jobs is None or site_id not in jobs.sites():
+            raise HTTPException(404, f"unknown site {site_id}")
+        return {"id": site_id, "processed": processed(site_id), **jobs.state(site_id)}
+
     @app.post("/sites", status_code=202)
-    def request_site(req: SiteRequest, authorization: str | None = Header(None)):
+    def request_site(
+        req: SiteRequest,
+        request: Request,
+        response: Response,
+        authorization: str | None = Header(None),
+    ):
         """Ask for a new site around a point; it is processed in the background. The manifest
         event (/events) fires when its data is ready."""
+        is_admin = admin_token and authorization == f"Bearer {admin_token}"
+        if public and jobs is not None and not is_admin:
+            if req.km or req.title or req.id:
+                raise HTTPException(401, "km, title and id need the admin token")
+            return lookup(req, request, response)
         require_jobs(authorization)
         # URL-safe id from the point, e.g. at-17_990n-92_930w
         ns, ew = "ns"[req.lat < 0], "ew"[req.lon < 0]
@@ -170,7 +266,7 @@ def create_app(
         site = {
             "title": req.title or f"Requested place ({req.lat:.3f}, {req.lon:.3f})",
             "summary": "A place requested from the app, processed on demand.",
-            "bbox": bbox_around(req.lon, req.lat, req.km),
+            "bbox": bbox_around(req.lon, req.lat, req.km or 20),
             "change_types": ["other"],
             "looks": 4,
         }
