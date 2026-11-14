@@ -25,7 +25,8 @@ Contract v0.5.0 was merged into `main` on 2026-11-14; the `contract-0.4`, `contr
 - **Friendly cards.** Each area's events summed per category and graded 0 to 3 in plain language (`areas/<id>/friendly.json`), for the friendly mode.
 - **API.** Manifest, layers, events, series, `/query`, `POST /sites`, `GET /sites/<id>`, server-sent events when new data is ready.
 - **Deployment scripts** for an Azure virtual machine (Docker Compose, automatic HTTPS) and a static site for the frontend. Written, not yet run. The unused Google Cloud scripts were removed.
-- **Tests.** 31 automated tests pass; lint is clean.
+- **Live disaster feeds** (NASA EONET, USGS, GDACS, NOAA NHC, NASA FIRMS) into `live.geojson`, built by the frontend lane on `testing-live-events` and brought onto `backend`. Not radar detections; each carries its source's credit.
+- **Tests.** 40 automated tests pass; lint is clean.
 
 ### Results on real data (2026-11-14)
 
@@ -59,9 +60,9 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 4 | Frontend: read `frontend/INTEGRATION.md` on `testing` (lookup answers 200 or 202, friendly cards, `GET /sites/<id>` for a "processing" state) | Frontend |
 | 5 | Test the "Process this place" button and the static fallback build | Backend |
 | 7 | Merge `backend` and `frontend` into `main` | Humans |
-| 8 | `docs/09`: resolve the VERIFY items (MapLibre demo tiles, satellite model license, OpenStreetMap tile use) | Frontend, docs |
-| 11 | The frontend README describes "Happening now" rings from a backend file `live.geojson` (disaster feeds). The `backend` branch does not produce it: agree whether to build it, and add contract and `docs/09` entries if so | Both lanes |
-| 12 | `docs/02` still describes Google Cloud Run; hosting is now an Azure virtual machine | Docs |
+| 8 | Licenses (`docs/09`): confirm the Meshy plan used for the satellite model; show the OpenStreetMap credit openly on the Street map look; decide whether to keep GDACS (no data license stated) | Frontend, team |
+| 11 | Live disaster feeds (`live.geojson`) are now on `backend` and `testing`, and the virtual machine refreshes them every 15 minutes. Still missing: a contract entry in `docs/04` (file and `live` push event), approved by both lanes. Then delete the `testing-live-events` branch | Both lanes |
+| 12 | `docs/01`, `specs/F02` and `specs/F06` still mention Google Cloud Run (`docs/02` is updated) | Docs |
 | 13 | Process five more demo places locally, run `sars-pipeline refresh`, then `azure.sh seed` | Backend |
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
