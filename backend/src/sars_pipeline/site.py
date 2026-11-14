@@ -178,6 +178,8 @@ WHY = {
     "sinking": "The ground moved steadily away from the satellite across the interferogram "
     "pairs (line of sight, so mostly sinking).",
     "soil_drying": "Soil moisture in the latest pass is well below the earlier passes.",
+    "burn_scar": "NASA FIRMS detected fires here in the dry season; the radar passes since then "
+    "show how the burned ground compares with unburned vegetation as plants grow back.",
 }
 
 
@@ -609,6 +611,131 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
                 },
                 series=region_series(m),
             )
+
+    # Burn scars: fire-season FIRMS detections (NASA, VIIRS 375 m) mark where it burned; NISAR
+    # radar after the season shows how those places differ from unburned vegetation and recover.
+    season = run.site.get("fire_season")
+    spots = firms.hotspots(bbox, *season, run.interim / "firms") if season else None
+    if spots:
+        burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
+
+
+def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg) -> None:
+    from pyproj import Transformer
+    from scipy import ndimage
+
+    ref = windows[-1]
+    x, y, epsg = ref.x, ref.y, ref.granule.epsg
+    px = abs(x[1] - x[0])
+    hits = np.zeros(cover.shape, bool)
+    xs, ys = Transformer.from_crs(4326, epsg, always_xy=True).transform(
+        [h["lon"] for h in spots], [h["lat"] for h in spots]
+    )
+    ci = np.rint((np.asarray(xs) - x[0]) / (x[1] - x[0])).astype(int)
+    ri = np.rint((np.asarray(ys) - y[0]) / (y[1] - y[0])).astype(int)
+    inside = (ci >= 0) & (ci < x.size) & (ri >= 0) & (ri < y.size)
+    hits[ri[inside], ci[inside]] = True
+    # A VIIRS detection stands for a 375 m pixel: grow each one by half that.
+    r = max(1, round(187.5 / px))
+    disk = np.hypot(*np.mgrid[-r : r + 1, -r : r + 1]) <= r
+    land = (cover == categorize.VEGETATION) | (cover == categorize.BARE)
+    burned = ndimage.binary_dilation(hits, structure=disk) & land
+    unburned = (cover == categorize.VEGETATION) & ~ndimage.binary_dilation(burned, iterations=3 * r)
+    if not burned.any():
+        return
+
+    colors = np.zeros((*cover.shape, 4), "uint8")
+    colors[burned] = (230, 85, 13, 200)
+    write_rgba(run.data_dir / run.url("fire-detections"), colors)
+    dates = [w.granule.date for w in windows]
+    _layer(
+        run,
+        "GCOV",
+        maturity,
+        id="fire-detections",
+        group="Fire detections",
+        role="context",
+        title=f"Fire detections, {season[0]} to {season[1]} (NASA FIRMS)",
+        description="Where NASA's VIIRS satellite instrument detected active fires in the fire "
+        "season, each detection grown to its 375 m footprint. Not radar: context for the radar "
+        "images taken after the fires.",
+        url=run.url("fire-detections"),
+        bounds=list(ref.bounds),
+        date_range=list(season),
+        polarization="none",
+        units="class",
+        colormap="classes",
+        provenance={
+            "source_granules": [],
+            "steps": ["NASA FIRMS VIIRS S-NPP detections", "grown to 375 m footprints"],
+            "params": {"fire_season": season, "detections": len(spots)},
+        },
+    )
+
+    def hv(mask):
+        return [{"date": w.granule.date, "value": _mean_db(w.power["HVHV"], mask)} for w in windows]
+
+    control = hv(unburned)
+    for i, m in enumerate(classify.components(burned, cfg["min_pixels"])):
+        n = int(m.sum())
+        shape = outline(m, x, y, epsg)
+        fires = firms.count_in(spots, shape["bbox"])
+        own = hv(m)
+        gap = [
+            round(a["value"] - b["value"], 2)
+            for a, b in zip(own, control, strict=True)
+            if a["value"] is not None and b["value"] is not None
+        ]
+        recovery = round(gap[-1] - gap[0], 2) if len(gap) >= 2 else None
+        run.event(
+            "GCOV",
+            700 + i,
+            categories=["wildfires"],
+            signature="burn_scar",
+            date_range=(season[0], dates[-1]),
+            region=shape,
+            maturity=maturity,
+            confidence=classify.confidence(fires, 10, n, cfg["min_pixels"]),
+            polarization="HV",
+            layer_ids=["fire-detections", "surface-type"],
+            granules=[w.granule.granule_id for w in windows],
+            steps=[
+                *steps,
+                f"NASA FIRMS fire detections {season[0]} to {season[1]}, grown to 375 m",
+                "kept vegetation or bare ground, grouped touching pixels into a region",
+                "mean HV per date, burned region vs unburned vegetation of the same site",
+                (
+                    "confidence = 0.5 * min(1, detections / 10) + 0.5 * min(1, pixels / (10 * "
+                    "min_pixels))"
+                ),
+            ],
+            params={**params, "fire_season": season},
+            evidence={
+                "signature": "burn_scar",
+                "fire_detections": fires,
+                "first_fire": min(h["date"] for h in spots if _in(h, shape["bbox"])),
+                "last_fire": max(h["date"] for h in spots if _in(h, shape["bbox"])),
+                "hv_minus_unburned_db": gap,
+                "recovery_db": recovery,
+                "surface_before": COVER_NAMES.get(categorize.majority(cover, m)),
+                "n_pixels": n,
+            },
+            series={"HV": own, "HV_unburned_vegetation": control},
+            extra_summary=(
+                f"NASA FIRMS saw {fires} fire detections there between {season[0]} and "
+                f"{season[1]}."
+                + (
+                    f" Since then its HV moved {recovery:+.1f} dB relative to unburned "
+                    "vegetation (positive: growing back)."
+                    if recovery is not None
+                    else ""
+                )
+            ),
+        )
+
+
+def _in(h: dict, bbox) -> bool:
+    return firms.count_in([h], bbox) == 1
 
 
 # ---------------------------------------------------------------- GUNW

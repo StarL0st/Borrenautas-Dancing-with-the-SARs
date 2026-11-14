@@ -32,7 +32,9 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 
 ## Sites
 
-`backend/sites.json` (curated, in git) plus `data/sites.json` (requested through the API, not in git). Fields: `title`, `summary`, `bbox` [w, s, e, n], `change_types` (C1), optional `products` (default all three), `looks` (GCOV pixels averaged per side, default 4 = 40 m), `reference_bbox` (a stable area for GUNW, see below), `thresholds`, `thresholds_gunw`, `thresholds_sme2`, `cover` (overrides of the defaults below).
+`backend/sites.json` (curated, in git) plus `data/sites.json` (requested through the API, not in git). Fields: `title`, `summary`, `bbox` [w, s, e, n], `change_types` (C1), optional `products` (default all three), `looks` (GCOV pixels averaged per side, default 4 = 40 m), `reference_bbox` (a stable area for GUNW, see below), `thresholds`, `thresholds_gunw`, `thresholds_sme2`, `cover` (overrides of the defaults below), `max_dates` (per product, default GCOV 6, GUNW 12, SME2 12), `fire_season` [from, to] (FIRMS detections that mark burn scars; needs `FIRMS_MAP_KEY`).
+
+Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa` (floods), `chapala` (wildfires), each 40 km wide with every date since June 2026. NISAR has no data for them between 2026-01-20 and 2026-06-16 (the dry and fire season); dates before are BETA and are not mixed with the PROVISIONAL ones (docs/03), so fires are located with FIRMS and the radar shows the after.
 
 ## Pipeline, per site
 
@@ -58,6 +60,7 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 | `seasonal_cycle` | HV standard deviation over 2 across 4+ dates, never water |
 | `sinking` (GUNW) | line-of-sight rate over 5 cm/yr away from the satellite, region 1 km2+ |
 | `soil_drying` (SME2) | latest site mean 0.05 m3/m3 below the mean of earlier dates (4+ dates) |
+| `burn_scar` (GCOV + FIRMS) | NASA FIRMS VIIRS fire detections in the site's `fire_season`, grown to their 375 m footprint, on vegetation or bare ground; then HV per date vs unburned vegetation (recovery) |
 
 Regions under 25 px (0.04 km2 at 40 m) are dropped. A land change (not darkening) must still show at least half its threshold on the next pass, or it is dropped (ships, wet patches, glints). Changes in the latest pair cannot be checked yet: kept at 0.7x confidence and marked `persistent: null`.
 
@@ -80,11 +83,14 @@ At L-band, HV and the HH/HV ratio do not separate city from forest (both scatter
 | `hv_drop` | vegetation, FIRMS fire detections in the window | `wildfires`, `deforestation` |
 | `hv_drop` | vegetation | `deforestation` |
 | `hv_drop` | bare or low | `agriculture` (harvest, ploughing) |
-| `brightening` | built-up after, or bare before | `urban` |
+| `brightening` | vegetation before, HH rose 3+ dB more than HV (double bounce off water under plants) | `floods` (flooded vegetation) |
+| `brightening` | built-up after | `urban` |
+| `brightening` | bare before | `agriculture` (crops growing, soil wetting) |
 | `seasonal_cycle` | vegetation or bare | `agriculture` |
-| `sinking` | built-up | `subsidence`, `groundwater` |
+| `sinking` | built-up (only sites with a checked `reference_bbox`; elsewhere the motion map only) | `subsidence`, `groundwater` |
 | `sinking` | other | `subsidence` |
 | `soil_drying` | | `drought` |
+| `burn_scar` | | `wildfires` |
 | any land change | was water | none (waves, wind, ships) |
 | anything else | | `other` (published only at confidence 0.5+) |
 
@@ -94,7 +100,7 @@ Frontend filter types that need other data or more time, and are not produced: e
 
 **Export** (`site.py`, `export.py`): one area per site (`id` = site id) in `manifest.json`.
 - Layers (C2) with an extra `group` (picker label) and `role`: `HH backscatter`/`HV backscatter` per date; `Surface type`; per GCOV pair `HH change`, `HV change`, `Detected change` (signature colors); `Ground motion` (cm/yr, red = away from the satellite); `Soil moisture` per date.
-- Time series (C4): site mean HH, HV backscatter, soil moisture.
+- Time series (C4): site mean HH, HV backscatter, soil moisture, open water as % of the site (`water-area`).
 - Events (C7) in `events.json` and as a GeoJSON FeatureCollection in `events.geojson` (flat properties, loads straight into MapLibre). Each event: `categories`, `signature`, real outline `geometry`, `centroid` (always inside the outline), `bbox`, `area_km2`, `confidence`, `evidence` (numbers behind the decision), `series` (the region's own values per date), provenance with the citation.
 
 ## API (`serve`, contract C6)

@@ -238,8 +238,8 @@ def flood_site(tmp_path, monkeypatch):
     out = tmp_path / "out"
     sel = {"products": {"GCOV": {"maturity": "OTHER", "granules": rows}}}
 
-    def run():
-        return run_site("synth", site, out, tmp_path / "interim", sel)
+    def run(**extra):
+        return run_site("synth", {**site, **extra}, out, tmp_path / "interim", sel)
 
     return out, run(), run
 
@@ -263,6 +263,25 @@ def test_run_site_writes_flood_event_and_geojson(flood_site):
     [feature] = geo["features"]
     assert feature["properties"]["category"] == "floods"
     assert feature["properties"]["lon"] == event["centroid"][0]
+
+
+def test_fire_season_detections_become_burn_scar(flood_site, monkeypatch):
+    out, _, run = flood_site
+    manifest = json.loads((out / "manifest.json").read_text())
+    w, s, e, n = manifest["areas"][0]["bbox"]
+    # A cluster of detections in the dry corner (the flood patch is in the middle).
+    spots = [
+        {"lon": w + (e - w) * fx, "lat": s + (n - s) * fy, "date": "2025-04-0" + str(k % 9 + 1)}
+        for k, (fx, fy) in enumerate((a / 20, b / 20) for a in range(2, 6) for b in range(2, 6))
+    ]
+    monkeypatch.setattr(firms, "hotspots", lambda *a: spots)
+    run(fire_season=["2025-03-01", "2025-05-31"])
+    events = json.loads((out / "events.json").read_text())["events"]
+    [burn] = [ev for ev in events if ev["signature"] == "burn_scar"]
+    assert burn["categories"] == ["wildfires"] and burn["evidence"]["fire_detections"] == 16
+    assert burn["date_range"] == ["2025-03-01", "2026-01-13"]
+    assert set(burn["series"]) == {"HV", "HV_unburned_vegetation"}
+    assert (out / "areas/synth/layers/fire-detections.png").exists()
 
 
 def test_rerun_gives_same_events(flood_site):
