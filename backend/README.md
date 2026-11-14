@@ -47,6 +47,8 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 
 `backend/sites.json` (curated, in git) plus `data/sites.json` (requested through the API, not in git). Fields: `title`, `summary`, `bbox` [w, s, e, n], `change_types` (C1), optional `products` (default all three), `looks` (GCOV pixels averaged per side, default 4 = 40 m), `reference_bbox` (a stable area for GUNW, see below), `thresholds`, `thresholds_gunw`, `thresholds_sme2`, `cover` (overrides of the defaults below), `max_dates` (per product, default GCOV 6, GUNW 12, SME2 12), `fire_season` [from, to] (FIRMS detections that mark burn scars; needs `FIRMS_MAP_KEY`).
 
+Why the two context rules above: in Hopelchén the forest is cleared by burning in the dry season, which NISAR did not image in 2026, so clearing shows up as burn scars that stay bare through the rainy season, not as an HV drop between passes; and its maize and sorghum fields turn as bright in HH as buildings late in the season, far from any town. Neither rule is validated against optical imagery.
+
 Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa` (floods), `chapala` (wildfires), each 40 km wide with every date since June 2026. NISAR has no data for them between 2026-01-20 and 2026-06-16 (the dry and fire season); dates before are BETA and are not mixed with the PROVISIONAL ones (docs/03), so fires are located with FIRMS and the radar shows the after.
 
 **Country mosaic** (`national.py`, site field `"kind": "mosaic"`, e.g. `mexico`). SME2 only, no size limit.
@@ -104,13 +106,14 @@ At L-band, HV and the HH/HV ratio do not separate city from forest (both scatter
 | `hv_drop` | vegetation | `deforestation` |
 | `hv_drop` | bare or low | `agriculture` (harvest, ploughing) |
 | `brightening` | vegetation before, HH rose 3+ dB more than HV (double bounce off water under plants) | `floods` (flooded vegetation) |
-| `brightening` | built-up after | `urban` |
+| `brightening` | built-up after, and built-up ground within 500 m before (or it was built-up already) | `urban` |
 | `brightening` | bare before | `agriculture` (crops growing, soil wetting) |
 | `seasonal_cycle` | vegetation or bare | `agriculture` |
 | `sinking` | built-up (only sites with a checked `reference_bbox`; elsewhere the motion map only) | `subsidence`, `groundwater` |
 | `sinking` | other | `subsidence` |
 | `soil_drying` | | `drought` |
-| `burn_scar` | | `wildfires` |
+| `burn_scar` | bare or low on average since the fire, and latest HV 1.5 dB or more below unburned vegetation (not grown back) | `deforestation`, `wildfires` |
+| `burn_scar` | otherwise | `wildfires` |
 | any land change | was water | none (waves, wind, ships) |
 | anything else | | `other` (published only at confidence 0.5+) |
 

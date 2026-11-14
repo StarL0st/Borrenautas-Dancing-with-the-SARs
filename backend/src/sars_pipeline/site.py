@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 
 from . import categorize, classify, firms, friendly
 from .categorize import COVER_COLORS, COVER_NAMES, decide, outline
@@ -38,6 +39,10 @@ log = logging.getLogger(__name__)
 
 # 150 px at 80 m = about 1 km2: subsidence bowls are big; smaller blobs are atmospheric noise.
 GUNW_DEFAULTS = {"sinking_cm_yr": 5.0, "min_valid_fraction": 0.6, "min_pixels": 150}
+URBAN_NEAR_PX = 12  # about 500 m at 40 m pixels
+# A burn scar still this far below unburned vegetation in HV at the latest pass, and bare or low
+# on average since the fire, has not grown back: cleared land rather than a fire that recovers.
+BURN_NOT_REGROWN_DB = 1.5
 SME2_DEFAULTS = {"drying_drop": 0.05, "min_dates": 4}
 
 
@@ -504,8 +509,16 @@ def run_gcov(run: Run, sel: dict, cfg: dict) -> None:
             after = categorize.majority(cover_b, r["mask"])
             shape = outline(r["mask"], b.x, b.y, b.granule.epsg)
             fires = firms.count_in(spots, shape["bbox"]) if spots is not None else None
+            # Built-up ground within about 500 m before the change, the region itself excluded.
+            around = ndimage.binary_dilation(r["mask"], iterations=URBAN_NEAR_PX) & ~r["mask"]
+            near_urban = int((cover_a[around] == categorize.URBAN).sum()) >= cfg["min_pixels"]
             cats = decide(
-                r["signature"], before, after, fires or 0, r["mean_d_hh"] - r["mean_d_hv"]
+                r["signature"],
+                before,
+                after,
+                fires or 0,
+                r["mean_d_hh"] - r["mean_d_hv"],
+                near_urban,
             )
             if not cats or (cats == ["other"] and r["confidence"] < cfg["other_min_confidence"]):
                 continue
@@ -692,10 +705,12 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
             if a["value"] is not None and b["value"] is not None
         ]
         recovery = round(gap[-1] - gap[0], 2) if len(gap) >= 2 else None
+        since = categorize.majority(cover, m)
+        cleared = since == categorize.BARE and bool(gap) and gap[-1] <= -BURN_NOT_REGROWN_DB
         run.event(
             "GCOV",
             700 + i,
-            categories=["wildfires"],
+            categories=["deforestation", "wildfires"] if cleared else ["wildfires"],
             signature="burn_scar",
             date_range=(season[0], dates[-1]),
             region=shape,
@@ -708,6 +723,10 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
                 *steps,
                 f"NASA FIRMS fire detections {season[0]} to {season[1]}, grown to 375 m",
                 "kept vegetation or bare ground, grouped touching pixels into a region",
+                (
+                    f"deforestation when bare or low on average since the fire and the latest HV is "
+                    f"{BURN_NOT_REGROWN_DB} dB or more below unburned vegetation"
+                ),
                 "mean HV per date, burned region vs unburned vegetation of the same site",
                 (
                     "confidence = 0.5 * min(1, detections / 10) + 0.5 * min(1, pixels / (10 * "
@@ -722,7 +741,8 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
                 "last_fire": max(h["date"] for h in spots if _in(h, shape["bbox"])),
                 "hv_minus_unburned_db": gap,
                 "recovery_db": recovery,
-                "surface_before": COVER_NAMES.get(categorize.majority(cover, m)),
+                "surface_since_fire": COVER_NAMES.get(since),
+                "not_regrown": cleared,
                 "n_pixels": n,
             },
             series={"HV": own, "HV_unburned_vegetation": control},
@@ -733,6 +753,14 @@ def burn_scars(run, spots, season, windows, cover, maturity, steps, params, cfg)
                     f" Since then its HV moved {recovery:+.1f} dB relative to unburned "
                     "vegetation (positive: growing back)."
                     if recovery is not None
+                    else ""
+                )
+                + (
+                    f" It has stayed bare or low through every pass since, and is still "
+                    f"{-gap[-1]:.1f} dB below unburned vegetation: this looks like cleared land "
+                    "(for example for farmland), not a fire that grows back. An image from "
+                    "before the fire would be needed to rule out a field that was already clear."
+                    if cleared
                     else ""
                 )
             ),

@@ -83,6 +83,10 @@ def test_decision_table():
     assert categorize.decide("hv_drop", V, B) == ["deforestation"]
     assert categorize.decide("hv_drop", V, B, fires=3) == ["wildfires", "deforestation"]
     assert categorize.decide("hv_drop", B, B) == ["agriculture"]
+    # A patch as bright as buildings with nothing built nearby is a tall crop, not a town.
+    assert categorize.decide("brightening", B, U) == ["urban"]
+    assert categorize.decide("brightening", B, U, near_urban=False) == ["agriculture"]
+    assert categorize.decide("brightening", U, U, near_urban=False) == ["urban"]
     assert categorize.decide("brightening", B, U) == ["urban"]
     assert categorize.decide("brightening", B, B) == ["agriculture"]  # crops, wet soil
     assert categorize.decide("brightening", V, V, hh_minus_hv_db=4) == ["floods"]  # double bounce
@@ -285,6 +289,7 @@ def test_fire_season_detections_become_burn_scar(flood_site, monkeypatch):
     events = json.loads((out / "events.json").read_text())["events"]
     [burn] = [ev for ev in events if ev["signature"] == "burn_scar"]
     assert burn["categories"] == ["wildfires"] and burn["evidence"]["fire_detections"] == 16
+    assert burn["evidence"]["not_regrown"] is False  # the synthetic scar is vegetation again
     assert burn["date_range"] == ["2025-03-01", "2026-01-13"]
     assert set(burn["series"]) == {"HV", "HV_unburned_vegetation"}
     assert (out / "areas/synth/layers/fire-detections.png").exists()
