@@ -158,6 +158,11 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - The 15-minute refresh itself is back-end code (`serve --live-minutes 15`, `livefeeds.py` on `jopa-testing`); this branch holds no back end. With an older back end the page still works, without the new types or the refresh line.
 - Checked in headless Chrome at desktop size with a live file made by that branch's `livefeeds.py` (FIRMS needs a key and was off). Not checked: phone layout of the new parts, other browsers, a screen reader.
 
+### Eighth batch
+
+- **Start and house button animation:** on Start the button fades and the title ("Welcome to G.I.G.A.S") circles the Earth and ends hidden behind it; the house button plays it backwards. The title is HTML over the map, so "behind" is a circular mask measured from the map (`hideBehind`, `orbitTitle` in `src/main.ts`). With reduced motion the screens simply cross-fade.
+- **Live events not refreshing:** the 15-minute refresh is done by the back end (`serve --live-minutes 15`). Without a back end running, the page reads a fixed `public/data/live.geojson`, which never changes. The page now re-reads the file every 5 minutes and never from the browser cache.
+
 ## Test
 
 ```

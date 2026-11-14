@@ -241,7 +241,10 @@ button.link { margin-top: 6px; padding: 4px 8px; }
 /* ---- Welcome screen: the title over the turning Earth; everything else waits behind it ---- */
 
 #home { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 12vh 16px 0; text-align: center; opacity: 0; visibility: hidden; transition: opacity 400ms var(--ease-out), visibility 400ms; }
-.at-home #home { opacity: 1; visibility: visible; }
+.at-home #home, .orbiting #home { opacity: 1; visibility: visible; }
+/* While the title circles the Earth: Start is gone and the page underneath can be used. */
+.orbiting #home { pointer-events: none; }
+.orbiting #start { opacity: 0; scale: 0.95; transition-delay: 0s; transition-duration: 160ms; }
 #home h2 { margin: 0; text-shadow: 0 2px 24px var(--bg); }
 /* A small greeting over the name, which carries the screen. */
 .home-hello { display: block; font-size: clamp(1.3rem, 3vw, 2.2rem); font-weight: 400; }

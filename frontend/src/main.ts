@@ -705,7 +705,7 @@ function showLiveStatus() {
 
 async function loadLiveFeeds() {
   try {
-    const res = await fetch(new URL("live.geojson", BASE));
+    const res = await fetch(new URL("live.geojson", BASE), { cache: "no-store" }); // never an old copy
     if (!res.ok) throw new Error(String(res.status));
     const doc = await res.json();
     liveEvents = doc.features ?? [];
@@ -724,7 +724,7 @@ async function loadLiveFeeds() {
 const events = new EventSource(new URL("events", BASE));
 events.addEventListener("manifest", loadLive);
 events.addEventListener("live", loadLiveFeeds);
-setInterval(loadLiveFeeds, 10 * 60 * 1000); // also refresh when the push stream is gone
+setInterval(loadLiveFeeds, 5 * 60 * 1000); // also re-read the file when the push stream is gone
 events.onerror = () => events.readyState === EventSource.CONNECTING || events.close();
 
 // ---- View switch, auto-rotate and view wheel ----
@@ -769,22 +769,80 @@ for (const id of ["nav", "detail"] as const) {
 
 // ---- Welcome screen: the Earth's horizon turning under the title, until Start ----
 
-function setHome(on: boolean, duration: number) {
+// Everything but the camera: the page waits behind the welcome screen, inert.
+function homeUi(on: boolean) {
   document.body.classList.toggle("at-home", on);
   for (const part of document.querySelectorAll<HTMLElement>("header, main")) part.inert = on;
   showPanel("nav", !on);
   showPanel("detail", !on);
-  globe.welcome(on, duration);
   for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === "globe"));
-  if (on) {
-    setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
-    $("start").focus();
-  }
 }
-$("home-btn").onclick = () => setHome(true, 1400);
-$("start").onclick = () => {
-  setHome(false, 2400);
+
+// Start sends the title round the Earth until it is hidden behind it; the house button brings
+// it back the same way. `u` is the share of that half turn: 0 in its place, 0.5 beside the
+// globe, 1 behind it.
+const title = $("home-title"), homeEl = $("home");
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
+const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));
+let orbiting = false; // an animation is running: Start and the house button wait for it
+
+// Where the whole globe sits on screen, with the side panels in place or pushed away.
+// The panel widths and the phone layout mirror the stylesheet (`.app`, `.stage`).
+function globeDisc(panels: boolean) {
+  const m = document.querySelector("main")!.getBoundingClientRect();
+  const wide = !matchMedia("(max-width: 900px)").matches;
+  const left = m.left + (panels && wide ? 300 : 0), right = m.right - (panels && wide ? 360 : 0);
+  const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.6 : 1);
+  return { x: (left + right) / 2, y: (m.top + bottom) / 2 };
+}
+type Disc = ReturnType<typeof globeDisc>;
+
+function orbitTitle(from: number, to: number, at: { x: number; y: number }, g: Disc, duration: number, easing: string) {
+  const far = globe.roughRadius + title.offsetWidth * 0.15 + 12; // far enough to clear the globe at its side
+  const frames = Array.from({ length: 13 }, (_, i) => {
+    const u = from + ((to - from) * i) / 12;
+    const k = Math.min(1, 2 * u), drift = k * k * (3 - 2 * k); // the turn's axis slides over to the globe
+    const x = (g.x - at.x) * drift + far * Math.sin(Math.PI * u), y = (g.y - at.y) * drift;
+    const scale = u < 0.5 ? 1 - 1.4 * u : 0.3 - 0.1 * (u - 0.5); // smaller as it goes round to the far side
+    return { transform: `translate(${x}px, ${y}px) scale(${scale})` };
+  });
+  return title.animate(frames, { duration, easing, fill: "forwards" }).finished;
+}
+// Behind the globe: the part of the title that the Earth covers is cut away. Call it only
+// while the camera rests on the whole Earth, because the globe is measured as it is drawn.
+function hideBehind(g?: Disc) {
+  const r = g ? globe.radius() : 0;
+  const mask = g ? `radial-gradient(circle at ${g.x}px ${g.y}px, transparent ${r - 1}px, #000 ${r}px)` : "";
+  homeEl.style.setProperty("-webkit-mask-image", mask);
+  homeEl.style.maskImage = mask;
+}
+const titleCenter = () => {
+  const r = title.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+// One motion in two parts (in front, then behind), so the first speeds up and the second slows down.
+const SPEED_UP = "cubic-bezier(0.5, 0, 0.9, 0.6)", SLOW_DOWN = "cubic-bezier(0.1, 0.4, 0.5, 1)";
+
+async function leaveHome() {
+  if (orbiting) return;
+  orbiting = true;
+  const at = titleCenter();
+  const move = !calm.matches;
+  if (move) document.body.classList.add("orbiting"); // keeps the title on screen, without Start
+  homeUi(false);
+  globe.welcome(false, 1700); // at rest just before the title goes behind the globe
   $("home-btn").focus();
+  if (move) {
+    const g = globeDisc(true);
+    await orbitTitle(0, 0.5, at, g, 1800, SPEED_UP); // in front, while the camera pulls back
+    hideBehind(g);
+    await orbitTitle(0.5, 1, at, g, 800, SLOW_DOWN);
+    title.style.visibility = "hidden";
+    document.body.classList.remove("orbiting");
+    for (const a of title.getAnimations()) a.cancel();
+    hideBehind();
+  }
+  orbiting = false;
   try {
     if (!localStorage.getItem("tour-seen")) {
       localStorage.setItem("tour-seen", "1");
@@ -793,7 +851,38 @@ $("start").onclick = () => {
   } catch {
     // Storage blocked (private window): the tour stays available from the button.
   }
-};
+}
+
+async function goHome() {
+  if (orbiting) return;
+  orbiting = true;
+  setSpin(false); // the globe holds still while the title comes round
+  if (!calm.matches) {
+    document.body.classList.add("orbiting");
+    homeUi(true);
+    globe.whole(700); // the title can only come out from behind a whole Earth
+    await wait(700);
+    const at = titleCenter(), g = globeDisc(false);
+    hideBehind(g);
+    void orbitTitle(1, 1, at, g, 1, "linear"); // parked behind the globe before it shows
+    title.style.visibility = "";
+    await orbitTitle(1, 0.5, at, g, 800, SPEED_UP);
+    hideBehind();
+    globe.welcome(true, 1400);
+    await orbitTitle(0.5, 0, at, g, 1400, SLOW_DOWN);
+    for (const a of title.getAnimations()) a.cancel();
+    document.body.classList.remove("orbiting");
+  } else {
+    title.style.visibility = "";
+    homeUi(true);
+    globe.welcome(true, 0);
+  }
+  setSpin(!calm.matches);
+  $("start").focus();
+  orbiting = false;
+}
+$("home-btn").onclick = goHome;
+$("start").onclick = leaveHome;
 
 // ---- Accessibility menu and language ----
 
@@ -848,7 +937,11 @@ wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
 loadLiveFeeds();
-setHome(true, 0);
+homeUi(true);
+globe.welcome(true, 0);
+// The Earth turns by itself on the welcome screen; opening an area or the Auto-rotate button stops it.
+setSpin(!calm.matches);
+$("start").focus();
 
 // ---- Tour ----
 
