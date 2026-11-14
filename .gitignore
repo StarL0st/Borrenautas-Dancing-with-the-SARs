@@ -1,0 +1,31 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Data: raw, interim and generated never committed (docs/03 data rules)
+data/raw/
+data/interim/
+data/inbox/
+data/processed/
+*.h5
+*.nc
+*.tif
+*.tiff
+!data/samples/**
+!contracts/fixtures/**
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+
+# Local tool config
+.claude/settings.local.json
+.qwen/.env
+tasks/results/*.log
