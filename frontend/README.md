@@ -137,6 +137,14 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 
 - Live events need the back end from `testing-live-events` (`live.geojson`); without it the panel says the feeds are not available.
 
+### Sixth batch
+
+- Welcome screen ("Welcome to G.I.G.A.S." and Start) over the close-up view of the turning Earth; Start swings the camera round to the whole globe while the panels come in. It is the same page: the app waits behind it, inert (`setHome` in `src/main.ts`, `welcome` in `src/globe.ts`). The first-visit tutorial now starts after Start.
+- Home (house), auto-rotate and view wheel are square buttons in the map's own column, top right. The zoom slider is gone.
+- The date slider of each open area sits at the bottom middle of the globe (`#timebar`), one row per open area.
+- Fix: going from close-up view back to globe view keeps the zoom; it only levels the camera.
+- Checked in headless Chrome at desktop and phone size (no console errors). Not checked: other browsers, a real phone, a screen reader, more than three open areas in the date bar.
+
 ## Test
 
 ```

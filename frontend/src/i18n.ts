@@ -6,6 +6,9 @@ export type Lang = "en" | "es" | "de";
 export const LANGS: Record<Lang, string> = { en: "English", es: "Español", de: "Deutsch" };
 
 const en = {
+  "home.title": "Welcome to G.I.G.A.S.",
+  "home.start": "Start",
+  "home.btn": "Home page",
   "btn.tutorial": "Tutorial",
   "btn.settings": "Accessibility",
   "mode.label": "Mode",
@@ -166,9 +169,9 @@ const en = {
   "tour.areas.title": "Area list",
   "tour.areas.text": "The marked areas as a list. Click one here, or its dot on the globe, to open it. Click again to close it.",
   "tour.open.title": "Open areas",
-  "tour.open.text": "Every area you open stacks up here as a tab you can scroll through, with its timeline, a chart of how it changed, and a date slider for its radar images.",
+  "tour.open.text": "Every area you open stacks up here as a tab you can scroll through, with its timeline and a chart of how it changed. The date slider for its radar images sits at the bottom of the globe.",
   "tour.views.title": "Views",
-  "tour.views.text": "Switch between the whole globe and a close-up view that skims low over the surface. Auto-rotate turns the Earth slowly on its axis.",
+  "tour.views.text": "Switch between the whole globe and a close-up view that skims low over the surface. The square buttons on the right turn auto-rotate and the view wheel on and off; the house goes back to the welcome screen.",
   "tour.wheel.title": "View wheel",
   "tour.wheel.text": "Hold a button and drag: Zoom, Orbit, Look, Up/Down. Center puts the point you click next in the middle. Home brings the whole Earth back.",
   "tour.settings.title": "Accessibility",
@@ -195,6 +198,9 @@ const en = {
 export type Key = keyof typeof en;
 
 const es: Record<Key, string> = {
+  "home.title": "Bienvenido a G.I.G.A.S.",
+  "home.start": "Comenzar",
+  "home.btn": "Página de inicio",
   "btn.tutorial": "Tutorial",
   "btn.settings": "Accesibilidad",
   "mode.label": "Modo",
@@ -355,9 +361,9 @@ const es: Record<Key, string> = {
   "tour.areas.title": "Lista de áreas",
   "tour.areas.text": "Las áreas marcadas, en forma de lista. Haz clic en una aquí, o en su punto en el globo, para abrirla. Haz clic otra vez para cerrarla.",
   "tour.open.title": "Áreas abiertas",
-  "tour.open.text": "Cada área que abres se apila aquí como una pestaña que puedes recorrer, con su línea de tiempo, una gráfica de cómo cambió y un control de fechas para sus imágenes de radar.",
+  "tour.open.text": "Cada área que abres se apila aquí como una pestaña que puedes recorrer, con su línea de tiempo y una gráfica de cómo cambió. El control de fechas de sus imágenes de radar está en la parte inferior del globo.",
   "tour.views.title": "Vistas",
-  "tour.views.text": "Cambia entre el globo completo y una vista cercana que pasa a baja altura sobre la superficie. La rotación automática gira la Tierra lentamente sobre su eje.",
+  "tour.views.text": "Cambia entre el globo completo y una vista cercana que pasa a baja altura sobre la superficie. Los botones cuadrados de la derecha activan y desactivan la rotación automática y la rueda de vista; la casa vuelve a la pantalla de bienvenida.",
   "tour.wheel.title": "Rueda de vista",
   "tour.wheel.text": "Mantén presionado un botón y arrastra: Zoom, Órbita, Mirar, Subir/Bajar. Centrar pone en el centro el punto donde hagas clic después. Inicio trae de vuelta toda la Tierra.",
   "tour.settings.title": "Accesibilidad",
@@ -382,6 +388,9 @@ const es: Record<Key, string> = {
 };
 
 const de: Record<Key, string> = {
+  "home.title": "Willkommen bei G.I.G.A.S.",
+  "home.start": "Start",
+  "home.btn": "Startseite",
   "btn.tutorial": "Einführung",
   "btn.settings": "Barrierefreiheit",
   "mode.label": "Modus",
@@ -542,9 +551,9 @@ const de: Record<Key, string> = {
   "tour.areas.title": "Gebietsliste",
   "tour.areas.text": "Die markierten Gebiete als Liste. Klicke hier auf eines oder auf seinen Punkt auf dem Globus, um es zu öffnen. Klicke erneut, um es zu schließen.",
   "tour.open.title": "Geöffnete Gebiete",
-  "tour.open.text": "Jedes geöffnete Gebiet wird hier als Reiter gestapelt, durch die du scrollen kannst: mit Zeitleiste, einem Diagramm der Veränderung und einem Datumsregler für die Radarbilder.",
+  "tour.open.text": "Jedes geöffnete Gebiet wird hier als Reiter gestapelt, durch die du scrollen kannst: mit Zeitleiste und einem Diagramm der Veränderung. Der Datumsregler für die Radarbilder liegt unten auf dem Globus.",
   "tour.views.title": "Ansichten",
-  "tour.views.text": "Wechsle zwischen dem ganzen Globus und einer Nahansicht, die tief über die Oberfläche gleitet. „Automatisch drehen“ dreht die Erde langsam um ihre Achse.",
+  "tour.views.text": "Wechsle zwischen dem ganzen Globus und einer Nahansicht, die tief über die Oberfläche gleitet. Die quadratischen Schaltflächen rechts schalten das automatische Drehen und das Ansichtsrad ein und aus; das Haus führt zurück zum Startbildschirm.",
   "tour.wheel.title": "Ansichtsrad",
   "tour.wheel.text": "Halte eine Schaltfläche gedrückt und ziehe: Zoom, Umkreisen, Umsehen, Auf/Ab. Zentrieren holt den Punkt in die Mitte, den du als Nächstes anklickst. Start holt die ganze Erde zurück.",
   "tour.settings.title": "Barrierefreiheit",

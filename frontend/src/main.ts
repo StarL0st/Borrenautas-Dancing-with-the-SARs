@@ -23,6 +23,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const filters = $("filters"), results = $("results"), status = $("status"), cards = $("cards"), banner = $("banner");
 const liveToggle = $<HTMLInputElement>("live-toggle"), liveStatus = $("live-status");
 const liveListEl = $("live-list"), liveMore = $("live-more");
+const timebar = $("timebar"); // date sliders of the open areas, at the bottom of the globe
 const LIVE_PAGE = 15;
 let liveLimit = LIVE_PAGE; // rows shown in the "Happening now" list
 
@@ -59,6 +60,10 @@ const dot = (color: string) => {
 };
 
 const globe = createGlobe("map", settings.texture, toggle);
+// The home, auto-rotate and view wheel squares join MapLibre's own column of + and - buttons.
+const column = document.querySelector(".maplibregl-ctrl-top-right")!;
+column.prepend($("ctrl-home"));
+column.append($("ctrl-view"));
 
 // ---- Left panel: filters ----
 
@@ -175,6 +180,7 @@ function render() {
       : [],
   );
   globe.keepOverlays(opened);
+  timebar.replaceChildren(); // each open area's card puts its date slider back
   cards.replaceChildren(
     ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : [el("p", { className: "muted" }, t("cards.empty"))]),
   );
@@ -287,11 +293,14 @@ function radarSection(a: AreaView): Node[] {
   opacity.oninput = () => globe.setOpacity(a.id, (v.opacity = +opacity.value));
 
   setDates();
-  if (simple()) return [el("h4", {}, t("simple.picture")), el("label", { htmlFor: slider.id }, t("radar.date"), " ", dateOut), slider, info];
+  // The date slider lives on the globe, where the picture it changes is.
+  timebar.append(
+    el("div", { className: a.id === entering ? "time-row enter" : "time-row" }, el("label", { htmlFor: slider.id }, el("strong", {}, a.title), " ", dateOut), slider),
+  );
+  if (simple()) return [el("h4", {}, t("simple.picture")), info];
   return [
     el("h4", {}, t("card.radar")),
     el("label", { htmlFor: polSelect.id }, t("radar.layer")), polSelect,
-    el("label", { htmlFor: slider.id }, t("radar.date"), " ", dateOut), slider,
     el("label", { htmlFor: opacity.id }, t("radar.opacity")), opacity,
     info,
   ];
@@ -529,12 +538,6 @@ function setSpin(on: boolean) {
 }
 spinBtn.onclick = () => setSpin(spinBtn.getAttribute("aria-pressed") !== "true");
 
-// Zoom slider: follows the map, and the map follows it.
-const zoomSlider = $<HTMLInputElement>("zoom");
-zoomSlider.oninput = () => globe.zoom.set(+zoomSlider.value);
-globe.zoom.onChange((z) => (zoomSlider.value = String(z)));
-zoomSlider.value = String(globe.zoom.get());
-
 const wheel = $("wheel"), wheelBtn = $("wheel-btn");
 const showWheel = (on: boolean) => {
   wheel.hidden = !on;
@@ -558,6 +561,34 @@ for (const id of ["nav", "detail"] as const) {
   $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
 }
 
+// ---- Welcome screen: the Earth's horizon turning under the title, until Start ----
+
+function setHome(on: boolean, duration: number) {
+  document.body.classList.toggle("at-home", on);
+  for (const part of document.querySelectorAll<HTMLElement>("header, main")) part.inert = on;
+  showPanel("nav", !on);
+  showPanel("detail", !on);
+  globe.welcome(on, duration);
+  for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === "globe"));
+  if (on) {
+    setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+    $("start").focus();
+  }
+}
+$("home-btn").onclick = () => setHome(true, 1400);
+$("start").onclick = () => {
+  setHome(false, 2400);
+  $("home-btn").focus();
+  try {
+    if (!localStorage.getItem("tour-seen")) {
+      localStorage.setItem("tour-seen", "1");
+      startTour(tourBtn);
+    }
+  } catch {
+    // Storage blocked (private window): the tour stays available from the button.
+  }
+};
+
 // ---- Accessibility menu and language ----
 
 const dialog = $<HTMLDialogElement>("settings");
@@ -566,7 +597,7 @@ const dialog = $<HTMLDialogElement>("settings");
 function applyLanguage() {
   document.documentElement.lang = settings.lang;
   for (const node of document.querySelectorAll<HTMLElement>("[data-i18n]")) node.textContent = t(node.dataset.i18n as Key);
-  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) node.title = node.ariaLabel = t(node.dataset.i18nLabel as Key);
   $("mode-seg").replaceChildren(
     ...(["simple", "technical"] as const).map((mode) => {
       const input = el("input", { type: "radio", name: "mode", checked: settings.mode === mode });
@@ -610,18 +641,9 @@ wheel.dataset.size = settings.wheel;
 applyLanguage();
 loadLive();
 loadLiveFeeds();
-// The Earth turns by itself on arrival; opening an area or the Auto-rotate button stops it.
-setSpin(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+setHome(true, 0);
 
 // ---- Tour ----
 
 const tourBtn = $("tour-btn");
 tourBtn.onclick = () => startTour(tourBtn);
-try {
-  if (!localStorage.getItem("tour-seen")) {
-    localStorage.setItem("tour-seen", "1");
-    startTour(tourBtn);
-  }
-} catch {
-  // Storage blocked (private window): the tour stays available from the button.
-}
