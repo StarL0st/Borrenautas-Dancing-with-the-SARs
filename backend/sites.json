@@ -34,5 +34,67 @@
       19.4
     ],
     "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
+  },
+  "yucatan": {
+    "title": "Hopelchén, Campeche (Yucatán Peninsula)",
+    "summary": "Los Chenes, in the Yucatán Peninsula: tropical dry forest being cleared for mechanized farmland. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -89.83933,
+      19.66771,
+      -89.60067,
+      19.89229
+    ],
+    "change_types": [
+      "forest_loss",
+      "agriculture",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "villahermosa": {
+    "title": "Villahermosa, Tabasco",
+    "summary": "Villahermosa sits where the Grijalva and Carrizal rivers meet in Mexico's wettest lowlands, and floods often in the rainy season. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -93.04806,
+      17.87771,
+      -92.81194,
+      18.10229
+    ],
+    "change_types": [
+      "flood_wetland",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "chapala": {
+    "title": "Lake Chapala, Jalisco",
+    "summary": "The hills around Lake Chapala, Mexico's largest lake, burn often in the dry season (March to May). Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -103.31973,
+      20.18771,
+      -103.08027,
+      20.41229
+    ],
+    "change_types": [
+      "wildfire",
+      "forest_loss",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
   }
 }
