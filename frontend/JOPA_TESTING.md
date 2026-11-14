@@ -1,9 +1,89 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Local only: not pushed, not merged.** The app has not been run in a browser (no dev server). Checked without running it: `tsc --noEmit` passes, the frontend unit tests pass (15 of 15), and the backend unit tests pass (43, including 12 for the live feeds).
+**Local only: not pushed, not merged.** Round 2 (below) was checked the same way: type-check, 15 frontend tests, 45 backend tests. The app has not been run in a browser (no dev server). Checked without running it: `tsc --noEmit` passes, the frontend unit tests pass (15 of 15), and the backend unit tests pass (43, including 12 for the live feeds).
 
-## What changed, in short
+## Round 2 (2026-11-14, later the same day)
+
+This round overrides parts of round 1.
+
+| Request | What changed |
+|---|---|
+| Keep the icons, make them smaller (the whole button) | Filter buttons are compact. **Simple mode:** 4 small tiles per row (20 px icon, small text). **Technical mode:** tight rows with an 18 px icon. |
+| "Show N more" in the disasters panel | Each group shows its first types (4 in Simple mode, 6 in Technical mode) and a **Show N more / Show less** button. Hidden types keep their on/off state. |
+| Keep timelines and the open areas sidebar, but only in Technical mode | **Technical mode:** the right-hand panel, with its full cards (satellite view, What changed, zone timeline, radar), works as before. **Simple mode:** the panel is gone and the globe gets the space. Clicking an area opens a short popup with its summary, what changed, and **See all details (Technical mode)**, which switches mode and opens the full card. |
+| Live events only from the day, worldwide | **Range:** the backend keeps events updated in the **last 24 hours** (`LIVE_HOURS`, default 24), worldwide by default. `LIVE_REGION=mexico` is still available to narrow it. **Feeds:** USGS uses its *past day* feed, GDACS and EONET are asked for the last 2 days, and the 24-hour filter is applied last. **FIRMS:** worldwide it would be tens of thousands of points a day, so only high-confidence detections, newest 1,500. **Page:** the "From the last" slider was removed; "How dangerous" stays. "Most dangerous right now" is worldwide. |
+| How often the data updates | The page shows "The server checks the sources every N minutes". The full table is under "How often the data updates". |
+| Check the sources | Every link was opened and every figure was checked against independent sources. The corrections are listed under "Source check". |
+
+**Unchanged:** "Most destructive recent events", the zone timelines and the infrastructure risks still use the Mexico data. Only live events went worldwide.
+
+### How often the data updates
+
+| Step | How often | Source for the figure |
+|---|---|---|
+| USGS earthquakes (past day feed) | The feed is rebuilt about every minute | USGS feed list (cache 60 s for hour/day/week feeds) |
+| NASA FIRMS fire detections | Within about 3 hours of the satellite passing (real time in the US and Canada) | NASA FIRMS / Earthdata |
+| NOAA NHC tropical cyclones | Advisories every 6 hours (03, 09, 15, 21 UTC), every 3 hours when coastal watches or warnings are up, specials any time | NHC Product Description (2023) |
+| GDACS alerts | When an alert is issued or updated (event-driven, no fixed interval published) | GDACS API quick start |
+| NASA EONET | Continuously, as curators add and update events (no fixed interval published) | EONET event curation page |
+| **Our backend** (`serve --live-minutes 15`) | Fetches all feeds every **15 minutes** (the number is a startup option) and writes `live.geojson` | `livefeeds.poll` |
+| **The page** | Reloads live events as soon as the server announces a new file (push on `/events`), and every 10 minutes in any case | `main.ts` |
+| Satellite view (NASA GIBS) | VIIRS and MODIS daily, a few hours after the pass; HLS every 2–3 days, a few days late | GIBS layer time ranges, checked 2026-11-14 |
+
+In practice an event reaches the page **at most about 15 minutes after its source publishes it**. How long the source takes after the event itself varies: about a minute for USGS, up to 3 hours for FIRMS, and up to 6 hours for NHC.
+
+### Source check
+
+**Links.** Every source link in `src/mexico.ts` was opened.
+
+| Source | Problem | Fix |
+|---|---|---|
+| CONAGUA dam inventory (`sinav30…:8080`) | Did not respond | CONAGUA's official page |
+| NASA Earth Observatory | Has moved | `science.nasa.gov/earth/earth-observatory` |
+| Comisión Nacional de Hidrocarburos | Dissolved in the 2025 energy reform | Pemex |
+| Global Forest Watch | Now redirects to a renamed site | The original University of Maryland GLAD Global Forest Change dataset (Landsat-based) |
+| Chaussard et al. (2014) | Had no link | DOI added |
+| Smithsonian GVP, IUCN Red List | Refuse automated checks (403) | None needed: both open normally in a browser |
+
+**Facts.** Checked with web searches. Corrected:
+
+| Event | Was | Now |
+|---|---|---|
+| 1985 earthquake deaths | "about 3,000 to over 10,000" | official count about 10,000; other estimates higher |
+| Otis | "first Category 5 landfall on Mexico's Pacific coast on record" (not supported) | "one of the strongest hurricanes ever to hit Mexico's Pacific coast" |
+| Patricia | weakened before landfall | weakened to **Category 4** before landfall (NHC final report) |
+| Gilbert | "hundreds died" | about 200 in Mexico, most in Monterrey |
+| Wilma | stalled "more than a day" | "two days or more" (48–60 h reported) |
+| Tabasco 2007 | "most of the state" | up to about 80% of the state; about a million affected |
+| Piedras Negras tornado | "several" deaths | 3 in Piedras Negras, 7 in Eagle Pass, Texas |
+| Cutzamala 2024 | "a quarter to a third" | about 26% in June 2024, the lowest in some 25 years |
+| Mexico City subsidence | 30–40 cm/yr | up to about 30–50 cm/yr |
+| Other sinking cities | "several cm" | about 5–10 cm/yr (Chaussard et al., 2014) |
+
+**Confirmed as written:**
+- Ixtoc I (about 9–10 months)
+- El Chichón (about 2,000 deaths)
+- Chiapas 2017 (about 100)
+- Puebla 2017 (about 370)
+- Tlahuelilpan (more than 130)
+- Sonora spill (40,000 m³, August 6, 2014)
+- Ingrid and Manuel (well over a hundred; La Pintada)
+- Zacatepec sinkhole (more than 100 m across)
+- Northern blackout 2021 (millions of users; Reuters reports 4.7 million)
+- Popocatépetl 2023 (Yellow Phase 3, airports closed, about 25 million within about 100 km)
+
+**Not independently checked:** Metro Line 12 (26 deaths), Oaxaca 2020 (10 deaths), Alex 2010, John 2024, and the dam descriptions. These are widely reported, but I did not search them this session.
+
+**How trustworthy each kind of source is:**
+- **NASA, NOAA and USGS:** primary data from the agencies that measure it. Most reliable.
+- **GDACS (UN and EU):** a coordination system that aggregates agency data.
+- **Mexican government agencies** (SSN at UNAM, CENAPRED, CONAGUA, SEMARNAT, CONABIO, CONANP): official national sources.
+- **Chaussard et al. (2014):** a peer-reviewed study.
+- **IUCN Red List:** the reference for species status.
+- **Not used in the app:** news outlets and Wikipedia. They were only used to cross-check figures.
+
+## Round 1: what changed, in short
 
 | # | Request | What was built | Files |
 |---|---|---|---|
@@ -148,28 +228,7 @@ The live feeds were ported from `testing-live-events`, because `testing` only ha
 
 ## Facts to double-check before submission
 
-These figures are widely reported, but I wrote them from memory, not checked against the source this session:
-
-- **Death tolls:**
-  - 1985 quake: "about 3,000 to over 10,000".
-  - El Chichón: "about 2,000".
-  - Pauline: "more than 200".
-  - Chiapas 2017: "about a hundred".
-  - Puebla 2017: "about 370".
-  - Tlahuelilpan: "more than 130".
-  - Metro Line 12: 26.
-  - Oaxaca 2020: ten.
-- **Other figures:**
-  - Sonora spill volume: about 40,000 m³.
-  - Cutzamala in 2024: "a quarter to a third of capacity".
-  - Otis: "first Category 5 landfall on Mexico's Pacific coast on record".
-  - Mexico City sinking: "up to roughly 30–40 cm a year".
-- **Coordinates are approximate** (city or epicenter level). Check epicenters on the USGS event pages.
-- **Some example places are illustrative** and could be swapped:
-  - Sierra de Arteaga (wildfires)
-  - Los Humeros (induced seismicity)
-  - El Bosque, Centla (coastal loss)
-  - Sierra Tarahumara (cold and logging)
+See "Source check" in Round 2 for what was checked and corrected, and what was not checked.
 
 ## Open questions for the team
 

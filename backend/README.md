@@ -191,8 +191,9 @@ Known limits:
 `src/sars_pipeline/livefeeds.py` (ported from `testing-live-events`) writes `live.geojson`: public events from NASA EONET, USGS, GDACS, NOAA NHC and NASA FIRMS. On this branch:
 
 - **Weather types:** `hurricanes` (NHC, GDACS TC, EONET tropical names), `storms`, `heat`, `cold`, `dust`, and `industrial` for human-made events.
-- **Smaller earthquakes:** USGS from M2.5.
+- **Earthquakes:** USGS past-day feed, from M2.5.
 - **Danger score:** every event has a `severity` from 0 to 3.
-- **Mexico only:** events are kept inside `LIVE_REGION` (default Mexico and nearby seas; set `LIVE_REGION=world` to keep all).
+- **Worldwide, last day:** events are kept if updated in the last `LIVE_HOURS` (default 24). Region filter `LIVE_REGION` is off by default; set `LIVE_REGION=mexico` or `w,s,e,n` to narrow it.
+- **Refresh rate in the file:** `serve --live-minutes N` refreshes every N minutes and records it as `refresh_minutes`.
 
 Run once with `uv run sars-pipeline live-events`, or keep it fresh with `serve --live-minutes 15`. See `frontend/JOPA_TESTING.md`.
