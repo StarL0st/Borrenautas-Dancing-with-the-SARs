@@ -4,7 +4,7 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 
 ## Principles
 
-1. **Static-first, live-capable.** The pipeline produces contract files; the frontend loads files. The backend (`backend/`, a uv project on the `backend` branch) also serves the same files live over HTTP and pushes "data updated" events, so the frontend can work against it during development. The static export stays the judging fallback: no server is required to run the demo.
+1. **Service with a static fallback.** A batch pipeline turns NISAR granules into contract files and typed event records (C7). An API server (`backend/`, contract C6) serves them and answers location queries for the globe. The same data is also exported as static files, so the demo still runs if the server is down.
 2. **Contract-driven.** Pipeline and frontend only meet at the contracts in `docs/04-contracts.md`. Each lane can work alone against fixtures.
 3. **Reproducible.** Any published layer can be regenerated from raw granules by one command, with parameters recorded.
 4. **Small areas, small files.** One compact study area, downsampled web assets, raw data never in git.
@@ -14,30 +14,40 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 ## Component flow
 
 ```
-ASF DAAC / Earthdata (NISAR HDF5 products)
-        |  asf_search / earthaccess (Earthdata Login)
+ASF DAAC / Earthdata Cloud (NISAR HDF5, AWS us-west-2)
+        |  asf_search (select) + h5py/fsspec over HTTPS (stream windows, no full downloads)
         v
-backend/ (Python)
-  fetch -> extract -> normalize -> change products -> export web assets
-        |  writes web-ready assets + manifest.json + time series JSON
+backend/ batch (Python; local, or a GCP VM in us-west1)
+  select -> read -> change -> classify -> export
+        |  manifest.json, layers, time series, events.json  (contracts C1-C7)
         v
-frontend/public/data/         (validated against contracts/schemas)
+data root (local data/processed/, or a Cloud Storage bucket)
         |
+        +--> backend/ API (local, or Cloud Run): C6 endpoints incl. /events.json and /query
+        +--> static export (frontend/public/data/): fallback, same files
         v
-frontend/ (Vite + TypeScript + MapLibre GL JS)  ->  static host (build output)
+frontend/ (Vite + TypeScript + MapLibre GL JS globe)
 ```
+
+## Deployment (Google Cloud, team credit)
+
+- Batch: one VM in `us-west1` (next to the data in AWS `us-west-2`), started for a run and stopped after. Streams over HTTPS; ASF HTTPS egress is free.
+- Data: one Cloud Storage bucket (public read, CORS for GET) holds outputs and tiles too big for the repo.
+- API: Cloud Run, scales to zero. Reads the data root from the bucket.
+- Secrets: the Earthdata token lives in Secret Manager (cloud) or `backend/.env` (local), never in images or the repo.
 
 ## Default stack (ADR-001)
 
 | Area | Default | Notes |
 |---|---|---|
 | Pipeline | Python 3.11+, `pyproject.toml`, ruff, pytest | numpy, h5py, rasterio, pyproj; matplotlib for QA figures |
-| Data access | `asf_search` and/or `earthaccess` | Both are documented by ASF for NISAR; pick one primary |
+| Data access | `asf_search` (search), `h5py` + `fsspec` (HTTPS window reads) | Decided; streaming instead of full 6-7 GB downloads |
+| Classification | Rules per change type; optional scikit-learn model | Model is a stretch goal, labelled experimental |
 | Frontend | Node 20+, Vite, TypeScript, MapLibre GL JS | Static build; no framework required |
 | Charts | uPlot or Chart.js | Small and fast; decide in ADR-001 |
 | Tests | pytest; Vitest | `make test` runs both |
 | CI | GitHub Actions | Lint, test, contract validation, build, smoke |
-| Hosting | Static host (GitHub Pages or similar) | Decide in ADR-004; always keep `vite preview` as local fallback |
+| Hosting | Google Cloud: Cloud Run (API), Cloud Storage (data, static site) | Proposed for ADR-004; always keep `vite preview` and the static export as fallback |
 | License | Permissive (MIT or Apache-2.0) | Decide in ADR-005; challenge wants open source |
 
 ## Pipeline stages
@@ -49,7 +59,8 @@ frontend/ (Vite + TypeScript + MapLibre GL JS)  ->  static host (build output)
 | extract | HDF5 granules | Per-date, per-polarization rasters cropped to the AOI (`data/interim/`) |
 | normalize | Rasters | Calibrated, converted to display/analysis units, despeckle/multilook as configured |
 | change | Normalized rasters | Change products (e.g., date differences, thresholds, time series) |
-| export | Change products | Web assets (overlay images or tiles, GeoJSON), time-series JSON, `manifest.json` |
+| classify | Change products | Event records (C7): type, geometry, dates, confidence, method |
+| export | Change products, events | Web assets (overlay images or tiles, GeoJSON), time-series JSON, `manifest.json`, `events.json` |
 | validate | All exported assets | Pass/fail against JSON schemas |
 
 ## Size and performance budgets
@@ -68,6 +79,7 @@ frontend/ (Vite + TypeScript + MapLibre GL JS)  ->  static host (build output)
 | Large downloads on slow event wifi | Subset layers (Harmony GeoTIFF subsetting or streaming) instead of full files |
 | Basemap tile provider outage | Alternate basemap style; plain-background fallback |
 | Hosting issue at submission time | Local `vite preview` plus recorded demo video |
+| API server down during judging | Frontend falls back to the static export (`events.json` and the C1-C5 files) |
 | Executor model endpoint down | Lane falls back to Claude-only implementation (see `docs/07`) |
 
 ## Security and secrets

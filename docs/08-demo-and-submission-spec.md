@@ -39,7 +39,7 @@ Known: event runs November 14-15, 2026; judging begins November 16.
 8. **What is next (15 s):** future NISAR applications.
 9. **Close (10 s):** open source, link, credits.
 
-Every claim states data maturity (BETA or PROVISIONAL) when it matters.
+Every claim states data maturity (BETA, PROVISIONAL, or VALIDATED) when it matters.
 
 ## Final-hour routine
 
