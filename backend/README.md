@@ -1,11 +1,11 @@
-# sars-pipeline (backend lane)
+# Backend (lane 1): sars-pipeline
 
 Python backend, managed with [uv](https://docs.astral.sh/uv/). It ingests NISAR L2 GCOV HDF5 granules, parses them into the data contracts in `docs/04-contracts.md`, and serves those files to the frontend with live update pushes. It is fully detachable: the frontend only ever sees contract files over HTTP, so the same output can be copied to `web/public/data/` as a static build.
 
 ## Run
 
 ```
-cd pipeline
+cd backend
 uv sync                                    # install
 uv run sars-pipeline serve                 # http://127.0.0.1:8765, watches data/inbox/
 uv run sars-pipeline synthetic --dates 3   # drop 3 synthetic granules into data/inbox/
