@@ -4,6 +4,7 @@ import json
 import math
 import os
 import subprocess
+import time
 from datetime import UTC, datetime
 from functools import cache
 from importlib.metadata import version
@@ -15,8 +16,26 @@ from PIL import Image
 from .granule import Granule, open_granule, read_db
 
 CONTRACT_VERSION = "0.2.0"
-# shortcut: provisional credit line; replace with ASF's official NISAR citation (docs/03 VERIFY).
-ATTRIBUTION = "NISAR data: NASA/JPL-Caltech and ISRO, distributed by ASF DAAC"
+ATTRIBUTION = "NISAR data: NASA/JPL/NISAR, distributed by NASA ASF DAAC"
+# Collection citations from the Earthdata catalog and CMR (docs/09-references.md).
+CITATIONS = {
+    "BETA": ("Beta", "10.5067/NIL2GCOV-B1"),
+    "PROVISIONAL": ("Provisional", "10.5067/NIL2GCOV-P1"),
+    "VALIDATED": ("Validated", "10.5067/NIL2GCOV-V1"),
+}
+
+
+def attribution(maturity: str) -> str:
+    """Credit line for GCOV-derived data of one maturity; generic for synthetic or other data."""
+    if maturity not in CITATIONS:
+        return ATTRIBUTION
+    name, doi = CITATIONS[maturity]
+    return (
+        f"NASA/JPL/NISAR (2026). NISAR {name} Geocoded Polarimetric Covariance Product "
+        f"(Version 1). NASA Alaska Satellite Facility DAAC. https://doi.org/{doi}"
+    )
+
+
 MATURITY_WORST_FIRST = ["OTHER", "BETA", "PROVISIONAL", "VALIDATED"]
 
 
@@ -43,17 +62,32 @@ def _write_json(path: Path, obj) -> None:
     os.replace(tmp, path)
 
 
+def _save_image(image: Image.Image, path: Path) -> None:
+    """Write then rename, so a running server never serves a half-written PNG."""
+    tmp = path.with_name(path.name + ".tmp")
+    image.save(tmp, format="PNG")
+    for attempt in range(20):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            # Windows refuses to replace a file another process (the server) has open; wait.
+            if attempt == 19:
+                raise
+            time.sleep(0.25)
+
+
 def _write_png(path: Path, db: np.ndarray, lo: float, hi: float) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     gray = np.clip((np.nan_to_num(db, nan=lo) - lo) / ((hi - lo) or 1) * 255, 0, 255)
     alpha = np.isfinite(db) * 255
-    Image.fromarray(np.dstack([gray, alpha]).astype("uint8")).save(path)
+    _save_image(Image.fromarray(np.dstack([gray, alpha]).astype("uint8")), path)
 
 
 def write_rgba(path: Path, rgba: np.ndarray) -> None:
     """Colors baked in: the frontend shows overlay images as they are."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(rgba.astype("uint8"), "RGBA").save(path)
+    _save_image(Image.fromarray(rgba.astype("uint8"), "RGBA"), path)
 
 
 def load_events(data_dir: Path) -> dict:
@@ -99,7 +133,7 @@ def _area(manifest: dict, g: Granule) -> dict:
         "same viewing geometry, so dates can be compared.",
         "change_types": ["other"],
         "layers": [],
-        "credits": [ATTRIBUTION],
+        "credits": [attribution(g.maturity)],
     }
     manifest["areas"].append(area)
     return area
@@ -156,7 +190,7 @@ def backscatter_layer(
             ],
             "params": {"term": term, **params, "stretch_percentiles": [2, 98]},
             "software": _software(),
-            "attribution": ATTRIBUTION,
+            "attribution": attribution(g.maturity),
         },
         # Extra fields (contracts allow unknown fields): role separates backscatter from change
         # layers; stats feeds the time series.

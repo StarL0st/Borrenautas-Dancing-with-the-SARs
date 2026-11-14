@@ -11,10 +11,10 @@ from pyproj import Transformer
 
 from . import classify
 from .export import (
-    ATTRIBUTION,
     _area,
     _refresh_area,
     _software,
+    attribution,
     backscatter_layer,
     load_manifest,
     write_events,
@@ -157,7 +157,7 @@ def _change_layer(layer_id, title, description, url, bounds, pair, pol, maturity
         "provenance": {
             "source_granules": [a.granule.granule_id, b.granule.granule_id],
             "software": _software(),
-            "attribution": ATTRIBUTION,
+            "attribution": attribution(maturity),
             **extra,
         },
     }
@@ -225,6 +225,7 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
         summary=site["summary"],
         change_types=site["change_types"],
         site=site_id,
+        credits=[attribution(maturity)],
     )
     area["layers"] = []  # a site run rebuilds its area from scratch
     steps = [
@@ -324,7 +325,7 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
                         ],
                         "params": {**params, **cfg},
                         "software": _software(),
-                        "attribution": ATTRIBUTION,
+                        "attribution": attribution(maturity),
                         "stats": {k: r[k] for k in ("n_pixels", "mean_d_hh", "mean_d_hv")},
                     },
                 }
