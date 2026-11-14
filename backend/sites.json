@@ -122,8 +122,9 @@
   },
   "mexico": {
     "title": "Mexico",
-    "summary": "The whole country at about 2 km: soil moisture from every NISAR pass in the two latest 12-day cycles, how it changed between them, and recent fire detections. Look up any place for full-detail radar.",
+    "summary": "The whole country at about 2 km, clipped to the border: soil moisture from every NISAR pass in the two latest 12-day cycles, how it changed between them, and recent fire detections. Look up any place for full-detail radar.",
     "kind": "mosaic",
+    "clip": "mexico",
     "bbox": [
       -118.5,
       14.4,

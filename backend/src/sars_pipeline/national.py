@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
+import shapely
 from pyproj import Transformer
 from scipy import ndimage
 
@@ -30,6 +31,13 @@ CELL = 36032.220840584 / 180 * 10
 CYCLE_DAYS = 12  # NISAR repeat cycle: one cycle covers the country once per direction
 DEFAULTS = {"drying_drop": 0.05, "min_cells": 250, "max_events": 12, "min_fine_pixels": 30}
 FIRE_DAYS = 10
+BORDERS = Path(__file__).parent / "borders"  # country outlines (Natural Earth, public domain)
+
+
+def border(name: str):
+    """A country outline in degrees, grown by about one mosaic cell so coastal cells stay in."""
+    feature = json.loads((BORDERS / f"{name}.geojson").read_text(encoding="utf-8"))
+    return shapely.geometry.shape(feature["geometry"]).buffer(0.02)
 
 
 def select(site_id: str, cfg: dict, out: Path, days: int = 75) -> dict:
@@ -133,6 +141,15 @@ def run_mosaic(run, sel: dict, cfg: dict) -> None:
     )
     bounds = [round(v, 5) for v in (west, south, east, north)]
     rows = mercator_rows(south, north, shape[0], r_top).clip(0, shape[0] - 1)
+    # Site field "clip": keep only cells whose center is inside the named country outline.
+    land = border(run.site["clip"]) if run.site.get("clip") else None
+    inside = np.ones(shape, bool)
+    if land is not None:
+        # The grid is cylindrical: longitude depends on the column only, latitude on the row only.
+        to_deg = Transformer.from_crs(EPSG, 4326, always_xy=True)
+        lon, _ = to_deg.transform((c_left + np.arange(shape[1]) + 0.5) * CELL, np.zeros(shape[1]))
+        _, lat = to_deg.transform(np.zeros(shape[0]), -(r_top + np.arange(shape[0]) + 0.5) * CELL)
+        inside = shapely.contains_xy(land, *np.meshgrid(lon, lat))
 
     def load(row):
         try:
@@ -151,6 +168,7 @@ def run_mosaic(run, sel: dict, cfg: dict) -> None:
             "valid pixels"
         ),
         "mean of all passes in the 12-day cycle",
+        *([f"kept cells inside the {run.site['clip']} border (Natural Earth)"] if land else []),
     ]
     mosaics, points = [], []
     for start, end in sel["cycles"]:
@@ -161,7 +179,7 @@ def run_mosaic(run, sel: dict, cfg: dict) -> None:
         ]
         if not members:
             continue
-        sm = paste([t for _, t in members], r_top, c_left, shape)
+        sm = np.where(inside, paste([t for _, t in members], r_top, c_left, shape), np.nan)
         ids = [g["id"] for g, _ in members]
         mean, n = site._stats(sm)
         first = min(g["date"] for g, _ in members)
@@ -219,7 +237,7 @@ def run_mosaic(run, sel: dict, cfg: dict) -> None:
     )
     if len(mosaics) == 2:
         drying(run, mosaics, (r_top, c_left), bounds, rows, maturity, steps, cfg)
-    fires(run, bounds, rows, shape, (r_top, c_left), maturity)
+    fires(run, bounds, rows, shape, (r_top, c_left), maturity, land)
 
 
 def drying(run, mosaics, origin, bounds, rows, maturity, steps, cfg) -> None:
@@ -297,13 +315,15 @@ def drying(run, mosaics, origin, bounds, rows, maturity, steps, cfg) -> None:
         )
 
 
-def fires(run, bounds, rows, shape, origin, maturity) -> None:
+def fires(run, bounds, rows, shape, origin, maturity, land=None) -> None:
     """Context layer: NASA FIRMS detections of the last days. Not radar, and not events."""
     end = datetime.now(UTC).date()
     start = end - timedelta(days=FIRE_DAYS - 1)
     spots = firms.hotspots(
         run.site["bbox"], start.isoformat(), end.isoformat(), run.interim / "firms"
     )
+    if land is not None and spots:
+        spots = [h for h in spots if shapely.contains_xy(land, h["lon"], h["lat"])]
     if not spots:
         return
     run.credits.append(firms.CREDIT)

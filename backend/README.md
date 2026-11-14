@@ -54,6 +54,7 @@ Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa`
 **Country mosaic** (`national.py`, site field `"kind": "mosaic"`, e.g. `mexico`). SME2 only, no size limit.
 - Select: every SME2 granule over the bbox in the two latest 12-day cycles (about 250 granules per cycle for Mexico), one maturity.
 - Read: each granule's part inside the bbox, averaged to 10 x 10 pixel cells (about 2 km, at least 30 valid pixels per cell), cached in `data/interim/mosaic/`. The first run streams about 500 granules (about half an hour); later runs only new ones.
+- Clip: with the site field `"clip": "mexico"`, only cells whose center is inside the country outline are kept (image, series, drying events, fire detections). Outline: `src/sars_pipeline/borders/mexico.geojson`, from Natural Earth 1:10m Admin 0 Countries (public domain), simplified to 0.005 degrees and grown by 0.02 degrees (one cell) so coastal cells stay.
 - Mosaic: mean of every pass in the cycle, by grid index (all SME2 share one global grid). Image rows are respaced from the equal-area grid to Web Mercator so the picture lines up at country scale.
 - Layers: `Soil moisture` per cycle, `Soil moisture change` (latest minus previous), `Fire detections` (NASA FIRMS, last 10 days, needs `FIRMS_MAP_KEY`). Series: mean soil moisture per cycle.
 - Events: `soil_drying` regions (cells drier by 0.05 m3/m3 or more, 250+ joined cells, the 12 largest). Two cycles cannot tell drought from the end of the rainy season; the event text says so. Fires are a layer, not events.

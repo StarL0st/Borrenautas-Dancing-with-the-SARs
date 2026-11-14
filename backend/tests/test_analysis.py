@@ -508,6 +508,36 @@ def test_mosaic_site_writes_layers_and_drying_event(tmp_path, monkeypatch):
     assert event["evidence"]["drop_m3_m3"] == 0.15
 
 
+def test_mosaic_clip_keeps_only_cells_inside_the_border(tmp_path, monkeypatch):
+    from sars_pipeline import national
+    from sars_pipeline.site import run_site
+
+    # Tijuana and San Diego: the border crosses the box, the ocean is to the west.
+    bbox = [-117.4, 32.0, -116.4, 33.0]
+    cfg = {"title": "T", "summary": "s", "kind": "mosaic", "bbox": bbox, "change_types": ["other"]}
+    x, y = national.Transformer.from_crs(4326, national.EPSG, always_xy=True).transform(-117.4, 33)
+    tile = (int(-y // national.CELL), int(x // national.CELL), np.full((80, 60), 0.3))
+    monkeypatch.setattr(national, "cached_coarse", lambda row, *a: tile)
+    monkeypatch.setattr(national.firms, "hotspots", lambda *a: None)
+    sme2 = {
+        "maturity": "PROVISIONAL",
+        "cycles": [["2026-09-27", "2026-10-09"], ["2026-10-09", "2026-10-21"]],
+        "granules": [{"id": "A", "date": "2026-10-15"}],
+    }
+    cells = {}
+    for name, site in (("all", cfg), ("mx", {**cfg, "clip": "mexico"})):
+        out = tmp_path / name
+        run_site("s", site, out, tmp_path / "interim", {"products": {"SME2": sme2}})
+        series = json.loads(
+            (out / load_manifest(out)["areas"][0]["timeseries"][0]["url"]).read_text()
+        )
+        cells[name] = series["points"][0]["n_pixels"]
+    assert 0 < cells["mx"] < cells["all"] * 0.6  # the United States and the sea are gone
+    land = national.border("mexico")
+    assert national.shapely.contains_xy(land, -116.9, 32.4)  # Tijuana side
+    assert not national.shapely.contains_xy(land, -117.1, 32.8)  # San Diego
+
+
 def test_friendly_cards_grade_by_share_and_confidence():
     from sars_pipeline import friendly
 
