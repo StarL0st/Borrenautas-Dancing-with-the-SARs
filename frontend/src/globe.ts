@@ -34,6 +34,14 @@ const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string 
   street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
 };
 const WELCOME_DROP = 0.36; // how far down the welcome screen pushes the horizon, as a share of the height
+// The welcome screen's own camera: the zoom and tilt the opening animation was designed for, so the
+// Earth's curve crosses the screen and the name's letters can rise from behind it. It is not the
+// close-up view's camera (zoom 5.2 over Mexico), which is so close that the horizon is almost flat.
+const WELCOME_CAM = { zoom: 3.6, pitch: 76 };
+// On Start the camera pulls back until the whole globe fits the map area with this much room around
+// it, so the letters can circle its edge and pass behind it. The Globe view and home buttons keep
+// their own, closer view (HOME.globe).
+const GLOBE_FIT = 0.4; // the globe's radius, as a share of the smaller side of the map area
 const SPIN_PX_PER_S = 24; // auto-rotate speed on screen: about one turn a minute when zoomed out
 
 // The background layer is local, so if the basemap tiles fail the globe and overlays still draw.
@@ -444,17 +452,26 @@ export function createGlobe(
     },
 
     // The welcome screen skims the surface with the Earth's curve low on the screen; leaving it
-    // swings a sixth of a turn round to the whole globe. MapLibre jumps instead for reduced motion.
-    // About the globe's radius on screen in the whole-Earth view, in pixels (it varies a little
-    // with the window size), for planning a path round it.
-    roughRadius: (0.85 * 512 * 2 ** HOME.globe.zoom) / (2 * Math.PI * Math.cos((HOME.globe.center[1] * Math.PI) / 180)),
-
-    welcome(on: boolean, duration: number) {
+    // swings round to the whole globe over Mexico. MapLibre jumps instead for reduced motion.
+    // `fit`: the map area the panels will leave once they are in (they slide in while the camera
+    // moves, so the map's size now is not its final size). Returns the globe's radius on screen in
+    // pixels, for planning the letters' path round it.
+    welcome(on: boolean, duration: number, fit?: { w: number; h: number }): number {
       popup.remove();
       mode = "globe";
       const lng = map.getCenter().lng;
-      if (on) map.easeTo({ ...HOME.closeup, center: [lng, 20], padding: { top: map.getContainer().clientHeight * WELCOME_DROP }, duration });
-      else map.easeTo({ ...HOME.globe, center: [lng - 60, 20], padding: { top: 0 }, duration });
+      const lat = HOME.globe.center[1];
+      // Rough size of the globe on screen at a zoom (pixels), and its inverse.
+      const perZoom = (0.85 * 512) / (2 * Math.PI * Math.cos((lat * Math.PI) / 180));
+      if (on) {
+        map.easeTo({ ...HOME.closeup, ...WELCOME_CAM, center: [lng, 20], padding: { top: map.getContainer().clientHeight * WELCOME_DROP }, duration });
+        return perZoom * 2 ** WELCOME_CAM.zoom;
+      }
+      const box = fit ?? { w: map.getContainer().clientWidth, h: map.getContainer().clientHeight };
+      const radius = GLOBE_FIT * Math.min(box.w, box.h);
+      const zoom = Math.min(HOME.globe.zoom, Math.log2(radius / perZoom));
+      map.easeTo({ ...HOME.globe, zoom, padding: { top: 0 }, duration });
+      return perZoom * 2 ** zoom;
     },
 
     async setTexture(next: Texture) {
