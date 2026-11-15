@@ -7,7 +7,7 @@
 //
 // Memory: a page drawn at screen sharpness takes several MB, so only the pages near the view are
 // drawn; pages far away are cleared again, and the document is released when the reader closes.
-import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { t } from "./i18n";
 import { el } from "./ui";
@@ -68,7 +68,9 @@ export async function openReader(doc: ReaderDoc): Promise<void> {
     const first = await pdf.getPage(1);
     const base = first.getViewport({ scale: 1 });
     const height = Math.round((width * base.height) / base.width);
-    const drawn = new Map<HTMLCanvasElement, Promise<void>>();
+    // Pages drawn or being drawn, with their drawing task so a page cleared mid-drawing is stopped
+    // (pdf.js refuses two drawings on one canvas at a time).
+    const drawn = new Map<HTMLCanvasElement, { task?: RenderTask }>();
     const slots = Array.from({ length: pdf.numPages }, (_, i) => {
       const canvas = el("canvas", { className: "reader-page", width: 0, height: 0 }); // no pixels until drawn
       canvas.dataset.page = String(i + 1);
@@ -82,21 +84,27 @@ export async function openReader(doc: ReaderDoc): Promise<void> {
 
     const draw = (canvas: HTMLCanvasElement) => {
       if (drawn.has(canvas)) return;
-      const job = (async () => {
+      const entry: { task?: RenderTask } = {};
+      drawn.set(canvas, entry);
+      (async () => {
         const page = await pdf.getPage(Number(canvas.dataset.page));
+        if (drawn.get(canvas) !== entry) return; // cleared while the page was loading
         const view = page.getViewport({ scale: (width / page.getViewport({ scale: 1 }).width) * ratio });
         canvas.width = Math.floor(view.width);
         canvas.height = Math.floor(view.height);
-        await page.render({ canvasContext: canvas.getContext("2d")!, viewport: view }).promise;
+        entry.task = page.render({ canvasContext: canvas.getContext("2d")!, viewport: view });
+        await entry.task.promise;
         page.cleanup();
       })().catch(() => {
-        drawn.delete(canvas); // the reader was closed meanwhile, or the page failed: try again later
+        // Cancelled (cleared or closed) or failed: drawn again when it comes back into view.
+        if (drawn.get(canvas) === entry) drawn.delete(canvas);
       });
-      drawn.set(canvas, job);
     };
     const clear = (canvas: HTMLCanvasElement) => {
-      if (!drawn.has(canvas)) return;
+      const entry = drawn.get(canvas);
+      if (!entry) return;
       drawn.delete(canvas);
+      entry.task?.cancel();
       canvas.width = canvas.height = 0; // gives the pixels back; the slot keeps its size
     };
     // Draw pages within one screen of the view; clear those more than four screens away. Worked
@@ -119,6 +127,7 @@ export async function openReader(doc: ReaderDoc): Promise<void> {
     state.stop = () => {
       body.removeEventListener("scroll", onScroll);
       clearTimeout(timer);
+      for (const entry of drawn.values()) entry.task?.cancel();
     };
     update();
   } catch (err) {

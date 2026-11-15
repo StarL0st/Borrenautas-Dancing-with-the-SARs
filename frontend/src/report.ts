@@ -312,12 +312,13 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   const ensure = (h: number) => {
     if (y + h > BOTTOM) newPage();
   };
-  const para = (text: string, opts: { size?: number; style?: "normal" | "bold" | "italic"; c?: RGB; gap?: number; x?: number; w?: number } = {}) => {
+  // `keep`: never start a new page (inside a two-column row, whose room was checked beforehand).
+  const para = (text: string, opts: { size?: number; style?: "normal" | "bold" | "italic"; c?: RGB; gap?: number; x?: number; w?: number; keep?: boolean } = {}) => {
     const size = opts.size ?? 10, lh = size * 0.42;
     font(size, opts.style);
     color(opts.c ?? INK);
     for (const line of doc.splitTextToSize(clean(text), opts.w ?? CW) as string[]) {
-      ensure(lh);
+      if (!opts.keep) ensure(lh);
       doc.text(line, opts.x ?? M, y + lh * 0.8);
       y += lh;
     }
@@ -386,6 +387,18 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     else if (kind === "feed") doc.triangle(cx, cy - r, cx + r, cy + r * 0.8, cx - r, cy + r * 0.8, "F");
     else doc.rect(cx - r * 0.8, cy - r * 0.8, r * 1.6, r * 1.6, "F");
   };
+  // Text cut to `max` lines of `width`, ending in "..." when cut, so nothing is silently truncated.
+  const fitLines = (text: string, width: number, max: number): string[] => {
+    const lines = doc.splitTextToSize(clean(text), width) as string[];
+    if (lines.length <= max) return lines;
+    const kept = lines.slice(0, max);
+    let last = kept[max - 1];
+    while (last && doc.getTextWidth(`${last}...`) > width) last = last.slice(0, -1);
+    kept[max - 1] = `${last.trimEnd()}...`;
+    return kept;
+  };
+  // A picture's width so that its height stays within `maxH` (very tall pictures would leave the page).
+  const fitW = (w: number, ratio: number, maxH: number) => Math.min(w, maxH / ratio);
   const table = (head: string[], body: (string | number)[][], opts: { widths?: number[]; size?: number; accent?: RGB; bold?: number } = {}) => {
     autoTable(doc, {
       head: [head.map(clean)],
@@ -428,25 +441,38 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     }
     y += 6.5;
   };
-  // Figures two per row: each with its source chip, picture, legend and caption.
+  // Height `swatches` will take in a column of `width` (same wrapping rule).
+  const swatchesH = (items: [RGB, string][], width: number) => {
+    font(8);
+    let x = 0, rows = 1;
+    for (const [, label] of items) {
+      const w = doc.getTextWidth(clean(label)) + 8;
+      if (x + w > width && x > 0) (x = 0), rows++;
+      x += w + 2;
+    }
+    return (rows - 1) * 5 + 6.5;
+  };
+  // Figures two per row: each with its source chip, picture, legend and caption. The room for the
+  // whole row is measured first, so a row never breaks across pages.
   type Fig = { img: { url: string; ratio: number }; kind: keyof typeof KIND; label: string; legend?: [RGB, string][]; caption: string };
   const figureRows = (figs: Fig[]) => {
-    const w = (CW - 6) / 2;
+    const colW = (CW - 6) / 2;
     for (let i = 0; i < figs.length; i += 2) {
       const row = figs.slice(i, i + 2);
       font(8);
-      const textH = (f: Fig) => (doc.splitTextToSize(clean(f.caption), w).length as number) * 3.4 + (f.legend ? 11 : 0);
-      const need = Math.max(...row.map((f) => 8 + w * f.img.ratio + 3 + textH(f))) + 4;
+      const picW = (f: Fig) => fitW(colW, f.img.ratio, 120);
+      const textH = (f: Fig) => (doc.splitTextToSize(clean(f.caption), colW).length as number) * 3.36 + (f.legend ? swatchesH(f.legend, colW) : 0);
+      const need = Math.max(...row.map((f) => 7.5 + picW(f) * f.img.ratio + 2 + textH(f))) + 4;
       ensure(need);
       const top = y;
       let bottom = y;
       row.forEach((f, k) => {
-        const x = M + k * (w + 6);
+        const x = M + k * (colW + 6);
         y = top;
-        chip(f.kind, f.label, x, w, true);
-        y += picture(f.img, w, x) + 2;
-        if (f.legend) swatches(f.legend, x, w, true);
-        para(f.caption, { size: 8, c: MUTED, x, w, gap: 0 });
+        chip(f.kind, f.label, x, colW, true);
+        y += picture(f.img, picW(f), x) + 2;
+        if (f.legend) swatches(f.legend, x, colW, true);
+        para(f.caption, { size: 8, c: MUTED, x, w: colW, gap: 0, keep: true });
         bottom = Math.max(bottom, y);
       });
       y = bottom + 6;
@@ -489,7 +515,12 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   const tiles: [string, string][] = [
     [L.passes, radarDates.length ? `${radarDates[0]} - ${radarDates.at(-1)}` : L.none],
     [L.changes, String(events.length)],
-    [L.kinds, kinds.length ? kinds.slice(0, 2).map(([k]) => env.typeName(k)).join(", ") : L.none],
+    // Two kinds when both fit in the tile, else the main one (never a name cut in half).
+    [L.kinds, !kinds.length ? L.none : (() => {
+      font(9.5, "bold");
+      const two = kinds.slice(0, 2).map(([k]) => env.typeName(k)).join(", ");
+      return (doc.splitTextToSize(clean(two), (CW - 9) / 4 - 6).length as number) <= 2 ? two : env.typeName(kinds[0][0]);
+    })()],
     [L.maturity, maturities.join(", ") || L.none],
   ];
   font(12, "bold");
@@ -506,7 +537,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     doc.text(clean(label.toUpperCase()), x + 3, y + 5.5, { maxWidth: tileW - 6 });
     font(value.length > 14 ? 9.5 : 14, "bold");
     color(INK);
-    doc.text(doc.splitTextToSize(clean(value), tileW - 6).slice(0, 2) as string[], x + 3, y + (value.length > 14 ? 12.5 : 15));
+    doc.text(fitLines(value, tileW - 6, 2), x + 3, y + (value.length > 14 ? 12.5 : 15));
   });
   y += 28;
   if (a.summary) {
@@ -519,6 +550,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     const lines = meta.changes.map((c) => `·  ${c}`);
     font(9);
     const h = 9 + lines.reduce((n, l) => n + (doc.splitTextToSize(clean(l), CW - 10).length as number) * 4, 0);
+    ensure(h + 3);
     doc.setFillColor(255, 244, 236);
     doc.setDrawColor(...ACCENT);
     doc.setLineWidth(0.4);
@@ -529,7 +561,15 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     for (const l of lines) para(l, { size: 9, x: M + 4, w: CW - 8, gap: 0 });
     y = top + h + 3;
   }
-  const tocY = y + 4; // contents are written here once the page numbers are known
+  // The contents go on the cover when they fit under everything above; otherwise on a page of their
+  // own right after it (a long summary or a long "what is new" list).
+  const TOC_ROOM = 14 + 12 * 6.4;
+  let tocPage = 1, tocY = y + 4;
+  if (doc.getNumberOfPages() > 1 || tocY + TOC_ROOM > BOTTOM) {
+    newPage();
+    tocPage = doc.getNumberOfPages();
+    tocY = TOP + 4;
+  }
 
   // ===== 1. Where the data come from =====
   section(L.sSources, true);
@@ -579,8 +619,8 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   const sideBySide = async (left: HTMLImageElement | undefined, right: HTMLImageElement | undefined, labels: [string, string], kind: keyof typeof KIND) => {
     const l = flatten([left], 700), r = flatten([right], 700);
     if (!l || !r) return false;
-    const w = (CW - 4) / 2;
-    ensure(w * l.ratio + 22);
+    const w = fitW((CW - 4) / 2, Math.max(l.ratio, r.ratio), 120);
+    ensure(w * Math.max(l.ratio, r.ratio) + 22);
     chip(kind, `${labels[0]} · ${labels[1]}`);
     const top = y;
     picture(l, w);
@@ -652,7 +692,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
       ensure(7);
       font(9);
       color(INK);
-      doc.text(clean(env.typeName(k)), M, y + 3.6, { maxWidth: 52 });
+      doc.text(fitLines(env.typeName(k), 52, 1), M, y + 3.6);
       const w = ((CW - 72) * n) / most;
       doc.setFillColor(...KIND.nisar);
       doc.roundedRect(M + 56, y, Math.max(w, 0.8), 4.6, 0.8, 0.8, "F");
@@ -668,7 +708,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
       heading(L.byMonth);
       const ms = [...months].sort();
       const top = Math.max(...ms.map((p) => p[1]));
-      const bw = Math.min(16, (CW - 10) / ms.length - 2), chartH = 30;
+      const bw = Math.max(1, Math.min(16, (CW - 10) / ms.length - 2)), chartH = 30;
       ensure(chartH + 12);
       ms.forEach(([m, n], i) => {
         const x = M + i * (bw + 2), h = (chartH * n) / top;
@@ -688,13 +728,8 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     heading(fill(L.top, { n: best.length }));
     best.forEach((e, i) => {
       ensure(18);
-      font(10, "bold");
-      color(INK);
-      doc.text(clean(`${i + 1}. ${e.title}`), M, y + 3.5);
-      font(8.5);
-      color(MUTED);
-      doc.text(clean(`${e.from} - ${e.to} · ${env.typeName(e.category)} · ${e.area_km2.toFixed(2)} km² · ${Math.round(e.confidence * 100)}%`), M, y + 8);
-      y += 10;
+      para(`${i + 1}. ${e.title}`, { size: 10, style: "bold", gap: 0.5 });
+      para(`${e.from} - ${e.to} · ${env.typeName(e.category)} · ${e.area_km2.toFixed(2)} km² · ${Math.round(e.confidence * 100)}%`, { size: 8.5, c: MUTED, gap: 1 });
       para(e.summary, { size: 9, gap: 3 });
     });
     ensure(45); // the full table never starts with its heading alone at the foot of a page
@@ -716,7 +751,12 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     for (const [units, lines] of series) drawChart(lines.slice(0, 3), units);
   }
 
-  function drawChart(lines: Series[], units: string) {
+  function drawChart(all: Series[], units: string) {
+    // Only points with a real date and a number: the PDF library throws on a NaN coordinate.
+    const lines = all
+      .map((s) => ({ ...s, points: s.points.filter((p) => Number.isFinite(Date.parse(p.date)) && Number.isFinite(p.value)) }))
+      .filter((s) => s.points.length);
+    if (!lines.length) return;
     const h = 58, left = M + 12, w = CW - 14;
     ensure(h + 22);
     heading(units, 10);
@@ -766,19 +806,23 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   function sourceList(sources: Source[]) {
     heading(L.sources, 10);
     for (const s of sources) {
-      ensure(5);
+      // Long names (study citations) wrap instead of running off the page; every line links.
       font(8.5);
-      color(KIND.nisar);
-      const label = clean(s.name);
-      if (s.url) doc.textWithLink(label, M + 3, y + 3.2, { url: s.url });
-      else doc.text(label, M + 3, y + 3.2);
+      const lines = doc.splitTextToSize(clean(s.name), CW - 6) as string[];
+      ensure(lines.length * 3.8 + (s.url ? 4 : 0) + 2);
+      color(s.url ? KIND.nisar : INK);
+      for (const line of lines) {
+        if (s.url) doc.textWithLink(line, M + 3, y + 3.2, { url: s.url });
+        else doc.text(line, M + 3, y + 3.2);
+        y += 3.8;
+      }
       if (s.url) {
         font(7.5);
         color(MUTED);
-        doc.text(doc.splitTextToSize(clean(s.url), CW - 6)[0] as string, M + 3, y + 7);
+        doc.text(fitLines(s.url, CW - 6, 1), M + 3, y + 3);
         y += 4;
       }
-      y += 5.5;
+      y += 2;
     }
   }
 
@@ -793,6 +837,9 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
       history.map((e) => [e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang), e.sources.map((s) => s.name).join("; ")]),
       { widths: [20, 42, 76, 40], size: 8 },
     );
+    // The table names its sources; here they are again, with their links.
+    const seen = new Set<string>();
+    sourceList(history.flatMap((e) => e.sources).filter((s) => !seen.has(s.name) && seen.add(s.name)));
   }
 
   // ===== 7. Live reports nearby =====
@@ -800,7 +847,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   chip("feed", "USGS · NASA EONET · GDACS · NOAA");
   if (!snap.live.length) para(L.noLive, { c: MUTED });
   else {
-    para(fill(L.liveIntro, { date: `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC` }), { size: 9, c: MUTED });
+    para(fill(L.liveIntro, { date: utc(snap.asOf.live) }), { size: 9, c: MUTED });
     // Satellite fire hot spots come by the dozen: one line for all of them, the rest as a table.
     const fires = snap.live.filter((p) => p.source === "firms");
     const others = snap.live.filter((p) => p.source !== "firms").sort((p, q) => q.date.localeCompare(p.date));
@@ -858,7 +905,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   para(fill(L.refsIntro, { date: SOURCES_CHECKED }), { size: 9, c: MUTED, gap: 4 });
   cited.forEach((id, i) => {
     const r = REFS[id];
-    ensure(11);
+    ensure(16); // number, title (up to two lines) and link stay on one page
     font(9, "bold");
     color(INK);
     doc.text(`[${i + 1}]`, M, y + 3.4);
@@ -881,14 +928,14 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
   color(INK);
   doc.text(disclaimer, M + 4, y + 6.5);
 
-  // ===== Contents on the cover, then headers and footers =====
-  doc.setPage(1);
+  // ===== Contents (on the cover, or the page after it), then headers and footers =====
+  doc.setPage(tocPage);
   y = tocY;
   font(12, "bold");
   color(NAVY);
   doc.text(clean(L.contents), M, y);
   y += 3;
-  const step = meta.replaces ? 5.4 : 6.4; // a "what is new" box takes room on the cover
+  const step = tocPage === 1 && meta.replaces ? 5.4 : 6.4; // a "what is new" box takes room on the cover
   toc.forEach((entry, i) => {
     y += step;
     font(10);

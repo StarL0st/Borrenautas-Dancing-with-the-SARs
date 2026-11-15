@@ -469,7 +469,11 @@ function radarSection(a: AreaView): Node[] {
 
 // ---- Simple mode's guide (words in kid.ts and i18n.ts "kid.*") ----
 
-const kidDate = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString(lang(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+// "October 21, 2026"; a missing or broken date is shown as it is, never as "Invalid Date".
+const kidDate = (d: string) => {
+  const day = new Date(`${(d ?? "").slice(0, 10)}T12:00:00Z`);
+  return Number.isFinite(day.getTime()) ? day.toLocaleDateString(lang(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : d || "-";
+};
 
 // A numbered question with its answer.
 function kidQ(n: number, title: Key, ...body: (Node | string)[]): HTMLElement {
@@ -1358,7 +1362,8 @@ async function loadLive() {
     // A failed refresh keeps what was already shown (and the reports made from it); only a first
     // load with nothing to show falls back to the example places.
     if (live.length) {
-      setStatus("status.stale", {}, true);
+      // Still waiting for the detected changes: keep saying exactly that.
+      if (!eventsMissing) setStatus("status.stale", {}, true);
       return;
     }
     reports = [];
@@ -1469,7 +1474,11 @@ async function loadLiveFeeds() {
     // failing feed does not look like its events all ended.
     if (got.ok) {
       askedAt = now;
-      liveEvents = [...got.features, ...liveEvents.filter((f) => (got.failed as string[]).includes(f.properties.source))];
+      // Kept for at most 24 hours from their date, even when their source lists them as still going on:
+      // a source that keeps failing cannot vouch for that any more.
+      const day = (d: string) => Date.parse(/T/.test(d) ? d : `${d}T23:59:00Z`);
+      const kept = liveEvents.filter((f) => (got.failed as string[]).includes(f.properties.source) && now - day(f.properties.date) < 86_400_000);
+      liveEvents = [...got.features, ...kept];
       liveUpdated = got.generated_at;
       liveEvery = LIVE_MINUTES;
     }

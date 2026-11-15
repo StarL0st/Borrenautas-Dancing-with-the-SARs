@@ -222,17 +222,30 @@ export function comparator(o: CompareOptions): HTMLElement {
     return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height] as const;
   };
 
+  // The wheel zooms only while it can: at full size (zooming out) or at 8× (zooming in) it scrolls
+  // the panel as usual instead of being swallowed.
   frame.addEventListener("wheel", (e) => {
+    const zoomIn = e.deltaY < 0;
+    if (zoomIn ? s.z >= MAX_ZOOM : s.z <= 1) return;
     e.preventDefault();
-    zoomAt(e.deltaY < 0 ? 1.25 : 0.8, ...at(e));
+    zoomAt(zoomIn ? 1.25 : 0.8, ...at(e));
   }, { passive: false });
-  frame.ondblclick = (e) => zoomAt(2, ...at(e));
+  // A double-click zooms; its two presses must not also move the divider.
+  let swipeBeforePress = s.swipe, pressAt = 0;
+  frame.ondblclick = (e) => {
+    swipe.value = String(swipeBeforePress);
+    setSwipe();
+    zoomAt(2, ...at(e));
+  };
 
   // Drag: moves the picture when zoomed in, the divider when not.
   let drag: { x: number; y: number; cx: number; cy: number } | undefined;
   frame.onpointerdown = (e) => {
     frame.setPointerCapture(e.pointerId);
     drag = { x: e.clientX, y: e.clientY, cx: s.cx, cy: s.cy };
+    // Remember where the divider was before the first press of a possible double-click.
+    if (e.timeStamp - pressAt > 500) swipeBeforePress = s.swipe;
+    pressAt = e.timeStamp;
     if (s.z <= 1) {
       swipe.value = String(Math.round(at(e)[0] * 100));
       setSwipe();
@@ -252,12 +265,18 @@ export function comparator(o: CompareOptions): HTMLElement {
   };
   frame.onpointerup = frame.onpointercancel = () => (drag = undefined);
 
+  // Keys: + and − zoom, 0 resets; the arrows move the picture when zoomed in, and the divider
+  // (left/right) when not, like dragging.
+  const nudgeSwipe = (d: number) => {
+    swipe.value = String(Math.min(100, Math.max(0, s.swipe + d)));
+    setSwipe();
+  };
   frame.onkeydown = (e) => {
-    const step = 0.1 / s.z;
+    const step = 0.1 / s.z, full = s.z <= 1;
     const moves: Record<string, () => void> = {
       "+": () => zoomAt(1.5), "=": () => zoomAt(1.5), "-": () => zoomAt(1 / 1.5), "0": () => resetView(),
-      ArrowLeft: () => ((s.cx -= step), draw()), ArrowRight: () => ((s.cx += step), draw()),
-      ArrowUp: () => ((s.cy -= step), draw()), ArrowDown: () => ((s.cy += step), draw()),
+      ArrowLeft: () => (full ? nudgeSwipe(-5) : ((s.cx -= step), draw())), ArrowRight: () => (full ? nudgeSwipe(5) : ((s.cx += step), draw())),
+      ...(full ? {} : { ArrowUp: () => ((s.cy -= step), draw()), ArrowDown: () => ((s.cy += step), draw()) }),
     };
     if (!moves[e.key]) return;
     e.preventDefault();

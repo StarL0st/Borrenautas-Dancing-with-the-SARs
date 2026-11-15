@@ -5,7 +5,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 
 ## What the branch has now (after round 10)
 
-- **Round 10 (code review fixes):** failed or slow loads no longer wipe data or put false numbers in reports; no update is lost while a report is being made; the reader draws only the pages near the view; open cards no longer reset every 5 minutes. Pushed to GitHub only up to round 9; round 10 is local.
+- **Round 10 (code review fixes):** failed or slow loads no longer wipe data or put false numbers in reports; no update is lost while a report is being made; the reader draws only the pages near the view; open cards no longer reset every 5 minutes. Round 11 fixed what a second review found (report layout, reader, comparator controls). Pushed to GitHub only up to round 9; rounds 10 and 11 are local.
 
 - **Reading a zone's report works everywhere** (round 9): "Read the report" opens it inside the page; "Download full report (PDF)" is a plain link to the finished file.
 
@@ -63,7 +63,29 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `e8d9080` | 9 | Report reader inside the page; report buttons become links to a file made in advance |
 | `1d955b6` | 9 | Docs: round 9 (pushed to GitHub `jopa-testing`) |
 | `9cd2dde` | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
-| *this commit* | 10 | Docs: round 10 |
+| `7145939` | 10 | Docs: round 10 |
+| *next commit* | 11 | Second review: report layout, reader drawing, comparator controls, live and status edge cases |
+| *this commit* | 11 | Docs: round 11 |
+
+## Round 11 (2026-11-15): second review (local, not pushed; checked with tests, type-check and a build, not run)
+
+| Where | Problem | Fix |
+|---|---|---|
+| PDF, picture rows | A long caption or a wrapping legend could start a new page halfway through a two-picture row, leaving the second picture on the wrong page | The whole row is measured first (legend rows included) and its text never breaks the page |
+| PDF, pictures | A very tall picture could run past the bottom of the page | Pictures are kept within 120 mm of height |
+| PDF, cover | A long summary or a long "what is new" list could push the contents off the cover | The contents move to their own page after the cover when they do not fit; the "what is new" box checks its room |
+| PDF, cover tile and bars | "Main kinds of change" and the bar labels were cut mid-phrase with no sign ("Agriculture, Deforestation and") | Two kinds only when both fit, else the main one; anything cut ends in "..." |
+| PDF, top changes | Long change titles did not wrap | They wrap |
+| PDF, charts | A point with a broken date or value would make the PDF library throw, failing the whole report | Such points are left out; a line with none is skipped |
+| PDF, sources | Long source names (study citations) ran off the page | They wrap, every line linked |
+| PDF, remarkable events | The table named its sources but had no links | The sources follow the table with their links |
+| PDF, live reports | "As of" used the time the PDF was drawn | It uses the time the reports were published |
+| PDF, references | A reference number could be left alone at the foot of a page | Each reference stays on one page |
+| Reader | Clearing a page while pdf.js was still drawing it could make it refuse the next drawing (blank or flickering page) | Each page's drawing is cancelled when it is cleared or the reader closes |
+| Comparator | A double-click to zoom also moved the divider; the wheel over a picture blocked page scrolling even at full size or 8×; the arrow keys did nothing at full size | The divider is put back on a double-click; the wheel scrolls the page when it cannot zoom further; left/right move the divider at full size |
+| Live reports | A source that kept failing kept its "still going on" events forever | Kept events from a failing source expire 24 hours after their date |
+| Status | A failed retry of the detected changes switched to "could not refresh" | It keeps saying the changes have not loaded yet |
+| Simple guide | A missing date would read "Invalid Date" | It shows the raw value or "-" |
 
 ## Round 10 (2026-11-15): code review fixes (local, not pushed)
 
