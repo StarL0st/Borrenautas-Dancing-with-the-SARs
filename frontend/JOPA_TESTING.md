@@ -64,7 +64,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `1d955b6` | 9 | Docs: round 9 (pushed to GitHub `jopa-testing`) |
 | `9cd2dde` | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
 | `7145939` | 10 | Docs: round 10 |
-| *next commit* | 11 | Second review: report layout, reader drawing, comparator controls, live and status edge cases |
+| `a40d77a` | 11 | Second review: report layout, reader drawing, comparator controls, live and status edge cases |
 | *this commit* | 11 | Docs: round 11 |
 
 ## Round 11 (2026-11-15): second review (local, not pushed; checked with tests, type-check and a build, not run)
