@@ -15,9 +15,10 @@ import { CLASSES, RAMPS } from "./legend";
 import { topicsFor, TOPICS } from "./explain";
 import { explainer, sourceLinks } from "./explain-view";
 import { DECISIONS, type Decision } from "./decisions";
+import type { RefId } from "./sources";
 import { KID_FOUND, KID_TYPES, kidFact } from "./kid";
 import {
-  distanceKm, HISTORY, mostDestructive, topHistory, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
+  distanceKm, HISTORY, topHistory, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
 } from "./mexico";
 import countriesUrl from "./assets/countries.json?url";
 import {
@@ -25,7 +26,7 @@ import {
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
-import { comparator, newCompareState, type CompareState } from "./compare";
+import { comparator, newCompareState, type CompareState, type Picture } from "./compare";
 import { opticalDecode, radarDecode, subBox } from "./compare-core";
 import { collectLive, LIVE_MINUTES, recent } from "./livefeeds";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
@@ -294,7 +295,6 @@ function render() {
     reports.filter((e) => eventShown(e) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
   renderLiveList();
-  renderRecent();
   // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
   globe.setLive(
     liveToggle.checked
@@ -520,28 +520,9 @@ function kidCard(a: AreaView): HTMLElement {
           : [el("p", {}, t("kid.saw.none"))]),
       ];
 
-  // Photos a year apart, found like the Technical card's satellite view.
-  const look = el("div", {}, el("p", { className: "muted" }, t("kid.look.finding")));
+  // Section 3: the child picks the kind of picture and how far back; the comparison follows.
   const satLine = el("li", {}, originBadge("satellite"), " ", t("kid.src.satellite.plain"));
-  const wide = a.bbox[2] - a.bbox[0] > 1.5;
-  satPair(a, wide ? "viirs" : "hls", 12, true).then(([now, old]) => {
-    if (!now || !old) {
-      look.replaceChildren(el("p", { className: "muted" }, t("kid.look.none")));
-      return;
-    }
-    const state = kidCompare.get(a.id) ?? newCompareState("optical");
-    kidCompare.set(a.id, state);
-    look.replaceChildren(
-      el("p", {}, t("kid.look.help")),
-      comparator({
-        id: `kid-${a.id}`, kind: "optical", state, technical: false, basic: true,
-        before: { url: old.url, date: kidDate(old.date), decode: opticalDecode },
-        after: { url: now.url, date: kidDate(now.date), decode: opticalDecode },
-        origin: [],
-      }),
-    );
-    satLine.replaceChildren(originBadge("satellite"), " ", t("kid.src.satellite", { before: kidDate(old.date), now: kidDate(now.date) }));
-  });
+  const look = kidLook(a, satLine);
 
   const close = el("button", { type: "button", className: "link" }, "← ", t("kid.close"));
   close.onclick = () => {
@@ -579,7 +560,106 @@ function kidCard(a: AreaView): HTMLElement {
   );
 }
 
-const kidCompare = new Map<string, CompareState>();
+// Kinds of picture the guide offers, each described only as its NASA source describes it.
+type KidPic = { id: string; label: Key; help: Key; refs: RefId[] };
+const KID_MONTHS = [1, 3, 6, 12, 24, 60];
+const kidCompare = new Map<string, CompareState>(); // zoom and divider, per area and kind of picture
+const kidViews = new Map<string, { pic: string; months: number }>();
+const isRadarPicture = (l: Layer) => l.role === "backscatter" && l.colormap === "gray" && !!l.value_range;
+
+function kidPics(a: AreaView): KidPic[] {
+  const wide = a.bbox[2] - a.bbox[0] > 1.5; // the 30 m photos only cover a city-sized box
+  return [
+    ...(a.layers.some(isRadarPicture) ? [{ id: "radar", label: "kid.pic.radar", help: "kid.pic.radar.help", refs: ["nisarFacts", "cdmx", "sarImage"] } as KidPic] : []),
+    ...(wide ? [] : [{ id: "hls", label: "kid.pic.sharp", help: "kid.pic.sharp.help", refs: ["hls"] } as KidPic]),
+    { id: "viirs", label: "kid.pic.wide", help: "kid.pic.wide.help", refs: ["gibs"] },
+    { id: "fire", label: "kid.pic.fire", help: "kid.pic.fire.help", refs: ["modisNrt", "fireTutorial"] },
+    { id: "ndvi", label: "kid.pic.plants", help: "kid.pic.plants.help", refs: ["ndvi"] },
+  ];
+}
+
+const kidMonths = (n: number) =>
+  n === 1 ? t("kid.when.month") : n < 12 ? t("kid.when.months", { n }) : n === 12 ? t("kid.when.year") : t("kid.when.years", { n: n / 12 });
+
+// A row of big choice buttons (one radio group), like the mode switch.
+function kidChoices<T extends string | number>(name: string, legend: Key, items: [T, string][], current: T, pick: (v: T) => void): HTMLElement {
+  const box = el("fieldset", { className: "kid-choices" }, el("legend", {}, t(legend)));
+  for (const [value, label] of items) {
+    const input = el("input", { type: "radio", name, value: String(value), checked: value === current });
+    input.onchange = () => pick(value);
+    box.append(el("label", {}, input, el("span", {}, label)));
+  }
+  return box;
+}
+
+// The radar pair for "how far back": the latest pass, and the last pass at least that long before
+// it (or the first pass, when NISAR's record here is shorter).
+function kidRadarPair(a: AreaView, months: number) {
+  // HV answers to plants, HH to water and buildings (the same choice as the Technical comparator).
+  const groups = polarizations(a.layers.filter(isRadarPicture));
+  const plants = a.types.some((x) => PLANT_TYPES.includes(x));
+  const group = plants && groups.includes("HV backscatter") ? "HV backscatter" : groups.includes("HH backscatter") ? "HH backscatter" : groups[0];
+  const dates = datesFor(a.layers.filter(isRadarPicture), group);
+  if (dates.length < 2) return undefined;
+  const latest = dates.at(-1)!;
+  const target = new Date(Date.parse(latest) - months * 30.44 * 86400000).toISOString().slice(0, 10);
+  const before = [...dates].reverse().find((d) => d <= target) ?? dates[0];
+  return { before: layerAt(a.layers, group, before)!, after: layerAt(a.layers, group, latest)!, short: before === dates[0] && dates[0] > target };
+}
+
+function kidLook(a: AreaView, satLine: HTMLElement): HTMLElement {
+  const pics = kidPics(a);
+  const v = kidViews.get(a.id) ?? { pic: pics.find((p) => p.id !== "radar")!.id, months: 12 };
+  if (!pics.some((p) => p.id === v.pic)) v.pic = pics[0].id;
+  kidViews.set(a.id, v);
+  const help = el("div");
+  const holder = el("div");
+  let run = 0;
+  const load = () => {
+    const mine = ++run;
+    const pic = pics.find((p) => p.id === v.pic)!;
+    help.replaceChildren(el("p", {}, t(pic.help)), sourceLinks(pic.refs));
+    const key = `${a.id}|${pic.id}`;
+    const state = kidCompare.get(key) ?? newCompareState(pic.id === "radar" ? "radar" : "optical");
+    kidCompare.set(key, state);
+    const show = (before: Picture, after: Picture, kind: "radar" | "optical", note?: string) =>
+      holder.replaceChildren(
+        el("p", {}, t("kid.look.help2")),
+        ...(note ? [el("p", { className: "muted" }, note)] : []),
+        comparator({ id: `kid-${a.id}`, kind, state, technical: false, basic: true, before, after, origin: [] }),
+      );
+    if (pic.id === "radar") {
+      const pair = kidRadarPair(a, v.months);
+      if (!pair) return holder.replaceChildren(el("p", { className: "muted" }, t("kid.look.oneradar")));
+      const d = (l: Layer) => l.date ?? "";
+      show(
+        { url: new URL(pair.before.url, BASE).href, date: kidDate(d(pair.before)), decode: radarDecode(...pair.before.value_range!) },
+        { url: new URL(pair.after.url, BASE).href, date: kidDate(d(pair.after)), decode: radarDecode(...pair.after.value_range!) },
+        "radar",
+        pair.short ? t("kid.look.radarspan", { date: kidDate(d(pair.before)) }) : undefined,
+      );
+      return;
+    }
+    holder.replaceChildren(el("p", { className: "muted" }, t("kid.look.finding")));
+    // Photos: look longer for clear days; the plant map and the fire view need no cloud-free day.
+    satPair(a, pic.id, v.months, pic.id === "hls" || pic.id === "viirs").then(([now, old]) => {
+      if (mine !== run) return; // a newer choice replaced this one
+      if (!now || !old) return holder.replaceChildren(el("p", { className: "muted" }, t("kid.look.none")));
+      show({ url: old.url, date: kidDate(old.date), decode: opticalDecode }, { url: now.url, date: kidDate(now.date), decode: opticalDecode }, "optical");
+      satLine.replaceChildren(originBadge("satellite"), " ", t("kid.src.satellite", { before: kidDate(old.date), now: kidDate(now.date) }));
+    });
+  };
+  const picRow = kidChoices(`kid-pic-${a.id}`, "kid.pic.title", pics.map((p) => [p.id, t(p.label)] as [string, string]), v.pic, (id) => {
+    v.pic = id;
+    load();
+  });
+  const whenRow = kidChoices(`kid-when-${a.id}`, "kid.when.title", KID_MONTHS.map((n) => [n, kidMonths(n)] as [number, string]), v.months, (n) => {
+    v.months = n;
+    load();
+  });
+  load();
+  return el("div", {}, picRow, help, whenRow, holder);
+}
 
 // ---- Full report as a PDF (report.ts, loaded only when asked for) ----
 
@@ -1023,18 +1103,6 @@ function changesSection(a: AreaView, heading: boolean): Node[] {
 
 const sevLabel = (n: number) => t(`sev.${Math.max(0, Math.min(3, n))}` as Key);
 
-function historyPopup(e: HistoryEvent): Node {
-  return el(
-    "div",
-    { className: "event-popup" },
-    el("strong", {}, tx(e.title, lang())),
-    el("p", {}, originBadge("record", shortLabel(e.type), e.date)),
-    el("p", { className: "muted" }, sevLabel(e.severity)),
-    el("p", {}, tx(e.impact, lang())),
-    sourceList(e.sources),
-  );
-}
-
 function historyItem(e: HistoryEvent): HTMLDetailsElement {
   return el(
     "details",
@@ -1190,38 +1258,6 @@ function satSection(a: AreaView): Node {
     holder,
     el("p", { className: "muted small" }, t("sat.note")),
   );
-}
-
-// ---- Most destructive recent events (left panel) ----
-
-const recentList = $("recent-list");
-const RECENT_SINCE = 2015;
-
-function renderRecent() {
-  $("recent-note").replaceChildren(originBadge("record", "", t("origin.checked", { date: RECORDS_CHECKED })), " ", t("recent.since", { year: RECENT_SINCE }));
-  // The type filters apply here too, so ticking off "Earthquakes" hides quakes everywhere.
-  const shown = mostDestructive(HISTORY.filter((e) => !isType(e.type) || ticked.has(e.type)), RECENT_SINCE, simple() ? 5 : 8);
-  recentList.replaceChildren(
-    ...shown.map((e) =>
-      el(
-        "li",
-        {},
-        el(
-          "button",
-          {
-            type: "button", className: "result",
-            onclick: () => {
-              setSpin(false);
-              globe.openInfo(e.places[0][0], e.places[0][1], historyPopup(e), 6);
-            },
-          },
-          el("strong", {}, typeIcon(e.type), tx(e.title, lang())),
-          el("span", { className: "muted" }, `${e.date.slice(0, 7)} · ${sevLabel(e.severity)}`),
-        ),
-      ),
-    ),
-  );
-  if (!shown.length) recentList.append(el("li", { className: "muted" }, t("list.none")));
 }
 
 // ---- Live data from the back end (optional: the app works without it) ----

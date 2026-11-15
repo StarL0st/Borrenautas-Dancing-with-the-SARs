@@ -1,9 +1,12 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Rounds 4 to 6 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
+**Rounds 4 to 7 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 6)
+## What the branch has now (after round 7)
+
+- **Left panel:** the "Most destructive recent events" section is gone (round 7).
+- **Simple mode, section 3 "Look for yourself":** the child picks the kind of picture (NISAR radar when the area has it, close-up photo, whole-region photo, fire view, green leaves map) and how far back (1 month to 5 years).
 
 - **PDF reports stay up to date**: each zone's PDF is made when its card opens and remade as a new version whenever new data changes what it shows; the old version is thrown away and the new one says what is new.
 - **Every explanation is sourced**: the radar explainer, glossary, decision log and kids' facts cite pages that were opened and read (mostly NASA); the PDF numbers its citations and ends with a References section.
@@ -46,7 +49,19 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `a0e9a8a` | 5 | Simple-mode guide, top-5 timelines, PDF report, cloud-aware photo comparison |
 | `1b71788` | 5 | Docs: round 5 |
 | `fa02065` | 6 | Versioned PDFs kept up to date; every explanation sourced (NASA first) |
-| *this commit* | 6 | Docs: round 6 |
+| `cd616da` | 6 | Docs: round 6 |
+| *next commit* | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
+| *this commit* | 7 | Docs: round 7 |
+
+## Round 7 (2026-11-15)
+
+| Request | What changed |
+|---|---|
+| Remove the "Most destructive events" section from the left panel | **Removed:** the heading, note and list (`index.html`), `renderRecent` and its popup (`main.ts`), its styles and its texts in three languages. The events themselves stay in each zone's "Remarkable events" and in the PDF; `mostDestructive` stays in `mexico.ts` (tested, unused by the page). |
+| The "Serious" tag runs into the event text | The tag now keeps 10 px from the text before it, has wider padding (10 px each side), never breaks inside, and the row keeps 14 px from its right edge. Checked on every tagged row: 12 px gap when it shares a line, its own line when the row is narrow, no overlap. |
+| Simple mode, section 3: choose the kind of pictures and their time frame | **"What kind of picture?"**: Space radar (NISAR, only where the area has radar pictures), Close-up photo (HLS, city-sized areas), Whole-region photo (VIIRS), Fire view (MODIS bands 7-2-1), Green leaves map (MODIS NDVI). Each choice shows one sentence that says only what its NASA source says, with the source linked: NASA Earthdata's MODIS page and Worldview fire tutorial ("burned land looks reddish brown"), NASA Earth Observatory's NDVI page ("no green leaves gives a number close to zero"), NASA Earthdata HLS and GIBS, NISAR quick facts. **"How far back?"**: 1 month, 3 months, 6 months, 1 year, 2 years, 5 years. Photos look for clear days; the radar compares the latest pass with the last pass that far back, and says so when NISAR's record is shorter ("NISAR's pictures here go back to June 18, 2026"). Each area remembers its choices. |
+
+**Checked in the browser:** the section is gone; tag spacing measured on all 5 tagged rows; Villahermosa in Simple mode offers all 5 picture kinds and 6 time frames; radar 1 year (June 18 → October 16, with the "goes back to" note), radar 1 month (September 10 → October 16), fire view 1 month (October 14 → November 14) all load and compare.
 
 ## Round 6 (2026-11-15)
 

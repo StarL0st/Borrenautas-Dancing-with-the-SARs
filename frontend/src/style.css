@@ -380,7 +380,7 @@ th, td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: rig
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--muted); font-weight: 400; }
 
-/* ---- jopa-testing: event icons, most dangerous now, recent events, history, satellite ---- */
+/* ---- jopa-testing: event icons, history, satellite ---- */
 
 /* Visually hidden but still focusable and read by screen readers (the filter checkboxes). */
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -411,10 +411,11 @@ button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86
 
 
 /* Recent events list; serious and extreme live events carry a danger label. */
-#recent-list { list-style: none; padding: 0; }
-#recent-list li + li { border-top: 1px solid var(--line); }
-#live-list .result strong, #recent-list .result strong { display: flex; align-items: center; }
-.sev { display: inline-block; margin-top: 4px; padding: 0 6px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+#live-list .result strong { display: flex; align-items: center; }
+/* The danger tag keeps clear of the text before it (source name) and of the row's right edge. */
+.sev { display: inline-block; margin: 4px 0 0 10px; padding: 1px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; line-height: 1.4; white-space: nowrap; color: var(--ink); vertical-align: middle; }
+#live-list .result { padding-right: 14px; }
+#live-list .result .muted { margin-right: 2px; }
 .sev.s2 { background: #f5a524; }
 .sev.s3 { background: #e5484d; color: var(--text); }
 
@@ -644,3 +645,13 @@ details.why > summary { font-weight: 600; }
 .kid .cmp-stats { font-weight: 600; }
 .more-report { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .more-report button { margin: 0; }
+
+/* Simple mode's picture choices: big, wrapping buttons (one radio group each). */
+.kid-choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 0; border: 0; }
+.kid-choices legend { width: 100%; margin-bottom: 4px; padding: 0; font-weight: 600; color: var(--text); }
+.kid-choices label { position: relative; margin: 0; cursor: pointer; }
+.kid-choices input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.kid-choices span { display: block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); font-size: 0.95rem; transition: background-color 150ms ease; }
+.kid-choices input:checked + span { background: var(--on); border-color: var(--on); color: var(--ink); font-weight: 600; }
+.kid-choices input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
+@media (hover: hover) { .kid-choices input:not(:checked) + span:hover { background: var(--hover); } }
