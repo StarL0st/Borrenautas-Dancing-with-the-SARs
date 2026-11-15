@@ -104,7 +104,7 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 6 | Decide what to take from `archive/jopa-testing` (not merged). Its backend change (`refresh_minutes` in `live.geojson`) is on `backend` since 2026-11-14 | Both lanes |
 | 7 | Licenses (`docs/09`): confirm the Meshy plan used for the satellite model; show the OpenStreetMap credit openly on the Street map look; decide whether to keep GDACS (no data license stated) | Frontend, team |
 | 12 | Pending (decided 2026-11-14: not now): the VM updating itself from the `backend` branch. Until then Azure is updated by hand (`azure.sh deploy`, then `seed` when data changed; VPN needed at the venue) | Backend |
-| 13 | Domain `gigas.earth`: nameservers to Cloudflare, `A api` to the VM with proxy off, the bare domain on the Worker; then one redeploy with `SARS_DOMAIN=gigas.earth` | Human, then backend |
+| 13 | Domain: site at https://gigas.earth and API at https://api.gigas.earth since 2026-11-14 22:00 (the API also still answers at its Azure name). Left: change the Worker's `VITE_API_BASE` build variable to `https://api.gigas.earth/` and rebuild; every `azure.sh deploy` now needs `SARS_DOMAIN=gigas.earth` | Human (Cloudflare), backend |
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
@@ -117,7 +117,7 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | REST calls for the processed data beyond `/query` and `/history` | Done and live: `/api/areas`, `/api/events`, `/api/live` (C6 in `docs/04`) |
 | The VM updating itself from the `backend` branch | Not now; stays pending (needs a public repository or a read-only key on the VM) |
 | `frontend` into `main` (newer than `main`: phone layout, satellite model, Worker config) | Open: frontend lane decides. The frontend was not touched for the changes above |
-| Domain | The team lead sets up `gigas.earth` |
+| Domain | Done 2026-11-14 22:00: `gigas.earth` (site), `api.gigas.earth` (API) |
 
 ### If time allows
 
