@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STRINGS } from "../src/i18n.ts";
+import { HISTORY, distanceKm, mostDestructive, zoneHistory, zoneNote } from "../src/mexico.ts";
 import { readFileSync } from "node:fs";
 import { collectLive, eonetCategory, parseEonet, parseGdacs, parseNws, parseUsgs, parseVolcanoes, quakeSeverity, recent } from "../src/livefeeds.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
-import { ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
+import { ago, datesFor, inFilter, inside, layerAt, liveFiltered, liveList, liveShown, liveWhere, readFriendly, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -117,6 +118,47 @@ test("relative time picks a readable unit", () => {
   assert.deepEqual(ago("2026-11-10", now), [-5, "day"]);
 });
 
+// ---- jopa-testing ----
+
+const ev = (id: string, category: string, date: string, severity: number | undefined, lon = -99.1, lat = 19.4) =>
+  ({ properties: { id, category, date, place: "", lon, lat, severity } }) as LiveFeature;
+
+test("live view: time window and region", () => {
+  const now = Date.parse("2026-11-14T12:00:00Z");
+  const known = () => true;
+  const all = new Set(["earthquakes", "hurricanes"]);
+  const fs = [
+    ev("old", "earthquakes", "2026-10-01", 3),
+    ev("minor", "earthquakes", "2026-11-14T10:00Z", 0),
+    ev("big", "hurricanes", "2026-11-13", 3),
+    ev("tokyo", "earthquakes", "2026-11-14T09:00Z", 2, 139.7, 35.7),
+    ev("nosev", "earthquakes", "2026-11-12", undefined),
+  ];
+  const view = { now, days: 7, region: [-125, 8, -78, 34] as [number, number, number, number] };
+  assert.deepEqual(liveFiltered(fs, all, known, view).map((f) => f.properties.id), ["minor", "big", "nosev"]);
+  assert.deepEqual(liveFiltered(fs, all, known, { now, days: 7 }).map((f) => f.properties.id), ["minor", "tokyo", "big", "nosev"]);
+});
+
+test("Mexico data: every event is in Mexico or its seas, with sources", () => {
+  for (const e of HISTORY) {
+    assert.ok(e.sources.length && e.title.en && e.title.es && e.impact.es, e.id);
+    for (const [lon, lat] of e.places) assert.ok(lon > -120 && lon < -85 && lat > 14 && lat < 33, e.id);
+  }
+  assert.equal(new Set(HISTORY.map((e) => e.id)).size, HISTORY.length);
+});
+
+test("zone history, worst recent events and distances", () => {
+  const cdmx: [number, number, number, number] = [-99.23, 19.34, -99.03, 19.52];
+  const ids = zoneHistory(HISTORY, cdmx).map((e) => e.id);
+  assert.ok(ids.includes("michoacan-1985") && ids.includes("puebla-2017") && !ids.includes("gilbert-1988"));
+  assert.deepEqual(ids, [...ids].sort((a, b) => HISTORY.find((e) => e.id === a)!.date.localeCompare(HISTORY.find((e) => e.id === b)!.date)));
+  const worst = mostDestructive(HISTORY, 2015, 3);
+  assert.ok(worst.every((e) => e.severity === 3 && e.date >= "2015"));
+  assert.ok(Math.abs(distanceKm([-99.13, 19.43], [-98.2, 19.04]) - 106) < 5, "Mexico City to Puebla is about 106 km");
+  // Notes belong to one place only: a new place next door must not borrow them.
+  assert.ok(zoneNote("cdmx") && !zoneNote("example-subsidence") && !zoneNote("x"));
+});
+
 test("GIBS requests use WMS 1.3.0 axis order and a sharp box", () => {
   const url = new URL(gibsUrl("HLS_S30_Nadir_BRDF_Adjusted_Reflectance", [-99.23, 19.34, -99.03, 19.52], "2026-11-01", 512));
   assert.equal(url.searchParams.get("BBOX"), "19.34,-99.23,19.52,-99.03");
@@ -196,4 +238,165 @@ test("live feeds: more than earthquakes (other USGS kinds, weather alerts, volca
   const volcano = (name: string, alertLevel: string) => ({ geometry: { coordinates: [-176.1, 52.1] }, properties: { volcanoName: name, vnum: name, alertLevel, region: "Aleutians", noticeId: "DOI-USGS-AVO-2026-11-13T19:12:01+00:00", noticeSynopsis: "<p>Lava continues to erupt.</p>" } });
   const v = parseVolcanoes({ features: [volcano("Great Sitkin", "WATCH"), volcano("Adagdak", "UNASSIGNED"), volcano("Spurr", "NORMAL")] });
   assert.deepEqual(v.map((f) => [f.properties.title, f.properties.date, f.properties.severity, f.properties.detail]), [["Great Sitkin volcano: alert level WATCH", "2026-11-13", 2, "Lava continues to erupt."]]);
+});
+
+// ---- jopa-testing: comparator, radar explainer, decision log ----
+
+import { changeMap, opticalDecode, pctToDb, radarDecode, relChange, subBox, viewRect } from "../src/compare-core.ts";
+import { TOPICS, topicsFor } from "../src/explain.ts";
+import { DECISIONS } from "../src/decisions.ts";
+
+test("comparator: change is relative, the same both ways, and 50% is 3 dB", () => {
+  assert.equal(relChange(100, 50), -0.5);
+  assert.equal(relChange(50, 100), 0.5);
+  assert.equal(relChange(0, 0), 0);
+  assert.ok(Math.abs(pctToDb(0.5) - 3.01) < 0.01);
+  // A radar gray PNG stretched over -20..0 dB: 255 is 0 dB (power 1), 0 is -20 dB (power 0.01).
+  const dec = radarDecode(-20, 0);
+  assert.ok(Math.abs(dec(255) - 1) < 1e-9 && Math.abs(dec(0) - 0.01) < 1e-9);
+});
+
+test("comparator: marks brighter and darker pixels past the threshold, skips missing ones", () => {
+  const w = 6, h = 1;
+  const px = (vals: number[], alpha = 255) => new Uint8ClampedArray(vals.flatMap((v) => [v, v, v, alpha]));
+  const before = px([60, 60, 60, 60, 60, 60]);
+  const after = px([60, 60, 60, 120, 120, 120]);
+  const { codes, stats } = changeMap(before, after, w, h, opticalDecode, opticalDecode, 0.3);
+  // The 3x3 average blurs the edge: the last unchanged pixel averages to 80 against 60, a 25%
+  // change, under the 30% threshold; the first changed one averages to 100, 40%.
+  assert.deepEqual([...codes], [0, 0, 0, 1, 1, 1]);
+  assert.deepEqual(stats, { valid: 6, brighter: 3, darker: 0 });
+  const half = changeMap(before, px([60, 60, 60, 120, 120, 120], 0), w, h, opticalDecode, opticalDecode, 0.3);
+  assert.equal(half.stats.valid, 0, "transparent pixels are no data");
+  const cloudy = changeMap(px([60, 60, 60, 60, 60, 60]), px([60, 60, 60, 230, 230, 230]), w, h, opticalDecode, opticalDecode, 0.3, true);
+  assert.deepEqual(cloudy.stats, { valid: 2, brighter: 0, darker: 0 }, "a cloud (and the pixel next to it) in one photo is not a change");
+  // Dark ground in photos: 20 -> 35 is not a 43% change, it is measured against at least 60.
+  assert.equal(changeMap(px([20]), px([35]), 1, 1, opticalDecode, opticalDecode, 0.3, true).stats.brighter, 0);
+  // Two radar pictures with different stretches: the same gray can be a different echo.
+  const same = changeMap(px([128]), px([128]), 1, 1, radarDecode(-20, 0), radarDecode(-14, 6), 0.5);
+  assert.deepEqual(same.stats, { valid: 1, brighter: 1, darker: 0 });
+});
+
+test("comparator: the zoomed view stays inside the picture and maps back to lon/lat", () => {
+  assert.deepEqual(viewRect(1, 0.9, 0.1), [0, 0, 1, 1]);
+  assert.deepEqual(viewRect(2, 0.9, 0.1), [0.5, 0, 1, 0.5]);
+  assert.deepEqual(subBox([-100, 10, -90, 20], [0.5, 0, 1, 0.5]), [-95, 15, -90, 20]);
+});
+
+test("radar explainer: every area gets the basics, its own ideas and the caveats", () => {
+  assert.deepEqual(topicsFor(["floods"]), ["basics", "water", "structure", "fooled"]);
+  assert.deepEqual(topicsFor(["subsidence", "groundwater"]), ["basics", "motion", "fooled"]);
+  assert.deepEqual(topicsFor([]), ["basics", "water", "plants", "fooled"]);
+  for (const id of topicsFor(["floods", "deforestation", "drought", "subsidence"])) assert.ok(TOPICS.some((x) => x.id === id), id);
+  for (const x of TOPICS) assert.ok(x.title.es && x.text.es && x.looks.es && x.text.en, x.id);
+});
+
+test("decision log: unique ids, real dates, every field in English and Spanish", () => {
+  assert.equal(new Set(DECISIONS.map((d) => d.id)).size, DECISIONS.length);
+  for (const d of DECISIONS) {
+    assert.match(d.date, /^\d{4}-\d{2}-\d{2}$/);
+    for (const f of [d.title, d.chose, d.why, d.instead, d.tradeoff]) assert.ok(f.en && f.es, d.id);
+  }
+});
+
+// ---- jopa-testing round 5: top-5 timelines, PDF text, Simple-mode guide ----
+
+import { topEvents } from "../src/logic.ts";
+import { topHistory } from "../src/mexico.ts";
+import { clean, fill } from "../src/pdf-text.ts";
+import { KID_FACTS, KID_FOUND, KID_TYPES, kidFact } from "../src/kid.ts";
+
+test("timeline keeps the 5 most important changes (size x confidence), newest first", () => {
+  const ev = (date: string, confidence: number, km2: number) => ({ date, title: date, confidence, km2 });
+  const events = [ev("2026-01", 0.9, 100), ev("2026-02", 0.2, 1), ev("2026-03", 0.8, 50), ev("2026-04", 0.5, 4), ev("2026-05", 0.9, 0.1), ev("2026-06", 0.6, 30), ev("2026-07", 0.7, 9)];
+  assert.deepEqual(topEvents(events).map((e) => e.date), ["2026-07", "2026-06", "2026-04", "2026-03", "2026-01"]);
+  // With only radar passes, the latest five.
+  const passes = ["a", "b", "c", "d", "e", "f"].map((x, i) => ({ date: `2026-0${i + 1}`, pols: ["HH"] }));
+  assert.deepEqual(topEvents(passes).map((e) => e.date), ["2026-06", "2026-05", "2026-04", "2026-03", "2026-02"]);
+});
+
+test("zone history keeps the 5 worst events, oldest first", () => {
+  const top = topHistory(HISTORY, 5);
+  assert.equal(top.length, 5);
+  assert.deepEqual(top.map((e) => e.date), [...top.map((e) => e.date)].sort());
+  const worst = Math.min(...top.map((e) => e.severity));
+  assert.ok(HISTORY.filter((e) => e.severity > worst).every((e) => top.includes(e)), "nothing worse is left out");
+});
+
+test("PDF text: only letters the built-in fonts can draw", () => {
+  assert.equal(clean("Área −3 dB ≥ 4 → “ok” … Tōkyō"), 'Área -3 dB >= 4 -> "ok" ... Tokyo');
+  assert.equal(clean("km² · 25 × 25"), "km² · 25 × 25");
+  assert.ok([...clean("漢字")].every((c) => c === "?"));
+  assert.equal(fill("{n} of {total}", { n: 2, total: 9 }), "2 of 9");
+});
+
+test("Simple-mode guide: every sentence in English and Spanish, every kind has words", () => {
+  for (const [k, v] of Object.entries(KID_TYPES)) assert.ok(v.en && v.es, k);
+  for (const [k, v] of Object.entries(KID_FACTS)) assert.ok(v.en && v.es, k);
+  for (const [k, v] of Object.entries(KID_FOUND)) {
+    assert.ok(v.many.en.includes("{n}") && v.many.es.includes("{n}") && v.one.en.startsWith("1 ") && v.one.es.startsWith("1 "), k);
+  }
+  // Every change the back end can report has kid words (categorize.py).
+  for (const k of ["floods", "deforestation", "wildfires", "agriculture", "urban", "subsidence", "groundwater", "drought", "other"]) assert.ok(KID_FOUND[k], k);
+  assert.equal(kidFact(["nothing", "floods"]), KID_FACTS.floods);
+  assert.equal(kidFact([]), KID_FACTS.default);
+});
+
+// ---- jopa-testing round 6: sourced text, report versions ----
+
+import { REFS } from "../src/sources.ts";
+import { contentKey, diffSnapshots, type ReportSnapshot } from "../src/report-core.ts";
+
+test("every explanation, decision and kids' fact cites at least one known source", () => {
+  const known = new Set(Object.keys(REFS));
+  for (const x of TOPICS) assert.ok(x.refs.length && x.refs.every((r) => known.has(r)), x.id);
+  for (const d of DECISIONS) assert.ok(d.refs.length && d.refs.every((r) => known.has(r)), d.id);
+  for (const [k, f] of Object.entries(KID_FACTS)) assert.ok(f.refs.length && f.refs.every((r) => known.has(r)), k);
+  for (const r of Object.values(REFS)) assert.match(r.url, /^https:\/\//);
+  // Outside facts lean on NASA: most cited sources are NASA pages.
+  const nasa = Object.values(REFS).filter((r) => /NASA/.test(r.who)).length;
+  assert.ok(nasa >= 8, `${nasa} NASA sources`);
+});
+
+test("report versions: same data, same key; new data, a new key and a list of what changed", () => {
+  const layer = (date: string) => ({ id: date, url: `hh-${date}.png`, date, maturity: "PROVISIONAL", kind: "image_overlay" }) as unknown as Layer;
+  const ev = (id: string) => ({ id, from: "2026-08-14", to: "2026-08-26", category: "floods", title: "Flood", summary: "s", confidence: 0.8, area_km2: 1 });
+  const base: ReportSnapshot = {
+    area: { id: "v", title: "V", summary: "", types: ["floods"], center: [0, 0], bbox: [0, 0, 1, 1], synthetic: false, events: [], layers: [layer("2026-08-14")], series: [], credits: [] },
+    events: [ev("a")] as ReportSnapshot["events"], live: [], lang: "en",
+    sat: [{ url: "u1", date: "2025-11-01", layer: "HLS" }, { url: "u2", date: "2026-11-01", layer: "HLS" }],
+    series: [], asOf: { radar: "2026-11-14T00:00:00Z", live: "" },
+  };
+  // A source republishing the same content is not a new version.
+  assert.equal(contentKey(base), contentKey({ ...base, asOf: { radar: "2026-11-15T00:00:00Z", live: "x" } }));
+  const next: ReportSnapshot = {
+    ...base,
+    area: { ...base.area, layers: [layer("2026-08-14"), layer("2026-08-26")] },
+    events: [ev("a"), ev("b")] as ReportSnapshot["events"],
+    sat: [base.sat[0], { url: "u3", date: "2026-11-13", layer: "HLS" }],
+  };
+  assert.notEqual(contentKey(base), contentKey(next));
+  assert.deepEqual(diffSnapshots(base, next), [
+    { kind: "radar", added: 1, removed: 0, latest: "2026-08-26" },
+    { kind: "changes", from: 1, to: 2 },
+    { kind: "satellite", date: "2026-11-13" },
+  ]);
+  assert.deepEqual(diffSnapshots(base, { ...base, lang: "es" }), [{ kind: "lang" }]);
+});
+
+test("friendly cards (C8) are read safely", () => {
+  const f = readFriendly({
+    status: "watch", headline: "Biggest signal: farming.", data_notes: ["Provisional NISAR data."],
+    cards: [
+      { category: "agriculture", label: "Farming", level: 2, headline: "Fields changed.", number: { value: 39.7, unit: "km2", label: "area affected" } },
+      { category: "urban", label: "Building", level: 0, headline: "No new structures stood out." },
+      { label: "broken, no category", level: 1, headline: "x" },
+    ],
+  });
+  assert.equal(f?.status, "watch");
+  assert.deepEqual(f?.cards.map((c) => c.category), ["agriculture", "urban"]);
+  assert.equal(readFriendly({ status: "odd", headline: "h", cards: [] })?.status, "calm");
+  assert.equal(readFriendly({ cards: [] }), undefined);
+  assert.equal(readFriendly(null), undefined);
+  assert.equal(toAreaView({ id: "a", title: "A", summary: "", change_types: [], layers: [], friendly: "areas/a/friendly.json" }).friendly, "areas/a/friendly.json");
 });

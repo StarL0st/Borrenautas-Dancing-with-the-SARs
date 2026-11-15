@@ -36,6 +36,7 @@ MAX_NEW_PER_HOUR = 5  # per client address
 MIN_FREE_GB = 5  # below this no new place is accepted: cached windows fill the disk
 MAX_STREAMS = 500  # open /events connections; each one holds a socket and a queue
 HISTORY_KM = 5  # /history keeps events within this box around the point
+WORLD = [-180, -90, 180, 90]
 
 _cache: dict[Path, tuple[int, dict]] = {}
 
@@ -370,6 +371,68 @@ def create_app(
         to: str | None = None,
     ):
         return history_at(data_dir, lon, lat, from_, to, category)
+
+    @app.get("/api/areas")
+    def api_areas():
+        """Every processed area, without its layer list (that is in /manifest.json)."""
+        manifest = _cached(data_dir / "manifest.json", load_manifest)
+        counts: dict[str, int] = {}
+        for e in _cached(data_dir / "events.json", load_events)["events"]:
+            counts[e["area_id"]] = counts.get(e["area_id"], 0) + 1
+        keys = ("id", "title", "summary", "bbox", "center", "categories", "products")
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "areas": [
+                {
+                    **{k: a[k] for k in keys if k in a},
+                    "layers": len(a["layers"]),
+                    "events": counts.get(a["id"], 0),
+                    "friendly": a.get("friendly"),
+                    "history": a.get("history"),
+                }
+                for a in manifest["areas"]
+            ],
+        }
+
+    @app.get("/api/events")
+    def api_events(
+        area: str | None = None,
+        category: str | None = None,
+        from_: str | None = Query(None, alias="from"),
+        to: str | None = None,
+        min_confidence: float = Query(0, ge=0, le=1),
+        limit: int = Query(100, ge=1, le=1000),
+        offset: int = Query(0, ge=0),
+    ):
+        """NISAR-derived events (C7), most confident first. `total` counts all that match."""
+        found = [
+            e
+            for e in query(data_dir, bbox=WORLD, from_=from_, to=to, category=category)["events"]
+            if (area is None or e["area_id"] == area) and e["confidence"] >= min_confidence
+        ]
+        found.sort(key=lambda e: -e["confidence"])
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "total": len(found),
+            "events": found[offset : offset + limit],
+        }
+
+    @app.get("/api/live")
+    def api_live(category: str | None = None, source: str | None = None):
+        """Live events from public feeds (C9, live.geojson), filtered. Not NISAR detections."""
+        if not (data_dir / "live.geojson").exists():
+            raise HTTPException(404, "no live events collected yet")
+        doc = _cached(
+            data_dir / "live.geojson",
+            lambda d: json.loads((d / "live.geojson").read_text(encoding="utf-8")),
+        )
+        keep = [
+            f
+            for f in doc["features"]
+            if (category is None or f["properties"]["category"] == category)
+            and (source is None or f["properties"]["source"] == source)
+        ]
+        return {**doc, "features": keep}
 
     @app.get("/events")
     async def events():

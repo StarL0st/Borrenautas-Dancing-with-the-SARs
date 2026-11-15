@@ -320,6 +320,20 @@ def test_query_finds_event_at_point_and_by_category(flood_site):
         assert client.get("/query", params={"bbox": "1,2"}).status_code == 400
         assert client.get("/events.geojson").status_code == 200
         assert client.get("/sites").status_code == 404  # read-only without --jobs
+        [area] = client.get("/api/areas").json()["areas"]
+        assert (area["id"], area["events"]) == ("synth", 1) and "bbox" in area
+        api = lambda **q: client.get("/api/events", params=q).json()
+        assert api(area="synth", category="floods")["total"] == 1
+        assert api(area="other")["events"] == []
+        assert api(min_confidence=event["confidence"])["total"] == 1
+        assert client.get("/api/events", params={"min_confidence": 2}).status_code == 422
+        assert api(offset=1) == {**api(), "events": []}
+        assert client.get("/api/live").status_code == 404
+        live = [{"properties": {"category": c, "source": "usgs"}} for c in ("floods", "storms")]
+        (out / "live.geojson").write_text(json.dumps({"sources": [], "features": live}))
+        got = client.get("/api/live", params={"category": "floods"}).json()
+        assert got["features"] == live[:1] and got["sources"] == []
+        assert client.get("/api/live", params={"source": "nhc"}).json()["features"] == []
 
 
 def test_sites_api_queues_and_processes(tmp_path):
@@ -374,17 +388,17 @@ def test_public_lookup_snaps_caches_and_limits(tmp_path, monkeypatch):
     jobs = live.Jobs(tmp_path, refresh=fake_refresh)
     app = create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret", public=True)
     with TestClient(app) as c:
-        jobs.submit("sf")  # a timer refresh: holds the worker until the gate opens
+        jobs.submit("mexico")  # a timer refresh: holds the worker until the gate opens
         first = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
         assert first.status_code == 202 and first.json()["id"] == "cell-21_1n-101_3w"
         # A nearby point is the same cell; no second job.
         near = c.post("/sites", json={"lat": 21.15, "lon": -101.39})
         assert near.json()["id"] == first.json()["id"]
-        jobs.submit("cdmx")  # timer
+        jobs.submit("yucatan")  # timer
         second = c.post("/sites", json={"lat": 25.0, "lon": -100.0}).json()
         assert second["position"] == 0  # visitors go ahead of timer refreshes
         # Inside a curated site: that site answers, no cell is made.
-        assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).json()["id"] == "cdmx"
+        assert c.post("/sites", json={"lat": 20.3, "lon": -103.2}).json()["id"] == "chapala"
         assert c.post("/sites", json={"lat": 1, "lon": 1, "km": 30}).status_code == 401
         assert c.post("/sites", json={"lat": 30.0, "lon": -110.0}).status_code == 202
         assert c.post("/sites", json={"lat": 31.0, "lon": -111.0}).status_code == 429
@@ -408,6 +422,10 @@ def test_refresh_skips_when_nothing_new(tmp_path, monkeypatch):
     (tmp_path / "processed" / "manifest.json").write_text(json.dumps({"areas": [{"id": "x"}]}))
     monkeypatch.setattr(live, "select_site", lambda *a: sel)
     assert live.refresh_site("x", {}, tmp_path)["status"] == "unchanged"
+    # The site's box changed: the same granules must be read again over the new box.
+    monkeypatch.setattr(live, "select_site", lambda *a: {**sel, "bbox": [0, 0, 1, 1]})
+    monkeypatch.setattr("sars_pipeline.site.run_site", lambda *a: {"events": 0})
+    assert live.refresh_site("x", {}, tmp_path)["status"] == "updated"
 
 
 def test_add_site_validates_and_writes(tmp_path):
@@ -664,3 +682,11 @@ def test_push_waits_for_the_copy_to_storage(tmp_path):
         marker.write_text(str(int(manifest.stat().st_mtime) + 5))
         client.portal.call(asyncio.sleep, 0.1)
         assert q.get_nowait()["type"] == "manifest"
+
+
+def test_events_under_the_confidence_floor_are_not_published(flood_site, monkeypatch):
+    out, first, run = flood_site
+    assert first["events"] == 1
+    monkeypatch.setitem(classify.DEFAULTS, "min_confidence", 1.01)
+    assert run()["events"] == 0
+    assert json.loads((out / "events.json").read_text())["events"] == []

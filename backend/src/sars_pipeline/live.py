@@ -28,7 +28,8 @@ def refresh_site(site_id: str, site: dict, data: Path, force: bool = False, days
         return {"site": site_id, "status": "unchanged", "new_granules": 0, "empty": True}
     added = granule_ids(new) - granule_ids(old)
     have_area = any(a["id"] == site_id for a in load_manifest(data / "processed")["areas"])
-    if not (added or force or not have_area):
+    moved = old.get("bbox") != new.get("bbox")  # same granules, another window of them
+    if not (added or force or moved or not have_area):
         return {"site": site_id, "status": "unchanged", "new_granules": 0}
     result = run_site(site_id, site, data / "processed", data / "interim", new)
     return {"site": site_id, "status": "updated", "new_granules": len(added), **result}

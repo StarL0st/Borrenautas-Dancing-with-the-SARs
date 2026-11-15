@@ -121,6 +121,10 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /events.json` | All events: `{ contract_version, events: Event[] }` (C7). Also present in the static export |
 | `GET /query?lat=<lat>&lon=<lon>` | `{ contract_version, events: Event[], area_ids: string[] }`: events whose geometry contains the point, and areas whose `bbox` contains it |
 | `GET /query?bbox=w,s,e,n` | Same shape: events and areas whose `bbox` intersects the box |
+| `GET /api/areas` | `{ contract_version, areas: [{ id, title, summary, bbox, center, categories, products, layers (count), events (count), friendly, history }] }`: every processed area without its layer list. Since 2026-11-15 |
+| `GET /api/events` | `{ contract_version, total, events: Event[] }` (C7), highest `confidence` first. Optional `area=<area id>`, `category=<category>`, `from=`, `to=` (as `/query`), `min_confidence=<0 to 1>`, `limit=<1 to 1000, default 100>`, `offset=`. `total` counts every match, not only the page. Since 2026-11-15 |
+| `GET /api/live` | C9 document with `features` filtered by optional `category=` and `source=<source id>`. 404 when there is no `live.geojson`. Since 2026-11-15 |
+| `GET /docs`, `GET /openapi.json` | Every call with its parameters, as a page to try them and as OpenAPI JSON |
 | `GET /events.geojson` | The same events as a GeoJSON FeatureCollection with flat properties (`id`, `area_id`, `category` (primary), `categories` (comma-separated), `title`, `summary`, `from`, `to`, `confidence`, `area_km2`, `maturity`, `lon`, `lat`), for a MapLibre source. Also in the static export |
 | `GET /sites` | Only with `serve --jobs`. `{ sites: [{ id, title, bbox, requested, status, error?, result?, finished? }] }`; `status` is `idle`, `queued`, `running`, `done`, or `error` |
 | `POST /sites` | Only with `serve --jobs`. Body `{ lat, lon, km? (default 20, max 30), title?, id? }`. Adds a requested site and processes it in the background. 202 `{ id, status }`. When done, `/events` fires a `manifest` event |
@@ -130,6 +134,8 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 
 - `/query` also takes optional filters `category=<category>`, `type=<change type>`, `from=YYYY-MM-DD`, `to=YYYY-MM-DD` (event `date_range` overlaps `[from, to]`).
 - POST requests need `Authorization: Bearer <token>` when the server has an admin token set (always in the cloud: they start downloads). On a public server the token is needed only for `km`, `title`, `id` and `/refresh`.
+- The three `/api/` calls exist only on the server (like `/query`). They were added without a version bump: no file changed shape and the frontend does not depend on them.
+- Events with `confidence` under 0.3 are not published (backend setting `min_confidence`, since 2026-11-15), so `events.json`, `events.geojson`, friendly cards and histories hold only events at 0.3 or more.
 - CORS is open for GET; responses carry `Cache-Control: no-cache`.
 - `/query` exists only on the server. Against the static export the frontend loads `events.json` and filters it itself.
 - Area IDs are site ids (`cdmx`; requested places `at-<lat>n-<lon>w`, looked-up cells `cell-<lat>n-<lon>w`, dots as `_`; `mexico` is a country mosaic: soil moisture at about 2 km per 12-day cycle, layers with `date_range`, far larger than other areas). An area mixes products; each product keeps one viewing geometry and maturity, stated in `products` and in every layer's provenance. Backscatter layer IDs are `<pol>-<YYYY-MM-DD>`.
@@ -208,16 +214,17 @@ A GeoJSON FeatureCollection with extra top-level fields:
 | `generated_at` | string | yes | UTC, `YYYY-MM-DDTHH:MM:SSZ` |
 | `note` | string | yes | Plain sentence saying these are not NISAR detections |
 | `sources` | Source[] | yes | One per feed, also the feeds that failed |
+| `refresh_minutes` | number | no | How often the server rewrites the file (since 2026-11-15) |
 | `features` | Feature[] | yes | Point features, newest first. May be empty |
 
 Source:
 
 | Field | Type | Req | Notes |
 |---|---|---|---|
-| `id` | enum | yes | `eonet` (NASA EONET), `usgs` (earthquakes), `gdacs`, `nhc` (NOAA hurricanes), `firms` (NASA fire detections, last 24 h, Mexico) |
+| `id` | enum | yes | `usgs` (earthquakes of magnitude 2.5+ and other shaking, last 24 h), `gdacs`, `eonet` (NASA EONET), `nws` (US weather alerts), `volcano` (US volcano alert levels), `nhc` (NOAA hurricanes), `firms` (NASA fire detections, last 24 h, Mexico) |
 | `name`, `owner`, `url`, `credit` | string | yes | Feed name, who runs it, its address, credit line |
 | `ok` | boolean | yes | `false`: the feed failed or has no key; the other feeds still load |
-| `count` | integer | yes | Features from this feed; 0 when `ok` is false |
+| `count` | integer | yes | Features kept from this feed; 0 when `ok` is false |
 | `error` | string | when `ok` is false | Reason, at most 200 characters |
 
 Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
@@ -228,16 +235,20 @@ Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
 | `source` | enum | yes | A Source `id` |
 | `source_name` | string | yes | Who runs the feed |
 | `credit` | string | yes | Credit line. Must be shown with the event |
-| `category` | string | yes | A category id (C1 Categories): `wildfires`, `volcanoes`, `floods`, `landslides`, `drought`, `earthquakes`, `sea-ice`, `storms`, `marine` or `other` |
+| `category` | string | yes | A category id (C1 Categories): `wildfires`, `volcanoes`, `floods`, `landslides`, `drought`, `earthquakes`, `sea-ice`, `storms`, `hurricanes`, `marine`, `cold`, `heat`, `dust`, `forecast`, `industrial`, `oil-spills`, `glaciers`, `sinkholes`, `induced-seismicity` or `other` (the frontend's filter ids) |
 | `title` | string | yes | What is happening, e.g. `Magnitude 5.1 earthquake` |
 | `place` | string | yes | Where, in words; `""` when the feed gives none |
 | `date` | string | yes | UTC. `YYYY-MM-DD`, or with a time (`YYYY-MM-DDTHH:MMZ`) when the feed gives one. The latest update of the event |
 | `detail` | string | yes | One short line (size, alert level, who reported it); may be `""` |
 | `url` | string | yes | Link to the source's page for the event; may be `""` |
 | `lon`, `lat` | number | yes | Same as the geometry, for popups |
+| `severity` | integer | no | 0 minor to 3 most dangerous, from the source's own scale (magnitude, alert level). Since 2026-11-15 |
+| `active` | boolean | no | `true`: the source still lists the event as going on. Absent otherwise. Since 2026-11-15 |
 
 - One event may reach us through two feeds; the backend keeps one (GDACS events are taken from GDACS, not EONET; earthquakes from USGS, not GDACS).
 - A fire detection (`firms`) is a hot spot seen from space: it can also be a crop burn or a gas flare. Its `detail` says so.
+- What is in the file: events dated within the last 24 hours, plus `active` ones however old. The frontend's own collector (`frontend/src/livefeeds.ts`, used when no server file is reachable) follows the same rules, so both give the same events; only the server has `nhc` and `firms` (a web page cannot ask them).
+- `severity`, `active`, `refresh_minutes`, the two new sources and the new categories were added on 2026-11-15 without a version bump: the frontend already produced and read them.
 - Refresh: the server rewrites the file every N minutes; the frontend reloads on the `live` push event or on its own timer.
 
 ## C10. History (`areas/<area>/history.json`, `GET /history`)

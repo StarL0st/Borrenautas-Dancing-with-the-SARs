@@ -1,0 +1,8 @@
+// Cloudflare Worker that serves the built site (static files only, no script).
+// Built by Workers Builds from this folder: production on `main`, a preview URL per other branch.
+// The data and API addresses are build variables set in the Cloudflare dashboard (see README).
+{
+  "name": "gigas-project",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./dist" }
+}

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Microsoft Azure deployment for sars-pipeline. See backend/deploy/README.md.
+# Microsoft Azure deployment for sars-pipeline (the site itself is a Cloudflare Worker). See backend/deploy/README.md.
 #   backend/deploy/azure.sh sizes    VM sizes this subscription may create here (read-only)
 #   backend/deploy/azure.sh vm       once: resource group, storage for results, a Linux VM with Docker
 #   backend/deploy/azure.sh deploy   copy the committed code and backend/.env, build, (re)start
 #   backend/deploy/azure.sh seed     copy data/selected, data/interim and data/processed to the VM
-#   backend/deploy/azure.sh site     build the frontend against storage and the API, publish it
+#   backend/deploy/azure.sh site     build the frontend against storage and the API, publish it to Cloudflare (changes the live site)
 #   backend/deploy/azure.sh dns      print the DNS records for SARS_DOMAIN (read-only)
 #   backend/deploy/azure.sh status   health, containers, disk, last copies to storage (read-only)
 #   backend/deploy/azure.sh ssh      open a shell on the VM (logs: sudo docker logs -f sars-api-1)
@@ -14,12 +14,12 @@ PREFIX="${AZ_PREFIX:?set AZ_PREFIX to a short lowercase name, e.g. borrenautas}"
 RG="${AZ_RG:-sars}"
 LOC="${AZ_LOCATION:-westus2}"  # near the NISAR data in AWS us-west-2 (Oregon)
 VM=sars-vm
-SITE=sars-site
 STORAGE="${PREFIX//-/}sars"  # storage account: 3 to 24 lowercase letters and digits, unique in Azure
 DATA_URL="https://${STORAGE}.blob.core.windows.net/data/"  # browsers read results here
 VM_HOST="${PREFIX}-sars.${LOC}.cloudapp.azure.com"  # the VM's own name: always there, used for SSH
 # Public name of the API. With SARS_DOMAIN=<your domain>: api.<domain> (create the DNS record
-# first: azure.sh dns). Caddy gets the certificate for this name.
+# first: azure.sh dns). Caddy gets the certificate for this name. The VM's own name keeps
+# answering too, so a site built against it works until it is rebuilt.
 HOST="${SARS_DOMAIN:+api.${SARS_DOMAIN}}"
 HOST="${HOST:-$VM_HOST}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"  # repo root (uv workspace)
@@ -84,7 +84,7 @@ deploy)
     umask 077; cd /opt/sars
     tok="$(grep -s "^SARS_ADMIN_TOKEN=" .env || echo "SARS_ADMIN_TOKEN=$(openssl rand -hex 24)")"
     { cat; echo "$tok"; } > .env.new && mv .env.new .env'
-  "${SSH[@]}" "cd /opt/sars/src && sudo SARS_HOST=${HOST} SARS_STORAGE=${STORAGE} \
+  "${SSH[@]}" "cd /opt/sars/src && sudo SARS_HOST=${HOST} SARS_ALSO=${SARS_DOMAIN:+$VM_HOST} SARS_STORAGE=${STORAGE} \
     GIT_COMMIT=$(git -C "$ROOT" rev-parse HEAD) \
     docker compose -p sars -f backend/deploy/compose.yaml --project-directory . up -d --build --remove-orphans"
   echo "API: https://${HOST}  (the certificate takes about a minute on the first deploy)"
@@ -96,7 +96,8 @@ seed)
   # and the processed outputs, so the API starts with data. The sync container (compose.yaml)
   # then copies the outputs to storage.
   # sites.json: the places looked up locally, so the VM knows them as cached.
-  (cd "$ROOT/data" && tar -c selected interim processed $(ls sites.json 2>/dev/null)) |
+  # Not live.geojson: the VM collects its own every few minutes; the local one is older.
+  (cd "$ROOT/data" && tar -c --exclude=processed/live.geojson selected interim processed $(ls sites.json 2>/dev/null)) |
     "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
   ;;
 ssh)
@@ -108,24 +109,21 @@ status)
   "${SSH[@]}" 'sudo docker ps --format "{{.Names}}\t{{.Status}}"; df -h /opt/sars/data | tail -n 1; free -m | sed -n 2,3p; sudo docker logs --tail 5 sars-sync-1 2>&1'
   ;;
 site)
-  # Run from a checkout that has frontend/ (testing or frontend branch).
-  az staticwebapp show -g "$RG" -n "$SITE" -o none 2>/dev/null ||
-    az staticwebapp create -g "$RG" -n "$SITE" -l "$LOC" --sku Free -o none
-  DEPLOY="$(az staticwebapp secrets list -g "$RG" -n "$SITE" --query properties.apiKey -o tsv | tr -d '\r')"
+  # Run from a checkout that has frontend/ (main, testing or frontend), after `npx wrangler login`.
+  # The site is the Cloudflare Worker named in frontend/wrangler.jsonc (static files only), not
+  # Azure: the page stays up when the VM or the Azure credit is gone. Cloudflare also builds it
+  # by itself from GitHub (Workers Builds); this is the by-hand way and replaces the live site.
   # Files come from storage, calls (lookup, push, history) from the API on the VM.
   (cd "$ROOT/frontend" && npm ci && VITE_DATA_BASE="$DATA_URL" VITE_API_BASE="https://${HOST}/" npm run build &&
-    npx -y @azure/static-web-apps-cli deploy dist --deployment-token "$DEPLOY" --env production)
-  echo "https://$(az staticwebapp show -g "$RG" -n "$SITE" --query defaultHostname -o tsv | tr -d '\r')"
+    npx -y wrangler deploy)
   ;;
 dns)
   DOMAIN="${SARS_DOMAIN:?set SARS_DOMAIN to your domain, e.g. example.org}"
   IP="$(az vm show -d -g "$RG" -n "$VM" --query publicIps -o tsv | tr -d '\r')"
-  WEB="$(az staticwebapp show -g "$RG" -n "$SITE" --query defaultHostname -o tsv 2>/dev/null | tr -d '\r' || true)"
-  echo "In Cloudflare DNS for ${DOMAIN}, both with the proxy OFF (grey cloud, DNS only):"
-  echo "  A      api   ${IP}"
-  echo "  CNAME  www   ${WEB:-<run '$0 site' first>}"
+  echo "In Cloudflare DNS for ${DOMAIN}:"
+  echo "  A  api  ${IP}   proxy OFF (grey cloud, DNS only)"
+  echo "  the site: Workers & Pages > the site's Worker > Settings > Domains & Routes > add ${DOMAIN}"
   echo "Then: SARS_DOMAIN=${DOMAIN} $0 deploy    (API moves to https://api.${DOMAIN})"
-  echo "      az staticwebapp hostname set -g ${RG} -n ${SITE} --hostname www.${DOMAIN}"
   echo "      SARS_DOMAIN=${DOMAIN} $0 site      (site built against the new API name)"
   ;;
 *)

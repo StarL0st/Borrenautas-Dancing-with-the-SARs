@@ -22,6 +22,7 @@ DEFAULTS = {
     "persist_fraction": 0.5,  # a land change must still show this much of its threshold next pass
     "seasonal_std_db": 2.0,  # seasonal cycle: HV swings with at least this std across dates
     "other_min_confidence": 0.5,  # weaker "other" events are not published
+    "min_confidence": 0.3,  # no event of any kind is published below this
 }
 
 # Signature codes in the signature map; also the precedence order (highest code wins).

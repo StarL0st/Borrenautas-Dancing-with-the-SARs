@@ -1,48 +1,12 @@
 {
-  "sf": {
-    "title": "San Francisco (pipeline test)",
-    "summary": "Test area for the pipeline, not a demo site. Radar backscatter over San Francisco and the Bay, and what changed between the two latest passes.",
-    "bbox": [
-      -122.52,
-      37.7,
-      -122.3,
-      37.85
-    ],
-    "change_types": [
-      "other"
-    ],
-    "looks": 4
-  },
-  "cdmx": {
-    "title": "Mexico City",
-    "summary": "Mexico City: dense city on an old lakebed that is sinking as groundwater is pumped out, with farmland at the edges. Radar backscatter, ground motion, and soil moisture.",
-    "bbox": [
-      -99.22526,
-      19.34017,
-      -99.03474,
-      19.51983
-    ],
-    "change_types": [
-      "deformation",
-      "other"
-    ],
-    "looks": 4,
-    "reference_bbox": [
-      -99.32,
-      19.3,
-      -99.26,
-      19.4
-    ],
-    "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
-  },
   "yucatan": {
     "title": "Hopelchén, Campeche (Yucatán Peninsula)",
     "summary": "Los Chenes, in the Yucatán Peninsula: tropical dry forest being cleared for mechanized farmland. Radar backscatter, ground motion, and soil moisture.",
     "bbox": [
-      -89.91093,
-      19.60034,
-      -89.52907,
-      19.95966
+      -90.15,
+      19.22,
+      -89.3,
+      19.94
     ],
     "change_types": [
       "forest_loss",
@@ -69,10 +33,10 @@
     "title": "Villahermosa, Tabasco",
     "summary": "Villahermosa sits where the Grijalva and Carrizal rivers meet in Mexico's wettest lowlands, and floods often in the rainy season. Radar backscatter, ground motion, and soil moisture.",
     "bbox": [
-      -93.1189,
-      17.81034,
-      -92.7411,
-      18.16966
+      -93.31,
+      17.78,
+      -92.55,
+      18.5
     ],
     "change_types": [
       "flood_wetland",
@@ -94,10 +58,10 @@
     "title": "Lake Chapala, Jalisco",
     "summary": "The hills around Lake Chapala, Mexico's largest lake, burn often in the dry season (March to May). Radar backscatter, ground motion, and soil moisture.",
     "bbox": [
-      -103.39156,
-      20.12034,
-      -103.00844,
-      20.47966
+      -103.45,
+      19.95,
+      -102.65,
+      20.48
     ],
     "change_types": [
       "wildfire",
@@ -119,6 +83,163 @@
       "2026-03-01",
       "2026-05-31"
     ]
+  },
+  "guadalajara": {
+    "title": "Guadalajara, Jalisco",
+    "summary": "Mexico's second-largest metropolitan area, growing into the farmland and forest around it. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -103.54202,
+      20.49034,
+      -103.15798,
+      20.84966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "monterrey": {
+    "title": "Monterrey, Nuevo León",
+    "summary": "Industrial city at the foot of the Sierra Madre Oriental, in a dry region that depends on a few reservoirs. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -100.50935,
+      25.50034,
+      -100.11065,
+      25.85966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "vallarta": {
+    "title": "Puerto Vallarta, Jalisco",
+    "summary": "Resort city on Banderas Bay, between the Ameca river valley and forested mountains. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -105.422,
+      20.47034,
+      -105.038,
+      20.82966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "elpaso": {
+    "title": "El Paso and Ciudad Juárez",
+    "summary": "Two cities and one desert valley split by the Rio Grande, on the border between the United States and Mexico. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -106.67126,
+      31.56034,
+      -106.24874,
+      31.91966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "tijuana": {
+    "title": "Tijuana and San Diego (south)",
+    "summary": "Fast-growing border city on steep hills where slopes often fail after rain. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -117.23302,
+      32.32034,
+      -116.80698,
+      32.67966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    }
+  },
+  "cdmx": {
+    "title": "Mexico City",
+    "summary": "Mexico City: dense city on an old lakebed that is sinking as groundwater is pumped out, with farmland at the edges. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -99.32051,
+      19.25034,
+      -98.93949,
+      19.60966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4,
+    "max_dates": {
+      "GCOV": 14,
+      "GUNW": 16,
+      "SME2": 24
+    },
+    "reference_bbox": [
+      -99.32,
+      19.3,
+      -99.26,
+      19.4
+    ],
+    "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
   },
   "mexico": {
     "title": "Mexico",

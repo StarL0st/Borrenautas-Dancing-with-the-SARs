@@ -50,7 +50,7 @@ Write coordinates with `=` (`--center=-99.13,19.43`), otherwise the minus sign r
 
 Why the two context rules above: in Hopelchén the forest is cleared by burning in the dry season, which NISAR did not image in 2026, so clearing shows up as burn scars that stay bare through the rainy season, not as an HV drop between passes; and its maize and sorghum fields turn as bright in HH as buildings late in the season, far from any town. Neither rule is validated against optical imagery.
 
-Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa` (floods), `chapala` (wildfires), each 40 km wide with every date since June 2026. NISAR has no data for them between 2026-01-20 and 2026-06-16 (the dry and fire season); dates before are BETA and are not mixed with the PROVISIONAL ones (docs/03), so fires are located with FIRMS and the radar shows the after.
+Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa` (floods), `chapala` (wildfires), each 60 to 90 km wide since 2026-11-14 (40 km before; the boxes stop where the site's NISAR frame stops) with every date since June 2026. City sites since the same day, 40 km each, processed on the Azure VM only: `guadalajara`, `monterrey`, `vallarta`, `elpaso` (with Ciudad Juárez), `tijuana`, `cdmx`. NISAR has no data for them between 2026-01-20 and 2026-06-16 (the dry and fire season); dates before are BETA and are not mixed with the PROVISIONAL ones (docs/03), so fires are located with FIRMS and the radar shows the after.
 
 **Country mosaic** (`national.py`, site field `"kind": "mosaic"`, e.g. `mexico`). SME2 only, no size limit.
 - Select: every SME2 granule over the bbox in the two latest 12-day cycles (about 250 granules per cycle for Mexico), one maturity.
@@ -87,6 +87,8 @@ Case-study sites (Mexico): `yucatan` (Hopelchén, deforestation), `villahermosa`
 | `burn_scar` (GCOV + FIRMS) | NASA FIRMS VIIRS fire detections in the site's `fire_season`, grown to their 375 m footprint, on vegetation or bare ground; then HV per date vs unburned vegetation (recovery) |
 
 Regions under 25 px (0.04 km2 at 40 m) are dropped. A land change (not darkening) must still show at least half its threshold on the next pass, or it is dropped (ships, wet patches, glints). Changes in the latest pair cannot be checked yet: kept at 0.7x confidence and marked `persistent: null`.
+
+**Confidence floor.** No event under confidence 0.3 is published (`min_confidence` in `classify.DEFAULTS`; a site can override it in `thresholds`). It is applied last, after the 0.7x above, to every product. Chosen on 2026-11-14 from the three case studies: it drops about half the events (the small, barely-past-threshold ones) and keeps 80 to 85% of the changed area. A judgment call, not validated against ground truth.
 
 **Surface type** (`categorize.cover_map`), from the mean of all GCOV dates. Thresholds checked on known places (Mexico City centro and Polanco, San Francisco downtown, Golden Gate Park, Presidio, the Bay and ocean, airport grass):
 
@@ -137,6 +139,10 @@ Frontend filter types that need other data or more time, and are not produced: e
 | `/events.json`, `/events.geojson` | All events |
 | `/query?lat=&lon=` | Events whose outline contains the point, plus area ids |
 | `/query?bbox=w,s,e,n` | Events and areas intersecting the box. Both take `category=`, `type=`, `from=`, `to=` |
+| `/api/areas` | Every processed area: `id`, `title`, `summary`, `bbox`, `center`, `categories`, `products`, counts of `layers` and `events`, links to its `friendly` and `history` files |
+| `/api/events` | Events (C7), most confident first. Filters: `area=`, `category=`, `from=`, `to=`, `min_confidence=` (0 to 1). Pages: `limit=` (default 100, max 1000), `offset=`. `total` counts every match |
+| `/api/live` | `live.geojson` (C9) filtered by `category=` and `source=`; 404 until the first collection |
+| `/docs`, `/openapi.json` | Every call above with its parameters, to try in a browser (made by FastAPI) |
 | `/history?lat=&lon=` | Per area at the point: its history (below), with only the events within 5 km of the point. Takes `from=`, `to=`, `category=` |
 | `/events` | Server-sent `manifest` events when data changes (also after a background refresh); `live` events when `live.geojson` changes. At most 500 open streams, then 503 |
 | `/health` | `{"ok": true}` |
@@ -199,6 +205,11 @@ There is no push from ASF, so "live" is polling: `refresh` (or `serve --jobs --w
 
 Changes:
 - 2026-11-14: `livefeeds.py`, `live-events` command, `serve --live-minutes`, SSE `live` event.
+- 2026-11-15 (UTC): fire detections vanished from the live file after 00:00 UTC. Cause: FIRMS counts days by UTC date, so "1 day" is only today. Now 2 days are asked and the last 24 hours kept (0 fires before, 1041 after). `refresh_minutes` is written into `live.geojson`. The VM refreshes every 5 minutes; measured there: a `live` push 14 s after the file was written, storage already holding the new file.
+- 2026-11-15 (UTC): the live file follows the same rules as the app's own collector (`frontend/src/livefeeds.ts`): USGS last day (magnitude 2.5+, and landslides, collapses, blasts), US weather alerts (NOAA NWS, 40 newest, each placed at the middle of its first land zone), US volcanoes with a raised alert level, `severity` 0 to 3, `active`, and only events under 24 hours old or still active. Before, a page reading the server file and a page asking the sources itself showed different events. First run after a restart takes about 30 s (weather zones are looked up once, then kept in memory).
+- 2026-11-15 (UTC): larger case-study boxes and six city sites, processed on the VM (not locally: the local `data/` no longer matches the VM, see `deploy/README.md`). A site whose box changed is processed again even with no new granules. Known gap: newer GCOV dates (late October on) are published as VALIDATED and are not shown, because a series never mixes maturities and VALIDATED has only 1 or 2 dates per frame so far.
+- 2026-11-15 (UTC): confidence floor 0.3 for published events (406 events in all, 738 before); `GET /api/areas`, `/api/events`, `/api/live`; `azure.sh seed` no longer sends the local `live.geojson` (it would replace the VM's fresh one with an old one).
+- 2026-11-15 (UTC): curated sites reduced to `mexico`, `chapala`, `yucatan`, `villahermosa` (`sf` and `cdmx` removed from `sites.json`; looked-up cells removed from the data). A new search found no newer NISAR granules for any of the four: the data ends 2026-10-21 because that is the latest published.
 - 2026-11-14: real-event test (`LIVE_FEEDS_TEST.md`); GDACS paging, latest-update dates, `application/geo+json`.
 - 2026-11-14: `place` on every event; USGS `title` is now "Magnitude N earthquake" (the place moved to `place`).
 - Not in the contract (`docs/04`): adding `live.geojson` and the `live` push event there needs a `contract-change` PR. Sources still need entries in `docs/09-references.md`.
@@ -207,12 +218,10 @@ Changes:
 
 | Site | GCOV | GUNW | SME2 | Events |
 |---|---|---|---|---|
-| `cdmx` Mexico City | 6 PROVISIONAL, t19 f11 asc, 2026-08-14 to 10-13 | 12 pairs, 2026-05-10 to 10-13 | 12 dates | 14: a 222 km2 sinking bowl over the old lakebed at about 14 cm/yr (line of sight), 3 smaller sinking areas, 7 vegetation losses on the western hills, 2 farmland areas |
-| `chapala` Lake Chapala | 10 PROVISIONAL, t48 f12 asc, 2026-06-17 to 10-15 | 9 pairs | 24 dates | 224: wildfires 91 (37 burn scars not regrown also count as deforestation), agriculture 71, deforestation 55, floods 20, urban 10 |
-| `yucatan` Hopelchén | 9 PROVISIONAL, t127 f79 desc, 2026-06-23 to 10-21 | 8 pairs | 24 dates | 443: agriculture 239, wildfires 172, deforestation 64 (62 are burn scars not regrown), urban 21 |
-| `villahermosa` | 10 PROVISIONAL, t62 f11 asc, 2026-06-18 to 10-16 | 9 pairs | 19 dates | 64: floods 5 (0.4 km2, thin: data ends mid-October) |
-| `mexico` (mosaic) | none | none | 496 granules, two cycles, 2026-09-28 to 10-21 | 7 drying regions inside the border; fire layer from FIRMS, last 10 days |
-| `sf` San Francisco (test) | 6 PROVISIONAL, t135 f21 asc | 12 pairs | 12 dates | 14: mostly new or changed structures on the waterfront |
+| `chapala` Lake Chapala | 10 PROVISIONAL, t48 f12 asc, 2026-06-17 to 10-15 | 9 pairs | 24 dates | 127 (224 before the confidence floor): agriculture 42, wildfires 32, deforestation 30, floods 20, other 14, urban 4 |
+| `yucatan` Hopelchén | 9 PROVISIONAL, t127 f79 desc, 2026-06-23 to 10-21 | 8 pairs | 24 dates | 227 (443 before): agriculture 142, wildfires 65, deforestation 28, other 9, urban 9 |
+| `villahermosa` | 10 PROVISIONAL, t62 f11 asc, 2026-06-18 to 10-16 | 9 pairs | 19 dates | 47 (64 before): deforestation 24, agriculture 18, wildfires 15, floods 5 (0.4 km2, thin: data ends mid-October) |
+| `mexico` (mosaic) | none | none | 496 granules, two cycles, 2026-09-28 to 10-21 | 5 drying regions inside the border (7 before); fire layer from FIRMS, last 10 days |
 
 Known limits:
 - Ground motion is along the radar's line of sight, not vertical; relative to the reference area; one geometry. No troposphere correction.
