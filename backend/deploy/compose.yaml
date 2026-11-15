@@ -12,7 +12,7 @@ services:
     environment:
       # --jobs --public: anyone may look up a place (limited); --watch-hours: refresh curated sites;
       # --live-minutes: refresh live.geojson (public disaster feeds).
-      SARS_SERVE_FLAGS: --jobs --public --watch-hours 12 --live-minutes 15
+      SARS_SERVE_FLAGS: --jobs --public --watch-hours 12 --live-minutes 5
       # "New data" is pushed to browsers only once the sync container has copied it to storage.
       SARS_SYNC_MARKER: /sync/copied
     volumes:

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Microsoft Azure deployment for sars-pipeline. See backend/deploy/README.md.
+# Microsoft Azure deployment for sars-pipeline (the site itself goes to Cloudflare Pages). See backend/deploy/README.md.
 #   backend/deploy/azure.sh sizes    VM sizes this subscription may create here (read-only)
 #   backend/deploy/azure.sh vm       once: resource group, storage for results, a Linux VM with Docker
 #   backend/deploy/azure.sh deploy   copy the committed code and backend/.env, build, (re)start
 #   backend/deploy/azure.sh seed     copy data/selected, data/interim and data/processed to the VM
-#   backend/deploy/azure.sh site     build the frontend against storage and the API, publish it
+#   backend/deploy/azure.sh site     build the frontend against storage and the API, publish it to Cloudflare Pages
 #   backend/deploy/azure.sh dns      print the DNS records for SARS_DOMAIN (read-only)
 #   backend/deploy/azure.sh status   health, containers, disk, last copies to storage (read-only)
 #   backend/deploy/azure.sh ssh      open a shell on the VM (logs: sudo docker logs -f sars-api-1)
@@ -14,7 +14,7 @@ PREFIX="${AZ_PREFIX:?set AZ_PREFIX to a short lowercase name, e.g. borrenautas}"
 RG="${AZ_RG:-sars}"
 LOC="${AZ_LOCATION:-westus2}"  # near the NISAR data in AWS us-west-2 (Oregon)
 VM=sars-vm
-SITE=sars-site
+PAGES="${CF_PAGES_PROJECT:-$PREFIX}"  # Cloudflare Pages project: the site is at <project>.pages.dev
 STORAGE="${PREFIX//-/}sars"  # storage account: 3 to 24 lowercase letters and digits, unique in Azure
 DATA_URL="https://${STORAGE}.blob.core.windows.net/data/"  # browsers read results here
 VM_HOST="${PREFIX}-sars.${LOC}.cloudapp.azure.com"  # the VM's own name: always there, used for SSH
@@ -108,24 +108,22 @@ status)
   "${SSH[@]}" 'sudo docker ps --format "{{.Names}}\t{{.Status}}"; df -h /opt/sars/data | tail -n 1; free -m | sed -n 2,3p; sudo docker logs --tail 5 sars-sync-1 2>&1'
   ;;
 site)
-  # Run from a checkout that has frontend/ (testing or frontend branch).
-  az staticwebapp show -g "$RG" -n "$SITE" -o none 2>/dev/null ||
-    az staticwebapp create -g "$RG" -n "$SITE" -l "$LOC" --sku Free -o none
-  DEPLOY="$(az staticwebapp secrets list -g "$RG" -n "$SITE" --query properties.apiKey -o tsv | tr -d '\r')"
+  # Run from a checkout that has frontend/ (main, testing or frontend), after `npx wrangler login`.
+  # Cloudflare Pages, not Azure: the page stays up when the VM or the Azure credit is gone.
+  # Direct upload; a project connected to GitHub in the Cloudflare dashboard publishes itself instead.
   # Files come from storage, calls (lookup, push, history) from the API on the VM.
   (cd "$ROOT/frontend" && npm ci && VITE_DATA_BASE="$DATA_URL" VITE_API_BASE="https://${HOST}/" npm run build &&
-    npx -y @azure/static-web-apps-cli deploy dist --deployment-token "$DEPLOY" --env production)
-  echo "https://$(az staticwebapp show -g "$RG" -n "$SITE" --query defaultHostname -o tsv | tr -d '\r')"
+    { npx -y wrangler pages project create "$PAGES" --production-branch main 2>/dev/null || true; } &&
+    npx -y wrangler pages deploy dist --project-name "$PAGES" --branch main --commit-dirty=true)
+  echo "https://${PAGES}.pages.dev  (the exact address is printed above if the name was taken)"
   ;;
 dns)
   DOMAIN="${SARS_DOMAIN:?set SARS_DOMAIN to your domain, e.g. example.org}"
   IP="$(az vm show -d -g "$RG" -n "$VM" --query publicIps -o tsv | tr -d '\r')"
-  WEB="$(az staticwebapp show -g "$RG" -n "$SITE" --query defaultHostname -o tsv 2>/dev/null | tr -d '\r' || true)"
-  echo "In Cloudflare DNS for ${DOMAIN}, both with the proxy OFF (grey cloud, DNS only):"
-  echo "  A      api   ${IP}"
-  echo "  CNAME  www   ${WEB:-<run '$0 site' first>}"
+  echo "In Cloudflare DNS for ${DOMAIN}:"
+  echo "  A  api  ${IP}   proxy OFF (grey cloud, DNS only)"
+  echo "  the site: Workers & Pages > ${PAGES} > Custom domains > add ${DOMAIN} (Cloudflare adds the record)"
   echo "Then: SARS_DOMAIN=${DOMAIN} $0 deploy    (API moves to https://api.${DOMAIN})"
-  echo "      az staticwebapp hostname set -g ${RG} -n ${SITE} --hostname www.${DOMAIN}"
   echo "      SARS_DOMAIN=${DOMAIN} $0 site      (site built against the new API name)"
   ;;
 *)

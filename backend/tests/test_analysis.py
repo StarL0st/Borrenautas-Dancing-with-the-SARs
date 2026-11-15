@@ -374,17 +374,17 @@ def test_public_lookup_snaps_caches_and_limits(tmp_path, monkeypatch):
     jobs = live.Jobs(tmp_path, refresh=fake_refresh)
     app = create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret", public=True)
     with TestClient(app) as c:
-        jobs.submit("sf")  # a timer refresh: holds the worker until the gate opens
+        jobs.submit("mexico")  # a timer refresh: holds the worker until the gate opens
         first = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
         assert first.status_code == 202 and first.json()["id"] == "cell-21_1n-101_3w"
         # A nearby point is the same cell; no second job.
         near = c.post("/sites", json={"lat": 21.15, "lon": -101.39})
         assert near.json()["id"] == first.json()["id"]
-        jobs.submit("cdmx")  # timer
+        jobs.submit("yucatan")  # timer
         second = c.post("/sites", json={"lat": 25.0, "lon": -100.0}).json()
         assert second["position"] == 0  # visitors go ahead of timer refreshes
         # Inside a curated site: that site answers, no cell is made.
-        assert c.post("/sites", json={"lat": 19.43, "lon": -99.13}).json()["id"] == "cdmx"
+        assert c.post("/sites", json={"lat": 20.3, "lon": -103.2}).json()["id"] == "chapala"
         assert c.post("/sites", json={"lat": 1, "lon": 1, "km": 30}).status_code == 401
         assert c.post("/sites", json={"lat": 30.0, "lon": -110.0}).status_code == 202
         assert c.post("/sites", json={"lat": 31.0, "lon": -111.0}).status_code == 429

@@ -1,40 +1,4 @@
 {
-  "sf": {
-    "title": "San Francisco (pipeline test)",
-    "summary": "Test area for the pipeline, not a demo site. Radar backscatter over San Francisco and the Bay, and what changed between the two latest passes.",
-    "bbox": [
-      -122.52,
-      37.7,
-      -122.3,
-      37.85
-    ],
-    "change_types": [
-      "other"
-    ],
-    "looks": 4
-  },
-  "cdmx": {
-    "title": "Mexico City",
-    "summary": "Mexico City: dense city on an old lakebed that is sinking as groundwater is pumped out, with farmland at the edges. Radar backscatter, ground motion, and soil moisture.",
-    "bbox": [
-      -99.22526,
-      19.34017,
-      -99.03474,
-      19.51983
-    ],
-    "change_types": [
-      "deformation",
-      "other"
-    ],
-    "looks": 4,
-    "reference_bbox": [
-      -99.32,
-      19.3,
-      -99.26,
-      19.4
-    ],
-    "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
-  },
   "yucatan": {
     "title": "Hopelchén, Campeche (Yucatán Peninsula)",
     "summary": "Los Chenes, in the Yucatán Peninsula: tropical dry forest being cleared for mechanized farmland. Radar backscatter, ground motion, and soil moisture.",
