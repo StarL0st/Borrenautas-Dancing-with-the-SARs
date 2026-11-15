@@ -1713,12 +1713,17 @@ let orbiting = false; // an animation is running: Start and the house button wai
 
 // The middle of the whole globe on screen, with the side panels in place or pushed away.
 // The panel widths and the phone layout mirror the stylesheet (`.app`, `.stage`).
-function globeCenter(panels: boolean) {
+// The map area once the panels are in (or out): its middle, where the globe sits, and its size.
+function mapArea(panels: boolean) {
   const m = document.querySelector("main")!.getBoundingClientRect();
   const wide = !phone.matches;
   const left = m.left + (panels && wide ? 300 : 0), right = m.right - (panels && wide ? 360 : 0);
   const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.5 : 1);
-  return { x: (left + right) / 2, y: (m.top + bottom) / 2 };
+  return { x: (left + right) / 2, y: (m.top + bottom) / 2, w: right - left, h: bottom - m.top };
+}
+function globeCenter(panels: boolean) {
+  const { x, y } = mapArea(panels);
+  return { x, y };
 }
 type Point = ReturnType<typeof globeCenter>;
 
@@ -1753,9 +1758,10 @@ const letters = () => [...nameEl.children] as HTMLElement[];
 const landed = (runs: Promise<unknown>[]) => Promise.all(runs).then(() => layers.forEach((layer) => layer.replaceChildren()));
 
 // Fly every letter out and round the globe. Resolves when the last one is behind it.
-function flyName(g: Point) {
+// `radius`: the globe's radius on screen when the camera has pulled back (globe.welcome).
+function flyName(g: Point, radius: number) {
   const spans = letters();
-  const far = Math.min(globe.roughRadius * 1.15, innerWidth * 0.46);
+  const far = Math.min(radius * 1.15, innerWidth * 0.46);
   const size = Math.min(1, 46 / parseFloat(getComputedStyle(nameEl).fontSize));
   return landed(
     spans.flatMap((span, i) =>
@@ -1796,10 +1802,11 @@ async function leaveHome() {
   homeUi(false);
   // On a phone the open credits cover the date slider; folded, they stay one tap away on the (i).
   if (phone.matches) document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
-  globe.welcome(false, 1700);
+  // The camera pulls back until the whole globe fits the map area, and the letters circle its edge.
+  const radius = globe.welcome(false, 1700, mapArea(true));
   $("home-btn").focus();
   if (move) {
-    await flyName(globeCenter(true));
+    await flyName(globeCenter(true), radius);
     document.body.classList.remove("orbiting");
   }
   orbiting = false;
