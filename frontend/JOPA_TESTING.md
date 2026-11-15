@@ -1,9 +1,12 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Rounds 4 and 5 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (28 after round 5) pass; it was run locally and looked at in the app's browser.
+**Rounds 4 to 6 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 5)
+## What the branch has now (after round 6)
+
+- **PDF reports stay up to date**: each zone's PDF is made when its card opens and remade as a new version whenever new data changes what it shows; the old version is thrown away and the new one says what is new.
+- **Every explanation is sourced**: the radar explainer, glossary, decision log and kids' facts cite pages that were opened and read (mostly NASA); the PDF numbers its citations and ends with a References section.
 
 - **Simple mode has its own side panel, written for a 10-year-old**: a welcome guide, then for each place six numbered questions (what is this place about, what did the space radar see, look for yourself, did you know, where does this come from, words to know).
 - **Technical timelines are short**: the 5 most important detected changes and the 5 most important remarkable events per zone; the rest is in the report.
@@ -41,7 +44,18 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `db6c2a1` | 4 | Data origin badges, radar explainer, before/after comparator, decision log |
 | `689018e` | 4 | Docs: round 4 |
 | `a0e9a8a` | 5 | Simple-mode guide, top-5 timelines, PDF report, cloud-aware photo comparison |
-| *this commit* | 5 | Docs: round 5 |
+| `1b71788` | 5 | Docs: round 5 |
+| `fa02065` | 6 | Versioned PDFs kept up to date; every explanation sourced (NASA first) |
+| *this commit* | 6 | Docs: round 6 |
+
+## Round 6 (2026-11-15)
+
+| Request | What changed |
+|---|---|
+| PDFs must never be out of date | **Versions** (`report-core.ts`, the PDF code in `main.ts`): a report is now made from a *snapshot* of everything it shows (radar layers, detected changes, live reports within 300 km, satellite photos, time series). A zone's PDF is made when its card opens in Technical mode and kept. Whenever new data arrives (new radar results, the 5-minute live check, the hourly satellite check) every kept PDF is checked again: if its content changed, the old file is thrown away and **version N+1** is made. The PDF cover says its version, when it was made, when each source last published ("Data as of"), and a **"What is new since version N"** box (for example "newer satellite photo (2026-11-04)", "detected changes: 64 → 66"). The footer carries the version on every page. Downloading always checks first, so it gives the newest version. The card shows "Report version N, made …, matches the latest data. It replaced version N-1: …". A source republishing identical data does not make a new version. Zones that leave the data lose their PDF. **New data reaches the page:** the radar results (`manifest.json`, `events.geojson`) are now fetched without the browser cache and checked every 5 minutes, so new passes appear without reloading. |
+| No invented information; every fact from a real source, preferably NASA | **`src/sources.ts`**: the outside sources, each opened and read on 2026-11-14: NASA NISAR Quick Facts, NASA Earthdata *SAR* and *SAR Image Interpretation*, NASA/JPL's Mexico City subsidence report (April 29, 2026), NASA ASF *NISAR Data Products*, NASA Earthdata HLS and GIBS, NASA FIRMS, NASA EONET, NASA SPHEREx, USGS, NOAA, GDACS, the National Eye Institute and Okabe & Ito. The project's own rules cite the project's code. **Rewritten to match the sources:** the radar explainer, the PDF glossary, the decision log and the kids' "Did you know?" facts; each item now carries its sources, shown as links on the page and as numbered citations [n] in the PDF, which ends with a **References** list (who, title, link) and the data citations (NISAR DOIs, live feed credits, GIBS). **Corrections:** Mexico City sinking was "30 to 50 cm a year"; NASA/JPL says about 35 cm a year in the 1990s and 2000s, and more than 2 cm a month measured by NISAR (Oct 2025 to Jan 2026). The glossary said HH is strong for water; NASA says calm water looks black, and HH shows double bounce (buildings, trunks, flooded vegetation). **Removed because no source said so:** "radar speckle is multiplicative", "there is no labeled training data for NISAR over Mexico", "small or cloud-hidden fires are missed", the "often sinking" note on ground-motion maps, the VIIRS and MODIS resolutions on photo labels, and a revisit time for HLS. The area descriptions are marked as coming from the project's list of study areas, and detected-change descriptions as written by the detection rules from the measurements. |
+
+**Checked in the browser:** opening Villahermosa made version 1 by itself; changing what the report shows made version 2 with "It replaced version 1: newer satellite photo (2026-11-04)"; the PDF (18 pages) has the version, "Data as of", the "What is new" box, 61 numbered citations and 20 references with links.
 
 ## Round 5 (2026-11-15)
 
