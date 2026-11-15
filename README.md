@@ -69,10 +69,11 @@ The challenge asks for an interactive application that uses NISAR data to track 
 | Resource managers and decision-makers | Where and when change happened, how big, how confident the detection is, what is happening live nearby, and a PDF report per area to share |
 | Scientists | Technical mode: every layer and polarization, value ranges, time series, full provenance (granules, product, maturity, parameters), and a public API |
 
-## Video and demo
+## Videos
 
 - Live site: [gigas.earth](https://gigas.earth)
-- Demo video: [(Youtube Link)](https://youtu.be/Qfw1v12CXTo)
+- Demo video: [Youtube Link](https://youtu.be/Qfw1v12CXTo)
+- Video Pitch: [Drive Link](https://drive.google.com/drive/folders/1syZIggpHnRGlp1bwS313TBuuic6mN78-?usp=share_link)
 
 ## The web page
 
