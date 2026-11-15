@@ -19,11 +19,6 @@
       "SME2"
     ],
     "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    },
     "fire_season": [
       "2026-03-01",
       "2026-05-31"
@@ -47,12 +42,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "chapala": {
     "title": "Lake Chapala, Jalisco",
@@ -74,14 +64,28 @@
       "SME2"
     ],
     "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    },
     "fire_season": [
       "2026-03-01",
       "2026-05-31"
+    ]
+  },
+  "mexico": {
+    "title": "Mexico",
+    "summary": "The whole country at about 2 km, clipped to the border: soil moisture from every NISAR pass in the two latest 12-day cycles, how it changed between them, and recent fire detections. Look up any place for full-detail radar.",
+    "kind": "mosaic",
+    "clip": "mexico",
+    "bbox": [
+      -118.5,
+      14.4,
+      -86.6,
+      32.8
+    ],
+    "change_types": [
+      "soil_moisture",
+      "wildfire"
+    ],
+    "products": [
+      "SME2"
     ]
   },
   "guadalajara": {
@@ -102,12 +106,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "monterrey": {
     "title": "Monterrey, Nuevo León",
@@ -127,12 +126,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "vallarta": {
     "title": "Puerto Vallarta, Jalisco",
@@ -152,12 +146,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "elpaso": {
     "title": "El Paso and Ciudad Juárez",
@@ -177,12 +166,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "tijuana": {
     "title": "Tijuana and San Diego (south)",
@@ -202,12 +186,7 @@
       "GUNW",
       "SME2"
     ],
-    "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    }
+    "looks": 4
   },
   "cdmx": {
     "title": "Mexico City",
@@ -228,11 +207,6 @@
       "SME2"
     ],
     "looks": 4,
-    "max_dates": {
-      "GCOV": 14,
-      "GUNW": 16,
-      "SME2": 24
-    },
     "reference_bbox": [
       -99.32,
       19.3,
@@ -241,23 +215,544 @@
     ],
     "reference_note": "Sierra de las Cruces foothills, west of the lakebed: volcanic rock, assumed stable"
   },
-  "mexico": {
-    "title": "Mexico",
-    "summary": "The whole country at about 2 km, clipped to the border: soil moisture from every NISAR pass in the two latest 12-day cycles, how it changed between them, and recent fire detections. Look up any place for full-detail radar.",
-    "kind": "mosaic",
-    "clip": "mexico",
+  "aguascalientes": {
+    "title": "Aguascalientes",
+    "summary": "Aguascalientes, the capital of Aguascalientes. Radar backscatter, ground motion, and soil moisture.",
     "bbox": [
-      -118.5,
-      14.4,
-      -86.6,
-      32.8
+      -102.48961,
+      21.70134,
+      -102.10239,
+      22.06066
     ],
     "change_types": [
-      "soil_moisture",
-      "wildfire"
+      "deformation",
+      "other"
     ],
     "products": [
+      "GCOV",
+      "GUNW",
       "SME2"
-    ]
+    ],
+    "looks": 4
+  },
+  "mexicali": {
+    "title": "Mexicali, Baja California",
+    "summary": "Mexicali, the capital of Baja California. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -115.68132,
+      32.44434,
+      -115.25468,
+      32.80366
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "lapaz": {
+    "title": "La Paz, Baja California Sur",
+    "summary": "La Paz, the capital of Baja California Sur. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -110.50788,
+      23.96234,
+      -110.11412,
+      24.32166
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "campeche": {
+    "title": "Campeche",
+    "summary": "Campeche, the capital of Campeche. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -90.72601,
+      19.66534,
+      -90.34399,
+      20.02466
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "tuxtla": {
+    "title": "Tuxtla Gutiérrez, Chiapas",
+    "summary": "Tuxtla Gutiérrez, the capital of Chiapas. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -93.30263,
+      16.57334,
+      -92.92737,
+      16.93266
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "chihuahua": {
+    "title": "Chihuahua",
+    "summary": "Chihuahua, the capital of Chihuahua. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -106.27369,
+      28.45334,
+      -105.86431,
+      28.81266
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "saltillo": {
+    "title": "Saltillo, Coahuila",
+    "summary": "Saltillo, the capital of Coahuila. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -101.19892,
+      25.24034,
+      -100.80108,
+      25.59966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "colima": {
+    "title": "Colima",
+    "summary": "Colima, the capital of Colima. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -103.91429,
+      19.06334,
+      -103.53371,
+      19.42266
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "durango": {
+    "title": "Durango",
+    "summary": "Durango, the capital of Durango. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -104.85471,
+      23.84734,
+      -104.46129,
+      24.20666
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "guanajuato": {
+    "title": "Guanajuato",
+    "summary": "Guanajuato, the capital of Guanajuato. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -101.44947,
+      20.83934,
+      -101.06453,
+      21.19866
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "chilpancingo": {
+    "title": "Chilpancingo, Guerrero",
+    "summary": "Chilpancingo, the capital of Guerrero. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -99.68843,
+      17.37134,
+      -99.31157,
+      17.73066
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "pachuca": {
+    "title": "Pachuca, Hidalgo",
+    "summary": "Pachuca, the capital of Hidalgo. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -98.95131,
+      19.92034,
+      -98.56869,
+      20.27966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "toluca": {
+    "title": "Toluca, the State of Mexico",
+    "summary": "Toluca, the capital of the State of Mexico. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -99.84735,
+      19.11234,
+      -99.46665,
+      19.47166
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "morelia": {
+    "title": "Morelia, Michoacán",
+    "summary": "Morelia, the capital of Michoacán. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -101.38084,
+      19.52634,
+      -100.99916,
+      19.88566
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "cuernavaca": {
+    "title": "Cuernavaca, Morelos",
+    "summary": "Cuernavaca, the capital of Morelos. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -99.42392,
+      18.74134,
+      -99.04408,
+      19.10066
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "tepic": {
+    "title": "Tepic, Nayarit",
+    "summary": "Tepic, the capital of Nayarit. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -105.08811,
+      21.32534,
+      -104.70189,
+      21.68466
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "oaxaca": {
+    "title": "Oaxaca",
+    "summary": "Oaxaca, the capital of Oaxaca. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -96.91393,
+      16.88034,
+      -96.53807,
+      17.23966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "puebla": {
+    "title": "Puebla and Tlaxcala",
+    "summary": "Puebla and Tlaxcala, the capitals of Puebla and Tlaxcala. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -98.45778,
+      18.95542,
+      -97.98222,
+      19.40458
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "queretaro": {
+    "title": "Querétaro",
+    "summary": "Querétaro, the capital of Querétaro. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -100.58192,
+      20.40934,
+      -100.19808,
+      20.76866
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "chetumal": {
+    "title": "Chetumal, Quintana Roo",
+    "summary": "Chetumal, the capital of Quintana Roo. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -88.48545,
+      18.32034,
+      -88.10655,
+      18.67966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "sanluispotosi": {
+    "title": "San Luis Potosí",
+    "summary": "San Luis Potosí, the capital of San Luis Potosí. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -101.16998,
+      21.97134,
+      -100.78202,
+      22.33066
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "culiacan": {
+    "title": "Culiacán, Sinaloa",
+    "summary": "Culiacán, the capital of Sinaloa. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -107.59193,
+      24.62734,
+      -107.19607,
+      24.98666
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "hermosillo": {
+    "title": "Hermosillo, Sonora",
+    "summary": "Hermosillo, the capital of Sonora. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -111.16056,
+      28.89334,
+      -110.74944,
+      29.25266
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "ciudadvictoria": {
+    "title": "Ciudad Victoria, Tamaulipas",
+    "summary": "Ciudad Victoria, the capital of Tamaulipas. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -99.34226,
+      23.55634,
+      -98.94974,
+      23.91566
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "xalapa": {
+    "title": "Xalapa, Veracruz",
+    "summary": "Xalapa, the capital of Veracruz. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -97.11064,
+      19.36034,
+      -96.72936,
+      19.71966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "merida": {
+    "title": "Mérida, Yucatán",
+    "summary": "Mérida, the capital of Yucatán. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -89.81241,
+      20.79034,
+      -89.42759,
+      21.14966
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
+  },
+  "zacatecas": {
+    "title": "Zacatecas",
+    "summary": "Zacatecas, the capital of Zacatecas. Radar backscatter, ground motion, and soil moisture.",
+    "bbox": [
+      -102.76685,
+      22.59134,
+      -102.37715,
+      22.95066
+    ],
+    "change_types": [
+      "deformation",
+      "other"
+    ],
+    "products": [
+      "GCOV",
+      "GUNW",
+      "SME2"
+    ],
+    "looks": 4
   }
 }

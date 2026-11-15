@@ -56,7 +56,7 @@ def main() -> None:
 
     select_p = sub.add_parser("select", help="pick granules for a site (asf_search)")
     select_p.add_argument("site")
-    select_p.add_argument("--days", type=int, default=180, help="search window, days back")
+    select_p.add_argument("--days", type=int, help="search only this many days back")
 
     add_p = sub.add_parser("add-site", help="add a site to backend/sites.json")
     add_p.add_argument("site", help="short id, e.g. cdmx")
@@ -75,12 +75,12 @@ def main() -> None:
     run_p = sub.add_parser("run", help="select (if needed) and process sites")
     run_p.add_argument("sites", nargs="*", help="site ids (default: all)")
     run_p.add_argument("--reselect", action="store_true", help="search again even if selected")
-    run_p.add_argument("--days", type=int, default=180)
+    run_p.add_argument("--days", type=int)
 
     refresh_p = sub.add_parser("refresh", help="search again; process only sites with new data")
     refresh_p.add_argument("sites", nargs="*", help="site ids (default: all)")
     refresh_p.add_argument("--force", action="store_true", help="process even if nothing is new")
-    refresh_p.add_argument("--days", type=int, default=180)
+    refresh_p.add_argument("--days", type=int)
 
     watch_p = sub.add_parser("watch", help="refresh every site in a loop")
     watch_p.add_argument("--hours", type=float, default=6)
@@ -138,7 +138,7 @@ def main() -> None:
             sites = load_sites()
             for site_id in getattr(args, "sites", None) or list(sites):
                 force = getattr(args, "force", False)
-                days = getattr(args, "days", 180)
+                days = getattr(args, "days", None)
                 print(refresh_site(site_id, sites[site_id], DATA, force, days))
             if args.cmd == "refresh":
                 break

@@ -15,7 +15,7 @@ from PIL import Image
 
 from .granule import Granule, open_granule, read_db
 
-CONTRACT_VERSION = "0.6.0"
+CONTRACT_VERSION = "0.7.0"
 ATTRIBUTION = "NISAR data: NASA/JPL/NISAR, distributed by NASA ASF DAAC"
 # Collection titles and DOIs (Earthdata catalog / CMR; each DOI checked to resolve on doi.org).
 # CMR lists GUNW as 10.5067/NIL1GUNW-P1, which does not resolve; the DOI inside the granules,
@@ -66,8 +66,12 @@ def _software() -> dict:
 def _write_json(path: Path, obj) -> None:
     # Write then rename so the server never serves a half-written file.
     path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(obj, indent=2)
+    # Unchanged files keep their date, so the copy to storage sends only what changed.
+    if path.exists() and path.read_text(encoding="utf-8") == text:
+        return
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(obj, indent=2), encoding="utf-8")
+    tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -113,6 +117,16 @@ def write_events(data_dir: Path, area_id: str, events: list[dict]) -> None:
     doc["contract_version"] = CONTRACT_VERSION
     doc["events"] = [e for e in doc["events"] if e["area_id"] != area_id] + events
     _write_json(Path(data_dir) / "events.json", doc)
+    _write_json(Path(data_dir) / "events.geojson", _collection(doc["events"]))
+    # The same per area: a page loads an area's events when the area is looked at. Every area
+    # is written (unchanged files are left alone), so areas from before this file existed get one.
+    for other in {e["area_id"] for e in doc["events"]} | {area_id}:
+        mine = [e for e in doc["events"] if e["area_id"] == other]
+        _write_json(Path(data_dir) / "areas" / other / "events.geojson", _collection(mine))
+    write_index(data_dir)
+
+
+def _collection(events: list[dict]) -> dict:
     features = [
         {
             "type": "Feature",
@@ -133,13 +147,46 @@ def write_events(data_dir: Path, area_id: str, events: list[dict]) -> None:
                 "maturity": e["maturity"],
                 "lon": e.get("centroid", [None, None])[0],
                 "lat": e.get("centroid", [None, None])[1],
+                **({"archived": True} if e.get("archived") else {}),
             },
         }
-        for i, e in enumerate(doc["events"])
+        for i, e in enumerate(events)
     ]
-    _write_json(
-        Path(data_dir) / "events.geojson", {"type": "FeatureCollection", "features": features}
-    )
+    return {"type": "FeatureCollection", "features": features}
+
+
+INDEX_FIELDS = ("id", "title", "summary", "bbox", "center", "categories", "change_types")
+
+
+def write_index(data_dir: Path) -> None:
+    """index.json: one short entry per area, so a page can start without the layer lists
+    (manifest.json) and the outlines (events.geojson) of every area."""
+    manifest = load_manifest(data_dir)
+    counts: dict[str, int] = {}
+    for e in load_events(data_dir)["events"]:
+        if not e.get("archived"):
+            counts[e["area_id"]] = counts.get(e["area_id"], 0) + 1
+    areas = []
+    for a in manifest["areas"]:
+        dates = sorted(
+            d
+            for layer in a["layers"]
+            for d in (layer.get("date"), *layer.get("date_range", []))
+            if d
+        )
+        areas.append(
+            {
+                **{k: a[k] for k in INDEX_FIELDS if k in a},
+                "events": counts.get(a["id"], 0),
+                "layers": len(a["layers"]),
+                "dates": [dates[0], dates[-1]] if dates else [],
+                # Looked up by a visitor (not a curated site): pages list it only for them.
+                **({"requested": True} if a.get("requested") else {}),
+                **({"kind": a["kind"]} if a.get("kind") else {}),
+            }
+        )
+    doc = {"contract_version": CONTRACT_VERSION, "generated_at": manifest.get("generated_at")}
+    _write_json(Path(data_dir) / "index.json", {**doc, "areas": areas})
 
 
 def write_timeseries(data_dir: Path, area_id: str, series: dict) -> dict:
@@ -301,6 +348,12 @@ def write_manifest(data_dir: Path, manifest: dict) -> None:
         synthetic=any(layer["synthetic"] for a in manifest["areas"] for layer in a["layers"]),
     )
     _write_json(Path(data_dir) / "manifest.json", manifest)
+    for a in manifest["areas"]:  # the same entry, one file per area
+        _write_json(
+            Path(data_dir) / "areas" / a["id"] / "area.json",
+            {"contract_version": CONTRACT_VERSION, **a},
+        )
+    write_index(data_dir)
 
 
 def ingest(path, data_dir) -> list[str]:

@@ -389,23 +389,25 @@ def test_public_lookup_snaps_caches_and_limits(tmp_path, monkeypatch):
     app = create_app(tmp_path / "processed", jobs=jobs, admin_token="s3cret", public=True)
     with TestClient(app) as c:
         jobs.submit("mexico")  # a timer refresh: holds the worker until the gate opens
-        first = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
-        assert first.status_code == 202 and first.json()["id"] == "cell-21_1n-101_3w"
+        first = c.post("/sites", json={"lat": 27.03, "lon": -103.27})
+        assert first.status_code == 202 and first.json()["id"] == "cell-27_1n-103_3w"
         # A nearby point is the same cell; no second job.
-        near = c.post("/sites", json={"lat": 21.15, "lon": -101.39})
+        near = c.post("/sites", json={"lat": 27.15, "lon": -103.39})
         assert near.json()["id"] == first.json()["id"]
         jobs.submit("yucatan")  # timer
         second = c.post("/sites", json={"lat": 25.0, "lon": -100.0}).json()
         assert second["position"] == 0  # visitors go ahead of timer refreshes
         # Inside a curated site: that site answers, no cell is made.
         assert c.post("/sites", json={"lat": 20.3, "lon": -103.2}).json()["id"] == "chapala"
+        # A few km outside its box still counts as that site (server.NEAR_KM).
+        assert c.post("/sites", json={"lat": 20.52, "lon": -103.0}).json()["id"] == "chapala"
         assert c.post("/sites", json={"lat": 1, "lon": 1, "km": 30}).status_code == 401
         assert c.post("/sites", json={"lat": 30.0, "lon": -110.0}).status_code == 202
         assert c.post("/sites", json={"lat": 31.0, "lon": -111.0}).status_code == 429
         gate.set()
         assert jobs.wait_idle()
         assert ran[1] == "cell-30_1n-109_9w"  # the latest visitor request ran first
-        again = c.post("/sites", json={"lat": 21.03, "lon": -101.27})
+        again = c.post("/sites", json={"lat": 27.03, "lon": -103.27})
         # Checked a moment ago, nothing processed (fake): cached answer, flagged empty.
         assert again.status_code == 200 and again.json()["empty"]
         assert c.get(f"/sites/{first.json()['id']}").json()["status"] == "done"
@@ -422,6 +424,12 @@ def test_refresh_skips_when_nothing_new(tmp_path, monkeypatch):
     (tmp_path / "processed" / "manifest.json").write_text(json.dumps({"areas": [{"id": "x"}]}))
     monkeypatch.setattr(live, "select_site", lambda *a: sel)
     assert live.refresh_site("x", {}, tmp_path)["status"] == "unchanged"
+    # A product failed last time: try again.
+    failed = {"areas": [{"id": "x", "errors": {"GUNW": "timeout"}}]}
+    (tmp_path / "processed" / "manifest.json").write_text(json.dumps(failed))
+    monkeypatch.setattr("sars_pipeline.site.run_site", lambda *a: {"events": 0})
+    assert live.refresh_site("x", {}, tmp_path)["status"] == "updated"
+    (tmp_path / "processed" / "manifest.json").write_text(json.dumps({"areas": [{"id": "x"}]}))
     # The site's box changed: the same granules must be read again over the new box.
     monkeypatch.setattr(live, "select_site", lambda *a: {**sel, "bbox": [0, 0, 1, 1]})
     monkeypatch.setattr("sars_pipeline.site.run_site", lambda *a: {"events": 0})
@@ -690,3 +698,73 @@ def test_events_under_the_confidence_floor_are_not_published(flood_site, monkeyp
     monkeypatch.setitem(classify.DEFAULTS, "min_confidence", 1.01)
     assert run()["events"] == 0
     assert json.loads((out / "events.json").read_text())["events"] == []
+
+
+def test_each_area_has_its_own_files_and_a_short_index(flood_site):
+    out, _, _ = flood_site
+    [area] = load_manifest(out)["areas"]
+    own = json.loads((out / "areas/synth/area.json").read_text())
+    assert {k: v for k, v in own.items() if k != "contract_version"} == area
+    [feature] = json.loads((out / "areas/synth/events.geojson").read_text())["features"]
+    assert feature["properties"]["area_id"] == "synth"
+    [entry] = json.loads((out / "index.json").read_text())["areas"]
+    assert (entry["id"], entry["events"], entry["layers"]) == ("synth", 1, len(area["layers"]))
+    assert entry["dates"] == ["2026-01-01", "2026-01-13"] and "requested" not in entry
+
+
+def test_events_whose_dates_left_the_series_are_archived():
+    from sars_pipeline.site import archived
+
+    def ev(product, end, area="a"):
+        return {"area_id": area, "product": product, "date_range": ["2026-01-01", end]}
+
+    old = [ev("GCOV", "2026-06-01"), ev("GCOV", "2026-08-01"), ev("GCOV", "2026-06-01", "b")]
+    old += [ev("GUNW", "2026-06-20"), ev("SME2", "2026-10-09"), ev("SME2", "2026-10-21")]
+    products = {
+        "GCOV": {"granules": [{"date": "2026-07-01"}, {"date": "2026-08-01"}]},
+        "GUNW": {"granules": [{"date": "2026-07-02", "ref_date": "2026-06-20"}]},
+        # A mosaic compares its two latest cycles: the comparison ending 10-09 is over.
+        "SME2": {"cycles": [["2026-09-27", "2026-10-09"], ["2026-10-09", "2026-10-21"]]},
+    }
+    kept = archived(old, "a", products)
+    assert [(e["product"], e["date_range"][1]) for e in kept] == [
+        ("GCOV", "2026-06-01"),  # before the series: kept; 08-01 is inside it: withdrawn
+        ("SME2", "2026-10-09"),
+    ]
+    assert all(e["archived"] for e in kept)
+
+
+def test_search_starts_at_a_fixed_date_and_keeps_every_date(tmp_path, monkeypatch):
+    from sars_pipeline import selection
+
+    asked = []
+    rows = [
+        {"id": f"g{i}", "date": f"2026-06-{i:02d}", "track": 1, "frame": 1, "direction": "A"}
+        for i in range(1, 21)
+    ]
+    rows = [{**r, "maturity": "PROVISIONAL", "coverage": 1} for r in rows]
+    monkeypatch.setattr(selection, "search", lambda bbox, a, b, product: asked.append(a) or rows)
+    site = {"bbox": [0, 0, 1, 1], "products": ["GCOV"]}
+    sel = selection.select_site("x", site, tmp_path / "x.json")
+    assert asked == [selection.SINCE] and len(sel["products"]["GCOV"]["granules"]) == 20
+    capped = selection.select_site("x", {**site, "max_dates": {"GCOV": 4}}, tmp_path / "x.json")
+    assert [g["id"] for g in capped["products"]["GCOV"]["granules"]] == ["g17", "g18", "g19", "g20"]
+
+
+def test_timer_queues_one_site_at_a_time(tmp_path):
+    import threading
+    import time
+
+    gate, most = threading.Event(), []
+
+    def slow(site_id, site, data, force):
+        gate.wait(5)
+        return {}
+
+    jobs = live.Jobs(tmp_path, watch_hours=1, refresh=slow, poll=0.01)
+    for _ in range(20):
+        most.append(jobs.queued())
+        time.sleep(0.01)
+    gate.set()
+    assert max(most) <= 1 and len(load_sites(requested=None)) > 2
+    assert jobs.wait_idle()

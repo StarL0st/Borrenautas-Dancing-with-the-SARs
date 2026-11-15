@@ -36,6 +36,7 @@ MAX_NEW_PER_HOUR = 5  # per client address
 MIN_FREE_GB = 5  # below this no new place is accepted: cached windows fill the disk
 MAX_STREAMS = 500  # open /events connections; each one holds a socket and a queue
 HISTORY_KM = 5  # /history keeps events within this box around the point
+NEAR_KM = 10  # a lookup this close to a curated site's box gets that site, not a new cell
 WORLD = [-180, -90, 180, 90]
 
 _cache: dict[Path, tuple[int, dict]] = {}
@@ -227,7 +228,7 @@ def create_app(
                 for k, s in sites.items()
                 if not s.get("requested")
                 and s.get("kind") != "mosaic"
-                and _overlaps(s["bbox"], [req.lon, req.lat, req.lon, req.lat])
+                and _overlaps(s["bbox"], bbox_around(req.lon, req.lat, 2 * NEAR_KM))
             ),
             None,
         )

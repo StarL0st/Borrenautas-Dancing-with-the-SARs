@@ -1029,6 +1029,27 @@ def _bbox_km2(b) -> float:
     return (e - w) * 111.32 * math.cos(math.radians((s + n) / 2)) * (n - s) * 111.32
 
 
+def archived(old: list[dict], site_id: str, products: dict) -> list[dict]:
+    """Earlier events of this site that the new run cannot find again because their dates are
+    no longer in the series (a newer maturity took over, an older pass left the search). They
+    stay, marked `archived`. Events inside the current series that the run no longer finds were
+    withdrawn and are not kept."""
+    kept = []
+    for ev in old:
+        if ev["area_id"] != site_id:
+            continue
+        p = products.get(ev["product"]) or {}
+        end = ev["date_range"][1]
+        if "cycles" in p:  # mosaic: compares its two latest cycles; earlier comparisons are over
+            over = end <= p["cycles"][-1][0]
+        else:
+            starts = [g.get("ref_date") or g["date"] for g in p.get("granules", [])]
+            over = not starts or end < min(starts)
+        if over:
+            kept.append({**ev, "archived": True})
+    return kept
+
+
 def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection: dict) -> dict:
     data_dir, interim = Path(data_dir), Path(interim)
     cfg = {**classify.DEFAULTS, **site.get("thresholds", {})}
@@ -1075,6 +1096,8 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
             for k, v in products.items()
         },
         "errors": errors,
+        **({"requested": True} if site.get("requested") else {}),
+        **({"kind": site["kind"]} if site.get("kind") else {}),
     }
     area["friendly"] = f"areas/{site_id}/friendly.json"
     km2 = _bbox_km2(site["bbox"])
@@ -1086,10 +1109,11 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
         km2 = abs(Geod(ellps="WGS84").geometry_area_perimeter(border(site["clip"]))[0]) / 1e6
     cards = friendly.cards(area, run.events, km2)
     _write_json(data_dir / area["friendly"], {"contract_version": CONTRACT_VERSION, **cards})
+    events = archived(load_events(data_dir)["events"], site_id, products) + run.events
     area["history"] = f"areas/{site_id}/history.json"
     _write_json(
         data_dir / area["history"],
-        {"contract_version": CONTRACT_VERSION, **history.build(area, run.events, data_dir)},
+        {"contract_version": CONTRACT_VERSION, **history.build(area, events, data_dir)},
     )
     manifest = load_manifest(data_dir)
     old = {a["id"] for a in manifest["areas"] if a.get("site") == site_id or a["id"] == site_id}
@@ -1099,7 +1123,7 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
     stale = [ev for ev in load_events(data_dir)["events"] if ev["area_id"] in old - {site_id}]
     for ev in stale:
         write_events(data_dir, ev["area_id"], [])
-    write_events(data_dir, site_id, run.events)
+    write_events(data_dir, site_id, events)
     return {
         "area_id": site_id,
         "layers": len(run.layers),

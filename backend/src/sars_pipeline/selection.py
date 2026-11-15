@@ -64,7 +64,9 @@ def _dedupe(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
-def choose(rows: list[dict], max_dates: int = 6, min_dates: int = 4, product: str = "GCOV"):
+def choose(
+    rows: list[dict], max_dates: int | None = None, min_dates: int = 4, product: str = "GCOV"
+):
     """The best same-maturity series for one product, or None if nothing was found.
 
     Prefers groups whose frames cover the bbox (90% or more on every date), then at least
@@ -94,27 +96,33 @@ def choose(rows: list[dict], max_dates: int = 6, min_dates: int = 4, product: st
             len(kv[1]),
         ),
     )
-    out = {"maturity": key[-1], "granules": picked[-max_dates:]}
+    out = {"maturity": key[-1], "granules": picked[-max_dates:] if max_dates else picked}
     if product != "SME2":
         out.update(track=key[0], frame=key[1], direction=key[2])
     return out
 
 
-def select_site(site_id: str, site: dict, out: Path, days: int = 180) -> dict:
+# Searches start here, not "N days back", so a site's record only grows. Before the first
+# PROVISIONAL passes over Mexico (early May 2026).
+SINCE = "2026-05-01"
+
+
+def select_site(site_id: str, site: dict, out: Path, days: int | None = None) -> dict:
     if site.get("kind") == "mosaic":
         from .national import select  # imports this module
 
         return select(site_id, site, out)
     end = datetime.now(UTC)
-    start = end - timedelta(days=days)
-    window = (start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
-    limits = {"GCOV": 6, "GUNW": 12, "SME2": 12, **site.get("max_dates", {})}
+    start = (end - timedelta(days=days)).strftime("%Y-%m-%d") if days else SINCE
+    window = (start, end.strftime("%Y-%m-%d"))
+    # Every date by default; `max_dates` caps the newest (looked-up places: a visitor waits).
+    limits = site.get("max_dates", {})
     picked = {"site": site_id, "bbox": site["bbox"], "window": list(window), "products": {}}
     for product in site.get("products", PRODUCTS):
         # GUNW is read over the site plus its stable reference area.
         bbox = analysis_bbox(site) if product == "GUNW" else site["bbox"]
         rows = search(bbox, *window, product=product)
-        choice = choose(rows, max_dates=limits[product], product=product)
+        choice = choose(rows, max_dates=limits.get(product), product=product)
         if choice:
             picked["products"][product] = {"searched": len(rows), **choice}
     out.parent.mkdir(parents=True, exist_ok=True)

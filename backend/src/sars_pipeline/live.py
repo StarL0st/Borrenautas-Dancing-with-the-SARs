@@ -18,7 +18,9 @@ from .selection import granule_ids, select_site
 log = logging.getLogger(__name__)
 
 
-def refresh_site(site_id: str, site: dict, data: Path, force: bool = False, days: int = 180):
+def refresh_site(
+    site_id: str, site: dict, data: Path, force: bool = False, days: int | None = None
+):
     from .site import run_site  # heavy imports only when processing
 
     path = data / "selected" / f"{site_id}.json"
@@ -27,9 +29,11 @@ def refresh_site(site_id: str, site: dict, data: Path, force: bool = False, days
     if not new["products"]:  # nothing to show; the selection file's age stops repeat searches
         return {"site": site_id, "status": "unchanged", "new_granules": 0, "empty": True}
     added = granule_ids(new) - granule_ids(old)
-    have_area = any(a["id"] == site_id for a in load_manifest(data / "processed")["areas"])
+    area = next((a for a in load_manifest(data / "processed")["areas"] if a["id"] == site_id), None)
+    have_area = area is not None
+    failed = bool(area and area.get("errors"))  # a product failed last time (often the network)
     moved = old.get("bbox") != new.get("bbox")  # same granules, another window of them
-    if not (added or force or moved or not have_area):
+    if not (added or force or moved or failed or not have_area):
         return {"site": site_id, "status": "unchanged", "new_granules": 0}
     result = run_site(site_id, site, data / "processed", data / "interim", new)
     return {"site": site_id, "status": "updated", "new_granules": len(added), **result}
@@ -39,7 +43,10 @@ class Jobs:
     """One background worker that processes site refreshes in order, plus an optional timer that
     queues every site every `watch_hours`. Used by the API server (serve --jobs)."""
 
-    def __init__(self, data: Path, watch_hours: float | None = None, refresh=refresh_site):
+    def __init__(
+        self, data: Path, watch_hours: float | None = None, refresh=refresh_site, poll: float = 5
+    ):
+        self.poll = poll  # seconds between the timer's looks at the queue
         self.data = Path(data)
         self.refresh = refresh
         self.status: dict[str, dict] = {}
@@ -114,6 +121,10 @@ class Jobs:
     def _watch(self, hours: float):
         while True:
             # Curated sites only: requested places are re-checked when someone asks again.
+            # One at a time, each when the queue is empty: with many curated sites a full
+            # queue would turn visitors away (server.MAX_QUEUED), and theirs go first anyway.
             for site_id in site_config.load_sites(requested=None):
+                while self.queued():
+                    time.sleep(self.poll)
                 self.submit(site_id)
             time.sleep(hours * 3600)
