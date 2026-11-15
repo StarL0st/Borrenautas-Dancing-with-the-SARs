@@ -1047,6 +1047,8 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
             except Exception as err:  # one product failing must not hide the others
                 log.exception("%s %s failed", site_id, name)
                 errors[name] = str(err)
+    # The floor comes last: confidence is final only after the persistence check.
+    run.events = [ev for ev in run.events if ev["confidence"] >= cfg["min_confidence"]]
 
     w, s, e, n = site["bbox"]
     counts: dict[str, int] = {}

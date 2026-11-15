@@ -95,7 +95,8 @@ seed)
   # and the processed outputs, so the API starts with data. The sync container (compose.yaml)
   # then copies the outputs to storage.
   # sites.json: the places looked up locally, so the VM knows them as cached.
-  (cd "$ROOT/data" && tar -c selected interim processed $(ls sites.json 2>/dev/null)) |
+  # Not live.geojson: the VM collects its own every few minutes; the local one is older.
+  (cd "$ROOT/data" && tar -c --exclude=processed/live.geojson selected interim processed $(ls sites.json 2>/dev/null)) |
     "${SSH[@]}" 'sudo tar -x -C /opt/sars/data'
   ;;
 ssh)
