@@ -273,6 +273,23 @@ Preview: https://testing-gigas-project.starl0stgaming.workers.dev (built against
 - Checked with a headless browser against the preview (list, markers, group card, zoom-in loading, my places kept over a reload and removed). Not checked: phone layout, Simple mode, the tour, keyboard use of the markers.
 - Known: markers of different types can overlap; a place with no NISAR data stays "Processing" until removed.
 
+## Branch `mobile` (2026-11-15, night): phones and Simple mode with the new markers
+
+Preview: https://mobile-gigas-project.starl0stgaming.workers.dev
+
+- Markers on touch screens: the square stays 28 px, the area that takes the tap is 44 px (`.bubble::before`).
+- Groups are wider (88 px, was 64): a dense area showed 90 markers on a desktop map and 42 on a phone; now 69 and 31.
+- While a group is selected the markers fade (`.has-ghosts`), so the dots of its events show through.
+- Simple mode: an event in the group list shows its name, dates and size only. The back end's summary (HH, HV, PROVISIONAL) is left to Technical mode.
+- Checked in headless Edge at 390×844 (touch, both modes), 844×390 and 1400×900: no sideways scroll, a tap on a live and on a radar marker opens the list in the open panel, the list tab shows "My places" with a 44 px remove button, no page errors.
+- Not checked: a real phone, Safari, double tap on a marker (zoom to the group), screen readers.
+- Known: on a phone held sideways the map is about 195 px high, so an opened area fits below zoom 7 and its radar markers stay hidden until zoomed in; the date slider covers part of that small map.
+
+Simple mode, still to do (not built):
+- No way to ask for a new place: the coordinates form is Technical only.
+- The left list says "radar images" and shows ISO dates.
+- "Suggested places" and the remove button have no words for a child; live event rows keep the feeds' own wording (for example "Flood Advisory").
+
 ## Test
 
 ```

@@ -85,7 +85,7 @@ const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
 
 export type MarkerKind = "live" | "radar";
 type Dot = { id: string; lon: number; lat: number; type: string; color: string };
-const GROUP_PX = 64; // events of one type closer than this on screen share a marker
+const GROUP_PX = 88; // events of one type closer than this on screen share a marker (64 left dense areas crowded)
 const RADAR_ZOOM = 7; // radar detections show from here in (main.ts loads areas from the same zoom)
 const MAX_MARKERS = 150; // HTML markers get slow in the hundreds: beyond this, groups grow
 
@@ -98,20 +98,22 @@ const exact = (date: string) => {
 // What is known about one event, for the map popup and the right panel. Built from DOM nodes,
 // never HTML strings: the text comes from the data.
 export function eventInfo(p: EventFeature["properties"]): HTMLElement {
+  // Simple mode leaves out the confidence figure, the data maturity and the back end's summary
+  // (it is written in radar terms: HH, HV, PROVISIONAL).
+  const simple = document.documentElement.dataset.mode === "simple";
   return el(
     "div",
     { className: "event-popup" },
     el("strong", {}, p.title),
-    el("p", {}, originBadge("nisar", p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
+    el("p", {}, originBadge("nisar", simple ? "" : p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
     el(
       "p",
       { className: "muted" },
-      // Simple mode leaves out the confidence figure and the data maturity.
-      t(document.documentElement.dataset.mode === "simple" ? "popup.meta.simple" : "popup.meta", {
+      t(simple ? "popup.meta.simple" : "popup.meta", {
         from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity,
       }),
     ),
-    el("p", {}, p.summary),
+    simple ? "" : el("p", {}, p.summary),
   );
 }
 
@@ -334,6 +336,8 @@ export function createGlobe(
     // Small dots where the events of the selected marker are; an empty list removes them.
     async setGhosts(points: { lon: number; lat: number; color: string }[], hollow: boolean) {
       await ready;
+      // The markers fade while a group is selected, so the dots under them show.
+      map.getContainer().classList.toggle("has-ghosts", points.length > 0);
       map.getSource<GeoJSONSource>("ghosts")!.setData({
         type: "FeatureCollection",
         features: points.map((p) => ({
