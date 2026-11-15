@@ -31,7 +31,7 @@ As the analysis lane, I want one command that fetches and prepares the data so I
 
 9. `select` builds the granule list: one `asf_search` query per area and date window, grouped by track, frame, and pass direction; prefers the highest maturity and never mixes maturities within a group; writes `granules.json` (small, committable).
 10. Reads stream only the needed window over HTTPS (`h5py` + `fsspec`, Earthdata token) instead of downloading whole 6-7 GB granules. Full download stays a fallback.
-11. The same commands run locally and as a Cloud Run job; only the data root and credentials source differ (see F06).
+11. The same commands run locally and on the Azure virtual machine; only the data root and credentials source differ (see F06).
 
 ## Acceptance criteria
 1. Given a granule list, `make fetch` downloads missing files and a second run downloads nothing.

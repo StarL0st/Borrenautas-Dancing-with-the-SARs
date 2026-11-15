@@ -32,7 +32,7 @@ frontend/ (Vite + TypeScript + MapLibre GL JS globe)
 
 ## Deployment (Microsoft Azure, since 2026-11-14)
 
-The earlier Google Cloud Run plan was dropped on 2026-11-14. Not deployed yet; scripts and steps are in `backend/deploy/`.
+The earlier Google Cloud Run plan was dropped on 2026-11-14. Storage and the virtual machine have run since 2026-11-14 (addresses and checks: `docs/10`); the site is not published yet. Scripts and steps are in `backend/deploy/`.
 
 ```
 browser --files (manifest, layers, events, cards, history, live)--> Blob Storage (public read)
