@@ -21,6 +21,8 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
+> **Branch `jopa-testing` (local):** the latest `frontend` plus Mexico context data, compact icon filters, worldwide live events, a remarkable-events timeline per zone, notes on plants and animals, a source-and-date badge on every piece of data (NISAR radar, other satellite, live report, published record), a simple "why the radar sees changes" explainer, a before/after comparator with zoom and a change-percentage control (radar and satellite photos), a decision log, a Simple-mode guide written for a 10-year-old, top-5 timelines in Technical mode, and a downloadable PDF report per zone that is remade as a new version whenever new data changes it, with every explanation cited (mostly NASA sources). See [JOPA_TESTING.md](JOPA_TESTING.md).
+
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 
 - **Filters:** three groups in the left sidebar (Natural disasters, Disasters caused by humans, Land use), each opening to a checklist of subdivisions with "Select all". Only areas matching a ticked subdivision are marked. Ids in `src/filters.ts` are the back end's `categories`.

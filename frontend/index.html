@@ -14,6 +14,7 @@
     <header>
       <h1>G.I.G.A.S</h1>
       <button type="button" id="tour-btn" data-i18n="btn.tutorial"></button>
+      <button type="button" id="explain-btn" data-i18n="btn.explain"></button>
       <div id="mode" class="mode" role="radiogroup" aria-labelledby="mode-label">
         <span id="mode-label" class="muted" data-i18n="mode.label"></span>
         <div id="mode-seg" class="seg"></div>
@@ -33,6 +34,8 @@
         <h3 data-i18n="h.filters"></h3>
         <div id="filters"></div>
         <h3 data-i18n="h.live"></h3>
+        <p class="muted" data-i18n="live.scope"></p>
+        <p id="live-origin" class="muted"></p>
         <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
         <p id="live-status" class="muted" role="status"></p>
         <ul id="live-list" data-i18n-label="live.list"></ul>
@@ -78,11 +81,12 @@
         <button type="button" id="tab-detail" aria-pressed="false" data-i18n="h.open"></button>
       </div>
       <aside id="detail" data-i18n-label="h.open">
-        <h2 data-i18n="h.open"></h2>
+        <h2 id="detail-title"></h2>
         <div id="cards"></div>
       </aside>
     </main>
     <dialog id="settings" aria-labelledby="settings-title"></dialog>
+    <dialog id="sheet" class="sheet" aria-labelledby="sheet-title"></dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

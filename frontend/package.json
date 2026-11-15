@@ -7,12 +7,16 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "decisions": "node scripts/decisions-md.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
-    "maplibre-gl": "^6.18.0"
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.9",
+    "maplibre-gl": "^6.18.0",
+    "pdfjs-dist": "4.10.38"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

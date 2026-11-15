@@ -91,6 +91,7 @@ time, output, td, .legend, .axis, .chart-tip, #coords input { font-family: var(-
   transition: grid-template-columns 280ms var(--ease-in-out);
 }
 .app.no-nav { --nav-w: 0px; }
+/* The open areas panel is part of Technical mode; Simple mode shows a short popup on the globe. */
 .app.no-detail { --detail-w: 0px; }
 /* The panels keep their width and slide out past the edge instead of squeezing their text. */
 #nav { width: 300px; justify-self: end; }
@@ -336,22 +337,6 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .timeline li::before { content: ""; position: absolute; left: -18px; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
 .timeline time { display: block; font-size: 0.86rem; color: var(--muted); }
 
-/* ---- From jopa-testing: satellite view. "Now" underneath, "before" on top, clipped at the swipe position. ---- */
-
-.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
-.compare { position: relative; display: grid; margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: #000; }
-.compare[hidden] { display: none; }
-.compare img { grid-area: 1 / 1; display: block; width: 100%; height: auto; }
-.compare .sat-before { clip-path: inset(0 calc(100% - var(--x, 50%)) 0 0); }
-.compare::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: var(--text); box-shadow: 0 0 4px #000; pointer-events: none; }
-/* Dragging sideways moves the line (main.ts); dragging up and down still scrolls the panel. */
-.compare { cursor: ew-resize; touch-action: pan-y; user-select: none; }
-.compare .swipe { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
-.compare .swipe:focus-visible { opacity: 0.25; }
-.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
-.tag-before { left: 6px; }
-.tag-now { right: 6px; }
-
 /* ---- Chart ---- */
 
 .chart { margin: 0 0 10px; }
@@ -380,6 +365,66 @@ table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 th, td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--muted); font-weight: 400; }
+
+/* ---- jopa-testing: event icons, history, satellite ---- */
+
+/* Visually hidden but still focusable and read by screen readers (the filter checkboxes). */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* Event icons: one silhouette, outline only when off, filled with the group color when on. */
+.ticon { flex: none; width: 22px; height: 22px; color: var(--c, currentColor); }
+.ticon path { fill: transparent; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; transition: fill 150ms ease; }
+.ticon.on path, .ftype input:checked + .ticon path { fill: currentColor; }
+.ticon.sm { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
+.ticon.sm path { stroke-width: 1.6; }
+
+.ftypes { display: grid; gap: 1px; margin-top: 4px; }
+/* Compact buttons: the whole button is small, not only the icon. */
+.ftype { display: flex; align-items: center; gap: 8px; margin: 0; padding: 2px 6px; border-radius: 4px; font-size: 0.9rem; color: var(--muted); cursor: pointer; }
+.ftype[hidden] { display: none; }
+.ftype .ticon { width: 18px; height: 18px; }
+button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86rem; }
+.ftype:has(input:checked) { color: var(--text); }
+.ftype:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .ftype:hover { background: var(--raised); }
+}
+/* Simple mode: a grid of big icon tiles with short names, easier to tap than a checklist. */
+:root[data-mode="simple"] .ftypes { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+:root[data-mode="simple"] .ftype { flex-direction: column; gap: 2px; padding: 4px 2px; text-align: center; font-size: 0.72rem; line-height: 1.15; border: 1px solid var(--line); }
+:root[data-mode="simple"] .ftype .ticon { width: 20px; height: 20px; }
+:root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+
+
+/* Recent events list; serious and extreme live events carry a danger label. */
+#live-list .result strong { display: flex; align-items: center; }
+/* The danger tag keeps clear of the text before it (source name) and of the row's right edge. */
+.sev { display: inline-block; margin: 4px 0 0 10px; padding: 1px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; line-height: 1.4; white-space: nowrap; color: var(--ink); vertical-align: middle; }
+#live-list .result { padding-right: 14px; }
+#live-list .result .muted { margin-right: 2px; }
+.sev.s2 { background: #f5a524; }
+.sev.s3 { background: #e5484d; color: var(--text); }
+
+
+/* Zone history: a strip of years with one mark per event, then the rows. */
+.years { position: relative; height: 26px; margin: 8px 6px 0; border-bottom: 1px solid var(--line); }
+.years .mark { position: absolute; bottom: -6px; translate: -50% 0; width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); }
+.years .mark.s3 { width: 16px; height: 16px; bottom: -8px; }
+.years-axis { display: flex; justify-content: space-between; margin: 10px 0 4px; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.timeline.history li::before { display: none; }
+.hist { margin: 0; }
+.hist > summary { color: var(--text); }
+.hist > summary time { display: inline; margin-right: 8px; }
+
+h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--muted); }
+.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
+.sources a, .event-popup .sources a { color: var(--muted); }
+.small { font-size: 0.8rem; }
+
+/* Satellite view: "now" underneath, "before" on top, clipped at the swipe position. */
+.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
+.tag-before { left: 6px; }
+.tag-now { right: 6px; }
 
 /* ---- Tour ---- */
 
@@ -458,6 +503,10 @@ th { color: var(--muted); font-weight: 400; }
   @media (max-width: 600px) {
     .mode { order: 1; flex-basis: 100%; }
     .mode .seg { flex: 1; }
+    /* Title and the three header buttons share one row. */
+    header { gap: 6px; }
+    h1 { font-size: 1rem; letter-spacing: 0.04em; }
+    header > button { padding: 4px 8px; font-size: 0.86rem; }
   }
   #live-list { max-height: none; }
   /* 16px or more, or iOS zooms the page into a focused field. */
@@ -479,3 +528,167 @@ th { color: var(--muted); font-weight: 400; }
   .seg span { display: grid; place-items: center; }
   .chip { min-height: 32px; }
 }
+
+/* ---- jopa-testing: data origins, comparator, radar explainer ---- */
+
+/* Origin badges: shape + name, never color alone. NISAR is a diamond, other satellites a circle,
+   live reports a triangle, published records a square. */
+.origin {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 0 6px 4px 0; padding: 1px 8px 1px 6px;
+  border: 1px solid var(--line); border-left: 3px solid var(--c); border-radius: 4px;
+  font-size: 0.82rem; line-height: 1.5; color: var(--muted); background: var(--raised);
+}
+.origin b { color: var(--text); font-weight: 600; }
+.origin em { font-style: normal; color: var(--ink); background: var(--accent); padding: 0 5px; border-radius: 3px; }
+.origin .shape { display: inline-block; width: 9px; height: 9px; background: var(--c); flex: none; }
+.o-nisar { --c: #56b4e9; }
+.o-nisar .shape { transform: rotate(45deg) scale(0.85); }
+.o-satellite { --c: #009e73; }
+.o-satellite .shape { border-radius: 50%; }
+.o-feed { --c: #e69f00; }
+.o-feed .shape { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.o-record { --c: #cc79a7; }
+.origin.compact { padding: 0 6px 0 4px; font-size: 0.76rem; }
+.origin-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; margin: 4px 0 8px; }
+.origin-key > .muted { margin-right: 8px; font-size: 0.82rem; }
+.origin-line { margin-top: 6px; }
+.timeline .origin.compact { margin-left: 6px; vertical-align: 1px; }
+.note { padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--raised); font-size: 0.9rem; }
+
+/* Comparator */
+.cmp { margin-top: 6px; }
+.cmp-frame {
+  position: relative; display: grid; overflow: hidden; margin-top: 6px;
+  border: 1px solid var(--line); border-radius: 4px; background: #000;
+  cursor: ew-resize; touch-action: none; user-select: none;
+}
+.cmp-frame.zoomed { cursor: grab; }
+.cmp-frame.zoomed:active { cursor: grabbing; }
+.cmp-frame[hidden] { display: none; }
+.cmp-frame canvas { grid-area: 1 / 1; display: block; width: 100%; height: auto; }
+.cmp-frame .cmp-before { clip-path: inset(0 calc(100% - var(--x, 50%)) 0 0); }
+.cmp-frame .cmp-marks { pointer-events: none; }
+.cmp-line { position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: var(--text); box-shadow: 0 0 4px #000; pointer-events: none; }
+.cmp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.cmp-row .icon-btn { width: 30px; padding: 2px 0; font-size: 1.1rem; line-height: 1; }
+.cmp-zoom { min-width: 3ch; font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+.cmp-swipe { display: flex; align-items: center; gap: 6px; flex: 1 1 160px; margin: 0; }
+.cmp-swipe input { flex: 1; }
+.cmp-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; font-size: 0.85rem; }
+.cmp-legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.cmp-legend .sw.up { background: rgb(86 180 233); }
+.cmp-legend .sw.down { background: rgb(213 94 0); margin-left: 8px; }
+.cmp-legend[hidden] { display: none; }
+.cmp-stats { margin: 4px 0; font-weight: 600; }
+.cmp-stats:empty { display: none; }
+.cmp-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.cmp-pick label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--muted); }
+
+/* Radar explainer */
+details.why { margin: 10px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; }
+details.why > summary { font-weight: 600; }
+.why-list { display: grid; gap: 10px; margin-top: 8px; }
+.sheet .why-list { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.why-card { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: start; margin: 0; }
+.why-card p { margin: 4px 0 0; }
+.why-looks { color: var(--muted); font-size: 0.88rem; }
+.why-art { width: 120px; height: auto; border-radius: 4px; background: #02101c; }
+.why-art .sat { fill: var(--muted); }
+.why-art .panel { fill: #56b4e9; }
+.why-art .ground { fill: #6b5a3e; }
+.why-art .ground.wet { fill: #3e4a3a; }
+.why-art .water { fill: #1f5f8b; }
+.why-art .building { fill: #8a8f98; }
+.why-art .trunk { stroke: #6b5a3e; stroke-width: 4; fill: none; }
+.why-art .canopy { fill: #2e7d4f; }
+.why-art .drop { fill: #56b4e9; }
+.why-art .beam { stroke: #e69f00; stroke-width: 2; fill: none; stroke-dasharray: 4 3; }
+.why-art .echo { stroke: #fefdff; stroke-width: 2; fill: none; }
+.why-art .echo.faint { stroke-opacity: 0.4; stroke-width: 1.2; }
+.why-art .echo.away { stroke-opacity: 0.6; stroke-dasharray: 2 3; }
+.why-art .echo.thick { stroke-width: 4; }
+.why-art .ground-line { stroke: #6b5a3e; stroke-width: 3; }
+.why-art .ground-line.later { stroke-dasharray: 5 3; stroke: #a08660; }
+.why-art .wave { stroke: #56b4e9; stroke-width: 1.5; fill: none; }
+.why-art .wave.later { stroke: #cc79a7; }
+.why-art .rain { stroke: #56b4e9; stroke-width: 1.5; }
+
+/* Explainer dialog (same frame as the accessibility menu) */
+.sheet {
+  width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 16px 50px #000c;
+}
+.sheet[open] { transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out); @starting-style { opacity: 0; scale: var(--press); } }
+.sheet::backdrop { background: #000000b3; }
+.sheet-body { padding: 12px 16px 16px; }
+@media (max-width: 600px) {
+  .why-card { grid-template-columns: 1fr; }
+  .cmp-pick { grid-template-columns: 1fr; }
+}
+
+/* ---- jopa-testing: Simple mode's guide (written for a 10-year-old) ---- */
+.kid { font-size: 1.05rem; line-height: 1.5; }
+.kid p { margin: 6px 0; }
+.kid-hello { margin-top: 0; font-size: 1.5rem; font-weight: 600; }
+.kid-big { font-size: 1.12rem; }
+.kid-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.35rem; color: var(--text); }
+.kid-q { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); }
+.kid-q h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 1.08rem; color: var(--text); }
+.kid-n {
+  display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: var(--ink); font-size: 0.95rem; font-weight: 600;
+}
+.kid-list, .kid-src, .kid-words { margin: 4px 0; padding: 0; list-style: none; }
+.kid-list li, .kid-src li { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; }
+.kid-list .ticon { flex: none; width: 22px; height: 22px; margin-top: 2px; }
+.kid-list .dot { margin-top: 6px; }
+.kid-src .origin { flex: none; }
+.kid-words li { margin: 6px 0; padding-left: 12px; border-left: 3px solid var(--accent); }
+.kid-steps { margin: 4px 0; padding-left: 22px; }
+.kid-steps li { margin: 6px 0; }
+.kid-fact { font-size: 1.1rem; }
+.kid-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.kid .cmp-stats { font-weight: 600; }
+.more-report { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.more-report button { margin: 0; }
+
+/* Simple mode's picture choices: big, wrapping buttons (one radio group each). */
+.kid-choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 0; border: 0; }
+.kid-choices legend { width: 100%; margin-bottom: 4px; padding: 0; font-weight: 600; color: var(--text); }
+.kid-choices label { position: relative; margin: 0; cursor: pointer; }
+.kid-choices input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.kid-choices span { display: block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); font-size: 0.95rem; transition: background-color 150ms ease; }
+.kid-choices input:checked + span { background: var(--on); border-color: var(--on); color: var(--ink); font-weight: 600; }
+.kid-choices input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
+@media (hover: hover) { .kid-choices input:not(:checked) + span:hover { background: var(--hover); } }
+
+/* Report links look like the buttons around them. A link without a file yet is shown, not offered. */
+.report-links { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+a.btn {
+  display: inline-block; padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--raised); color: var(--text); font-size: 0.93rem; text-decoration: none; cursor: pointer;
+  transition: scale 140ms var(--ease-out), background-color 150ms ease;
+}
+a.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+a.btn:active:not([aria-disabled]) { scale: var(--press); }
+a.btn[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+a.btn[hidden] { display: none; }
+@media (hover: hover) and (pointer: fine) { a.btn:not(.primary, [aria-disabled]):hover { background: var(--hover); } }
+.actions + .report-links, .report-links + .pdf-status { margin-top: 6px; }
+
+/* The report reader (reader.ts): the PDF's pages drawn inside the page. */
+.reader {
+  width: min(1000px, calc(100vw - 32px)); height: calc(100vh - 48px); max-height: none; padding: 0;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 16px 50px #000c;
+}
+.reader[open] { display: flex; flex-direction: column; }
+.reader::backdrop { background: #000000b3; }
+.reader-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.reader-head h2 { margin: 0; }
+.reader-head p { margin: 2px 0 0; }
+.reader-tools { display: flex; flex-wrap: wrap; gap: 6px; flex: none; }
+.reader-body { flex: 1; overflow: auto; padding: 12px 16px 24px; background: #3b4148; }
+.reader-body > .muted { color: #d6dde3; text-align: center; }
+.reader-pages { display: grid; justify-items: center; gap: 14px; }
+.reader-page { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 4px 18px #0008; }

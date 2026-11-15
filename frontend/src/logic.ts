@@ -51,7 +51,7 @@ export type SeriesRef = { id: string; title: string; url: string };
 
 // One timeline row. A detected change has `title`, `text` and `confidence`; a plain radar pass
 // has only `pols`. The UI words them in the current language.
-export type TimelineEvent = { date: string; title?: string; text?: string; confidence?: number; pols?: string[] };
+export type TimelineEvent = { date: string; title?: string; text?: string; confidence?: number; km2?: number; pols?: string[] };
 
 // One feature of events.geojson (contract 0.3, C6); properties are flat for MapLibre.
 export type EventFeature = {
@@ -122,6 +122,7 @@ const report = (e: EventFeature): TimelineEvent => ({
   title: e.properties.title,
   text: e.properties.summary,
   confidence: e.properties.confidence,
+  km2: e.properties.area_km2,
 });
 
 export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaView {
@@ -151,6 +152,18 @@ export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaV
   };
 }
 
+// The `n` most important rows of a timeline, newest first. A detected change weighs its size
+// times how sure the back end is (a big, sure change first); plain radar passes have no weight,
+// so the latest ones are kept.
+export const importance = (e: TimelineEvent) => (e.confidence ?? 0) * Math.sqrt(e.km2 ?? 0);
+export function topEvents(events: TimelineEvent[], n = 5): TimelineEvent[] {
+  const changes = events.filter((e) => !e.pols);
+  const pool = changes.length
+    ? [...changes].sort((x, y) => importance(y) - importance(x) || y.date.localeCompare(x.date)).slice(0, n)
+    : [...events].sort((x, y) => y.date.localeCompare(x.date)).slice(0, n);
+  return pool.sort((x, y) => y.date.localeCompare(x.date));
+}
+
 // Round axis ticks covering [min, max]: steps of 1, 2 or 5 times a power of ten, about `n` of them.
 export function ticks(min: number, max: number, n = 4): number[] {
   if (!(max > min)) return [min];
@@ -174,6 +187,25 @@ export type LiveFeature = {
   };
 };
 
+// Severity 1 ("notable") when an older back end sends none, so nothing disappears by default.
+export const severityOf = (f: LiveFeature) => f.properties.severity ?? 1;
+
+const timeOf = (date: string) => Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
+
+export type LiveView = { now: number; days: number; region?: [number, number, number, number] };
+
+// What the "Happening now" list and the globe show: the filters, plus the time window and an
+// optional region.
+export const liveFiltered = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: (id: string) => boolean, v: LiveView) =>
+  liveList(fs, ticked, known).filter((f) => {
+    const p = f.properties;
+    const [w, s, e, n] = v.region ?? [-180, -90, 180, 90];
+    return (
+      v.now - timeOf(p.date) <= v.days * 86400000 &&
+      p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n
+    );
+  });
+
 // A live event shows when its category is ticked; categories the filters do not know always show.
 export const liveShown = (f: LiveFeature, ticked: ReadonlySet<string>, known: (id: string) => boolean) =>
   !known(f.properties.category) || ticked.has(f.properties.category);
@@ -189,7 +221,7 @@ export const liveList = (fs: LiveFeature[], ticked: ReadonlySet<string>, known: 
 
 // "3 hours ago" in the largest whole unit, for Intl.RelativeTimeFormat. Dates without a time are midnight UTC.
 export function ago(date: string, now: number): [number, "minute" | "hour" | "day"] {
-  const t = Date.parse(/T|Z/.test(date) ? date : `${date}T00:00:00Z`);
+  const t = timeOf(date);
   const minutes = Math.max(0, Math.round((now - t) / 60000));
   if (minutes < 60) return [-minutes, "minute"];
   if (minutes < 48 * 60) return [-Math.round(minutes / 60), "hour"];
