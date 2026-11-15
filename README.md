@@ -419,7 +419,9 @@ Code: `granule.py`, `classify.py`, `categorize.py`, `site.run_gcov`.
 - **Multilooking.** Each term is averaged over 4 × 4 pixel blocks in **linear power**, ignoring NaN; a block with no valid pixel stays NaN. On a 10 m grid this gives the 40 m pixels the thresholds were tuned at.
 - **Units.** Values are converted to decibels only after averaging:
 
-  $$\gamma^0_{dB} = 10\log_{10}\gamma^0 \quad(\gamma^0 \le 0 \Rightarrow \text{NaN})$$
+  ```math
+  \gamma^0_{dB} = 10\log_{10}\gamma^0 \quad (\gamma^0 \le 0 \Rightarrow \text{NaN})
+  ```
 
   Averaging in dB would bias the mean low, so every mean in the pipeline (time series, region series) is taken in linear power, then converted.
 
@@ -447,7 +449,9 @@ The thresholds were checked on known places at 40 m: city blocks in Mexico City 
 
 Every pair of **consecutive** dates (t₋, t₊) is compared, for each polarization p ∈ {HH, HV}:
 
-$$\Delta_p = S_3\Big(\big(\gamma^0_{p,dB}(t_+) - \gamma^0_{p,dB}(t_-)\big) - \operatorname{median}_{scene}\big(\gamma^0_{p,dB}(t_+) - \gamma^0_{p,dB}(t_-)\big)\Big)$$
+```math
+\Delta_p = S_3\left( \left(\gamma^0_{p,dB}(t_+) - \gamma^0_{p,dB}(t_-)\right) - \mathrm{median}_{scene}\left(\gamma^0_{p,dB}(t_+) - \gamma^0_{p,dB}(t_-)\right) \right)
+```
 
 - **Scene-wide median removed.** If the whole scene gets darker or brighter, that is weather (wet or dry soil, wind on water) or calibration, not land change. Only change relative to the rest of the scene is kept. The removed offset is stored with each event (`scene_offset_db`).
 - **S₃** is a NaN-aware 3 × 3 box mean, applied after multilooking.
@@ -476,7 +480,9 @@ Each pixel gets at most one signature, from simple rules. Here "land" means HH �
 - **Regions.** Pixels of one signature are grouped into 8-connected regions. Regions under **25 pixels** (0.04 km² at 40 m) are dropped as noise.
 - **Confidence.** Each region scores from 0 to 1: half from how far past its threshold it is, half from its size.
 
-  $$c = 0.5\,\min\!\left(1, \frac{\bar e}{T}\right) + 0.5\,\min\!\left(1, \frac{n}{10\,n_{min}}\right)$$
+  ```math
+  c = 0.5 \min\left(1, \frac{\bar e}{T}\right) + 0.5 \min\left(1, \frac{n}{10 \cdot n_{min}}\right)
+  ```
 
   - ē is the mean excess over the threshold T (in dB) across the region. For darkening, the excess is min(−ΔHH, −ΔHV) − 3.
   - n is the pixel count; n_min = 25.
@@ -567,7 +573,9 @@ Code: `gunw.py`, `site.run_gunw`.
    - Phase and ionosphere values are finite.
 3. **Line-of-sight motion per pair.** The ionosphere phase screen is not applied in the product by default, so it is subtracted here:
 
-   $$d = (\phi_{unw} - \phi_{iono})\,\frac{\lambda}{4\pi},\qquad \lambda = \frac{c}{f_{center}}$$
+   ```math
+   d = (\phi_{unw} - \phi_{iono}) \frac{\lambda}{4\pi}, \qquad \lambda = \frac{c}{f_{center}}
+   ```
 
    - Positive d means the ground moved away from the satellite, which is mostly sinking.
    - The product specification (JPL D-102272 Rev E) does not state the sign. The ISCE/ARIA convention is used, and it was checked to show Mexico City's documented subsidence bowl as sinking.
@@ -577,7 +585,9 @@ Code: `gunw.py`, `site.run_gunw`.
    - Without a reference area, the window median is used instead.
 5. **Rate.** Per pixel, over the pairs where the pixel is valid:
 
-   $$v = \frac{\sum_k d_k}{\sum_k \Delta t_k / 365.25}$$
+   ```math
+   v = \frac{\sum_k d_k}{\sum_k \Delta t_k / 365.25}
+   ```
 
    - v is kept only where the pixel is valid in at least 60% of pairs, then converted to cm/yr and smoothed with S₃.
    - On the map, red is away from the satellite. The scale is ±max(5, 98th percentile of |v|) cm/yr.
