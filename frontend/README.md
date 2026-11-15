@@ -251,6 +251,8 @@ Work done on branch `mobile` (made from `main` at a036035, worktree `sars-mobile
 
 **To resume:** `cd frontend && npm ci && npm run dev`, then Chrome DevTools device mode (390×844). Preview upload: build with the two `VITE_` variables, then `npx wrangler versions upload --preview-alias <branch>`.
 
+**Later the same evening:** the phone layout was tried on a real phone (works). The `frontend/` part of `jopa-testing` (up to 1d955b6) was squashed into `mobile` (f948463): origin badges, radar explainer, the zoomable before/after comparator (replaces the old before/now pictures and already drags anywhere), Simple-mode guide, PDF reports, `DECISIONS.md`. Its backend, docs and specs changes were left out, and `jopa-testing` itself is untouched and unmerged, so they stay open for the team (`docs/10`, to-do 6). Fitted to phones: the Open areas tab takes the panel's name ("Your guide" in Simple mode), and the header's three buttons share one row on narrow phones. Checked in headless Chrome: 30 tests pass, phone, landscape and desktop render, tabs, tour and the growing panel work.
+
 ## Test
 
 ```
