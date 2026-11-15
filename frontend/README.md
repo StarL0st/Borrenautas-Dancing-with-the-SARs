@@ -225,20 +225,52 @@ Everything is committed and pushed to `frontend` (last commit: this one). 16 uni
 
 ## Deploy (Cloudflare Worker `gigas-project`)
 
-`wrangler.jsonc` serves `dist/` as static files. Workers Builds (Cloudflare dashboard → `gigas-project` → Settings → Build) builds from GitHub:
+### How it works
 
-- Root directory `frontend`, build command `npm ci && npm run build`, deploy command `npx wrangler deploy`, non-production branch deploy command `npx wrangler versions upload`, production branch `main`.
-- Build variables (Settings → Build → Variables and secrets, **not** the Worker's runtime variables: Vite reads them while building), both with the trailing `/`:
-  - `VITE_API_BASE=https://api.gigas.earth/` (since the domain, 2026-11-15; the old `https://gigas-sars.westus2.cloudapp.azure.com/` still answers)
-  - `VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/`
-- A missing variable does not fail the build: the site builds and then calls the wrong address. A changed variable only reaches the site with the next build (Retry build, or a push).
-- Domains & Routes: custom domain `gigas.earth` (live site); keep `workers.dev` and preview URLs on, they carry the previews.
-- Every push to another branch gets its own preview at `https://<branch>-gigas-project.starl0stgaming.workers.dev`; only `main` changes the live site.
-- API and storage both answer `Access-Control-Allow-Origin: *`, so the site works from `gigas.earth`, `workers.dev` and every preview.
+- The site is plain static files: `npm run build` writes `dist/`, and the Cloudflare Worker `gigas-project` (account StarL0stGaming) serves that folder (`wrangler.jsonc`, no Worker script). It is a Worker, not a Pages project: `wrangler pages ...` commands do not apply.
+- The data and API addresses are baked into the files **at build time** from two variables. Changing a variable changes nothing until the next build.
+- Cloudflare keeps every upload as a **version**. A version is live only after a **deployment** points 100% of traffic at it. The same live version answers at https://gigas.earth (custom domain) and https://gigas-project.starl0stgaming.workers.dev.
+- Every upload also gets preview URLs: `https://<version-prefix>-gigas-project.starl0stgaming.workers.dev`, and with a preview alias `https://<branch>-gigas-project.starl0stgaming.workers.dev`. Previews never touch the live site.
+- The API (`api.gigas.earth`) and the storage both answer `Access-Control-Allow-Origin: *`, so every one of these addresses can read the data.
 
-By hand, from `frontend/` after a build with those two variables: `npx wrangler versions upload --preview-alias <branch>` (preview), then `npx wrangler versions deploy <version id>@100% --name gigas-project --yes` to make that version live (or `npx wrangler deploy` to upload and go live at once). `npx wrangler deployments list --name gigas-project` shows what is live; going back is `versions deploy` with an older id. A hand release is replaced by the next build from `main`.
+### Build variables
 
-Checking a build: dashboard → `gigas-project` → Deployments → build history. On 2026-11-15 the merge into `main` (`710f423`) produced no build, so the live site was released by hand (`5a53667b`); if a push to `main` again leaves no new version in `npx wrangler versions list --name gigas-project`, look there first.
+Both with the trailing `/`. A missing or wrong one does **not** fail the build: the site builds and then calls the wrong address.
+
+| Variable | Value |
+|---|---|
+| `VITE_API_BASE` | `https://api.gigas.earth/` (the old `https://gigas-sars.westus2.cloudapp.azure.com/` still answers) |
+| `VITE_DATA_BASE` | `https://gigassars.blob.core.windows.net/data/` |
+
+### Automatic builds (Workers Builds)
+
+Dashboard → Workers & Pages → `gigas-project` → Settings → Build:
+
+- Git repository: this repo; production branch `main`; root directory `frontend`.
+- Build command `npm ci && npm run build`; deploy command `npx wrangler deploy` (goes live); non-production branch deploy command `npx wrangler versions upload` (preview only).
+- The two variables above under Build → Variables and secrets, **not** the Worker's runtime variables (Vite reads them while building, the Worker never does).
+- Settings → Domains & Routes: custom domain `gigas.earth`; keep `workers.dev` and preview URLs on (they carry the previews).
+
+Meant to work as: push to `main` → build → live; push to another branch → preview. **Known problem (2026-11-15):** pushes to `main` (`710f423`, `d0d6b43`) produced no build, so the live site is released by hand (below). Check Deployments → build history and the GitHub connection before relying on it. A later build from `main` replaces any hand release.
+
+### By hand (what is used now)
+
+From `frontend/`, logged in once with `npx wrangler login`, on an up-to-date checkout of the branch being released (`main` for the live site):
+
+```sh
+npm ci
+VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/ VITE_API_BASE=https://api.gigas.earth/ npm run build
+npx wrangler versions upload --preview-alias <branch>          # preview; prints the version id
+npx wrangler versions deploy <version id>@100% --name gigas-project --yes   # make it live
+```
+
+(`npx wrangler deploy` uploads and goes live in one step, without a preview first.)
+
+- What is live: `npx wrangler deployments status --name gigas-project`; history: `npx wrangler deployments list --name gigas-project`; all uploads: `npx wrangler versions list --name gigas-project`.
+- Going back: `npx wrangler versions deploy <older version id>@100% --name gigas-project --yes` (no rebuild needed).
+- Check a release: the page's script should contain `api.gigas.earth`, e.g. open https://gigas.earth and look at the network calls.
+
+Releases by hand: `5a53667b` (2026-11-15, Azure API name), `cc163214` (2026-11-15, `main` @ `d0d6b43`, first with `api.gigas.earth`).
 
 ## Handoff: `mobile` branch, 2026-11-14 (end of session)
 
