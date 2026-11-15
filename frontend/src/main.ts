@@ -63,6 +63,7 @@ let lazy = false;
 const loaded = new Map<string, { view: AreaView; features: EventFeature[] }>();
 const loading = new Map<string, Promise<void>>();
 const LOAD_ZOOM = 7; // from here in, areas in view load by themselves
+const closed = new Set<string>(); // areas the visitor closed: their detections leave the map until reopened
 const SUGGESTED = ["mexico", "chapala", "yucatan", "villahermosa"]; // listed until the visitor has places
 let places = loadPlaces(); // the visitor's own places, positions only
 let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
@@ -363,7 +364,7 @@ function render() {
 
   globe.setAreas(onGlobe.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
-    reports.filter((e) => eventShown(e) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
+    reports.filter((e) => eventShown(e) && !closed.has(e.properties.area_id) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
   renderLiveList();
   // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
@@ -491,6 +492,8 @@ function toggle(id: string) {
   if (simple()) {
     // Simple mode's guide shows one place at a time; clicking it again goes back to the welcome.
     opened = opened[0] === id ? [] : [id];
+    if (opened.length) closed.delete(id);
+    else closed.add(id);
     showPanel("detail", true);
     if (opened.length) {
       setSpin(false);
@@ -502,6 +505,8 @@ function toggle(id: string) {
   }
   const opening = !opened.includes(id);
   opened = opening ? [id, ...opened] : opened.filter((x) => x !== id);
+  if (opening) closed.delete(id);
+  else closed.add(id);
   if (opening) {
     showPanel("detail", true); // an area opened from the globe must not land in a hidden panel
     collapsed.delete(id);

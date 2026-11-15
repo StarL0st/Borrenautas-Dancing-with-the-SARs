@@ -86,6 +86,7 @@ const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
 export type MarkerKind = "live" | "radar";
 type Dot = { id: string; lon: number; lat: number; type: string; color: string };
 const GROUP_PX = 64; // events of one type closer than this on screen share a marker
+const RADAR_ZOOM = 7; // radar detections show from here in (main.ts loads areas from the same zoom)
 const MAX_MARKERS = 150; // HTML markers get slow in the hundreds: beyond this, groups grow
 
 // "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.
@@ -269,7 +270,7 @@ export function createGlobe(
     const facing = (d: Dot) =>
       Math.sin(c.lat * rad) * Math.sin(d.lat * rad) + Math.cos(c.lat * rad) * Math.cos(d.lat * rad) * Math.cos((d.lon - c.lng) * rad) > 0.15;
     const seen = (["radar", "live"] as const).map((kind) =>
-      dots[kind].filter(facing).flatMap((d) => {
+      (kind === "radar" && map.getZoom() < RADAR_ZOOM ? [] : dots[kind]).filter(facing).flatMap((d) => {
         const { x, y } = map.project([d.lon, d.lat]);
         return x > -GROUP_PX && x < width + GROUP_PX && y > -GROUP_PX && y < height + GROUP_PX ? [{ ...d, x, y }] : [];
       }),

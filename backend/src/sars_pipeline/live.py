@@ -39,6 +39,19 @@ def refresh_site(
     return {"site": site_id, "status": "updated", "new_granules": len(added), **result}
 
 
+def _release_memory() -> None:
+    """Hand freed memory back to the system after a site run. Without this the server kept the
+    high-water mark of the largest site (5.9 of 6 GB on the VM after three 80 km sites)."""
+    import ctypes
+    import gc
+
+    gc.collect()
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except OSError:  # not glibc (Windows, macOS): nothing to trim
+        pass
+
+
 class Jobs:
     """One background worker that processes site refreshes in order, plus an optional timer that
     queues every site every `watch_hours`. Used by the API server (serve --jobs)."""
@@ -112,6 +125,7 @@ class Jobs:
             except Exception as err:  # keep the worker alive for the next site
                 log.exception("refresh %s failed", site_id)
                 state = {"status": "error", "error": str(err)}
+            _release_memory()
             with self._cv:
                 self.status[site_id] = {
                     **state,
