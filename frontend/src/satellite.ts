@@ -1,10 +1,12 @@
 // A satellite circling the globe. It is a decoration: the orbit has NISAR's tilt, but the
 // position, height and size are not real (a true-to-scale satellite would be invisible).
+// The mesh was generated with Meshy from NASA/JPL-Caltech's illustration of NISAR (PIA26613)
+// and reduced for the web: the round radar reflector on its boom, the body and two solar panels.
 import type { CustomLayerInterface, Map } from "maplibre-gl";
 import meshUrl from "./assets/satellite.bin?url";
 
 const ALTITUDE = 0.22; // above the surface, in Earth radii (the real orbit is 0.12)
-const SIZE = 0.08; // half the model's length, in Earth radii
+const SIZE = 0.1; // half the model's height, in Earth radii (the reflector and boom make most of it)
 const LAP_S = 90; // seconds per orbit on screen (the real one takes about 100 minutes)
 const DRIFT_S = 1500; // seconds for the track to shift once around the Earth
 const INCLINATION = (98.4 * Math.PI) / 180;
@@ -40,11 +42,12 @@ void main() {
     float hit = (-b - sqrt(disc)) / a;
     if (hit > 0.0 && hit < 1.0) discard;
   }
-  // The mesh has no normals or materials: facets are lit from the camera, and the wings
-  // (the far ends of the long axis) are painted as solar panels.
+  // The mesh has no normals or materials: facets are lit from the camera and painted by where
+  // they sit: the reflector on top is gold mesh, the two wings beside the body are solar panels.
   vec3 n = normalize(cross(dFdx(v_world), dFdy(v_world)));
   float light = 0.3 + 0.7 * abs(dot(n, normalize(d)));
-  vec3 painted = abs(v_model.z) > 0.36 ? vec3(0.16, 0.3, 0.62) : vec3(0.95, 0.93, 0.9);
+  vec3 painted = v_model.y > 0.25 ? vec3(0.86, 0.72, 0.42)
+    : abs(v_model.z) > 0.3 && v_model.y < -0.3 ? vec3(0.16, 0.3, 0.62) : vec3(0.95, 0.93, 0.9);
   // Technical mode draws it as a blueprint: pale grid lines over a dim blue body.
   vec3 cell = abs(fract(v_model * 7.0) - 0.5);
   vec3 blueprint = mix(vec3(0.07, 0.2, 0.3), vec3(0.56, 0.69, 0.78), step(0.42, max(cell.x, max(cell.y, cell.z))));
@@ -128,7 +131,7 @@ export function satelliteLayer(map: Map): CustomLayerInterface {
       gl.useProgram(program);
       gl.uniformMatrix4fv(gl.getUniformLocation(program, "u_matrix"), false, projection.mainMatrix as Float32Array);
       gl.uniform3fv(gl.getUniformLocation(program, "u_origin"), up.map((x) => x * (1 + ALTITUDE)));
-      // Model axes: x points along the track, y away from the Earth, z (the wings) across.
+      // Model axes: x points along the track, y (the reflector) away from the Earth, z (the wings) across.
       gl.uniformMatrix3fv(gl.getUniformLocation(program, "u_basis"), false, [...ahead, ...up, ...side].map((x) => x * SIZE));
       gl.uniform3fv(gl.getUniformLocation(program, "u_cam"), cam);
       gl.uniform1f(gl.getUniformLocation(program, "u_alpha"), alpha);
