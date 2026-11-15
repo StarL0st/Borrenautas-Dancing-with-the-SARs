@@ -72,7 +72,7 @@ The challenge asks for an interactive application that uses NISAR data to track 
 ## Video and demo
 
 - Live site: [gigas.earth](https://gigas.earth)
-- Demo video: (awaiting)
+- Demo video: [(Youtube Link)](https://youtu.be/Qfw1v12CXTo)
 
 ## The web page
 
@@ -876,4 +876,9 @@ G.I.G.A.S is open source under the [GNU Affero General Public License v3.0](LICE
 | Jose Pablo Mendez Espino | Back-end development |
 | Samuel André Rivera Dominguez | Documentation |
 
+
+
+
 <!-- TODO (team): GitHub profile links, and a team photo if you want one. -->
+
+<img width="1600" height="1200" alt="image" src="https://github.com/user-attachments/assets/5a40a220-48a4-4d7d-8340-e935ea13dc38" />
