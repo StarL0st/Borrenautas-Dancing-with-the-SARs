@@ -437,7 +437,10 @@ th { color: var(--muted); font-weight: 400; }
    The globe's share of the height is mirrored in `globeCenter` (main.ts). */
 @media (max-width: 900px) {
   body { height: 100dvh; }
-  .app { grid-template-columns: 1fr; grid-template-rows: 50dvh auto minmax(0, 1fr); transition: none; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 50dvh auto minmax(0, 1fr); transition: grid-template-rows 280ms var(--ease-in-out); }
+  /* Scrolled down a panel (main.ts `fitReading`): the globe shrinks to a strip, its overlays step aside. */
+  .app.reading { grid-template-rows: 20dvh auto minmax(0, 1fr); }
+  .reading :is(.toolbar, #timebar, #wheel), body:has(.reading) .mode { display: none; }
   .app > :is(nav, aside) { grid-area: 3 / 1; border: 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
   #nav, #detail { width: auto; justify-self: stretch; }
   .app.no-nav > nav, .app.no-detail > aside { display: none; }
@@ -464,6 +467,9 @@ th { color: var(--muted); font-weight: 400; }
   #wheel[data-size="large"] { width: 150px; }
   .settings-body { grid-template-columns: 1fr; }
   .settings-help { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .app { transition: none; }
 }
 
 /* Touch screens: fingers need bigger targets, and no grey flash on tap. */

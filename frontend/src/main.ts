@@ -799,7 +799,18 @@ function showPanel(id: "nav" | "detail", on: boolean) {
   $(`${id}-toggle`).setAttribute("aria-expanded", String(on));
   $(`tab-${id}`).setAttribute("aria-pressed", String(on));
   if (on && phone.matches) showPanel(id === "nav" ? "detail" : "nav", false);
+  fitReading();
 }
+
+// Phone: scrolling down the open panel gives it most of the screen (the globe shrinks to a strip,
+// see `.reading` in the stylesheet); back at the top the globe returns.
+function fitReading() {
+  const app = document.querySelector("main")!, panel = [$("nav"), $("detail")].find((p) => !p.inert);
+  if (!panel || panel.scrollTop < 1) app.classList.remove("reading");
+  // Only when the panel would still scroll once taller, or the grown panel would snap back to the top.
+  else if (panel.scrollTop > 40 && panel.scrollHeight - panel.clientHeight > innerHeight * 0.3 + 40) app.classList.add("reading");
+}
+for (const id of ["nav", "detail"]) $(id).addEventListener("scroll", fitReading, { passive: true });
 for (const id of ["nav", "detail"] as const) {
   $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
   $(`tab-${id}`).onclick = () => showPanel(id, $(`tab-${id}`).getAttribute("aria-pressed") !== "true");
