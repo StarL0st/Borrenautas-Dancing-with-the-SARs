@@ -90,6 +90,8 @@ The first attempt on 2026-11-14 published the source folder without building it 
 
 The site answers at https://gigas.earth (set on the Worker). The API was redeployed with `SARS_DOMAIN=gigas.earth`: it answers at https://api.gigas.earth (DNS record `A api <VM address>`, proxy off; certificate issued and checked the same evening) and still at the VM's own name (`SARS_ALSO` in `compose.yaml`), which the published site uses until its `VITE_API_BASE` build variable is changed to `https://api.gigas.earth/`. From now on every `azure.sh deploy` needs `SARS_DOMAIN=gigas.earth`, or the API drops the new name.
 
+Since 2026-11-14 23:35 the VM runs the backend of branch `testing` (contract 0.7.0), deployed from that checkout. A deploy from `backend` or `main` before `testing` is merged would take that away.
+
 ### Updating what runs on Azure
 
 | Change | Do | Downtime |

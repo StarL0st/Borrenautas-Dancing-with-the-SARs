@@ -262,6 +262,17 @@ Made from `mobile` (which already holds the `frontend/` part of `jopa-testing`).
 - **Hand-written text kept, but labelled and never borrowed.** `ZONES` notes (`src/mexico.ts`) show only for the area id they were written for, as "Background notes"; the 100 km nearest-note fallback is gone. The past-disasters list (`HISTORY`) stays, labelled "hand-picked list".
 - Checked in headless Chrome against the Azure data: Make → Preparing → Read + Download on desktop and phone, the reader shows all 22 pages, the PDF text holds the new section; 31 tests pass. Not checked: a real phone, Simple mode's guide (it has no hand-written place text and does not show the cards yet).
 
+## Branch `testing` (2026-11-14, late night): load on demand, markers, city names, my places
+
+Preview: https://testing-gigas-project.starl0stgaming.workers.dev (built against Azure; production is untouched).
+
+- **Load on demand** (contract 0.7.0, `docs/04` C11). `loadLive` reads `index.json`; areas are stubs (`AreaView.stub`) until `loadArea` fetches `areas/<id>/area.json` and `events.geojson`: on opening, or when the map rests at zoom 7 or more over the area (`globe.onView`). Without `index.json` the old path (whole `manifest.json`) is used.
+- **Markers** (`globe.ts` `drawMarkers`, `logic.ts` `groupDots`). HTML markers replace the event dots and live rings: same type and within 64 px on screen share one marker with a count; at most 150 markers, beyond that groups grow. Filled: radar. Hollow: live. A click calls back with the event ids; `clusterCard` in `main.ts` lists them on top of the right panel.
+- **City names** (`src/assets/cities.json` from `scripts/cities.mjs`, Natural Earth populated places). Four symbol layers by city rank; hidden on the Street look.
+- **My places** (`places.ts`). `localStorage["places"]` holds `[lon, lat]` pairs only. `areaAt` (`logic.ts`) matches a position to an area (inside or within 10 km of its box). The list shows those areas, whole countries, and "Processing" rows for positions with no area yet; suggestions (`SUGGESTED`) while the visitor has none. "Process this place" opens a known area instead of asking the server.
+- Checked with a headless browser against the preview (list, markers, group card, zoom-in loading, my places kept over a reload and removed). Not checked: phone layout, Simple mode, the tour, keyboard use of the markers.
+- Known: markers of different types can overlap; a place with no NISAR data stays "Processing" until removed.
+
 ## Test
 
 ```

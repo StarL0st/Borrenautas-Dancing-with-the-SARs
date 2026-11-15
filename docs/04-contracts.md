@@ -1,6 +1,6 @@
 # 04. Data Contracts
 
-Status: Draft v0.6.0. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas; 0.6.0 adds live events (C9, `live.geojson`, the `live` push event and the `storms` category) and history (C10, area `history`, `GET /history`). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
+Status: Draft v0.7.0. 0.7.0 added `index.json`, one `area.json` and `events.geojson` per area (C11), `archived` events and the lookup margin. 0.2.0 added C7 events and `/query`; 0.3.0 added categories (frontend filter ids), one area per site, layer `group`/`role`, event outlines with `centroid`, `evidence` and `series`, `events.geojson`, and `/sites`; 0.4.0 adds the `burn_scar` signature (fire-season NASA FIRMS detections plus NISAR radar after them); 0.5.0 adds friendly cards (C8, area `friendly`), public place lookup on `POST /sites`, `GET /sites/<id>`, and country mosaic areas; 0.6.0 adds live events (C9, `live.geojson`, the `live` push event and the `storms` category) and history (C10, area `history`, `GET /history`). Frozen at about T+5h after kickoff. After the freeze, changes need approval from both the producer lane (Lane 1) and the consumer lane (Lane 2), and a version bump.
 
 These contracts are the only coupling between the pipeline (producer) and the frontend (consumer). The build agent turns them into JSON Schema files (`contracts/schemas/`, draft 2020-12) and writes synthetic fixtures (`contracts/fixtures/`) so both lanes can work independently.
 
@@ -279,6 +279,33 @@ Day:
 - Layers without a date (for example surface type) are not in a history.
 - With `from`/`to`, a layer or event is kept when its dates overlap the range; a series value when its date is inside.
 - Area files hold every event of the area. `/history` holds only those near the point.
+
+## C11. Loading on demand: `index.json` and per-area files (0.7.0)
+
+A page must not need every area's layers and outlines to start: `manifest.json` and `events.geojson` grow with every processed place (13 MB of events with three large case studies on 2026-11-14). Since 0.7.0 the backend also writes:
+
+| File | Holds |
+|---|---|
+| `index.json` | `{ contract_version, generated_at, areas: IndexArea[] }` |
+| `areas/<area>/area.json` | That area's manifest entry (C1 Area), plus `contract_version` |
+| `areas/<area>/events.geojson` | That area's events, same features as `events.geojson`. May be missing for an area without events |
+
+IndexArea:
+
+| Field | Type | Req | Notes |
+|---|---|---|---|
+| `id`, `title`, `summary`, `bbox`, `center`, `categories`, `change_types` | as in C1 | yes | Copied from the area |
+| `events` | integer | yes | Events of the area, archived ones not counted |
+| `layers` | integer | yes | Number of layers |
+| `dates` | [string, string] or [] | yes | First and last date over the area's layers |
+| `requested` | boolean | no | `true`: looked up by a visitor, not a curated site. Pages list such a place only for the visitor who asked for it |
+| `kind` | string | no | `"mosaic"` for a whole country |
+
+- `generated_at` equals the manifest's; a page compares it to know when to reload.
+- `manifest.json`, `events.json` and `events.geojson` are still written in full (older pages, `/query`).
+- Areas written before 0.7.0 have no `requested` or `kind` until they are processed again; pages may fall back on the id (`cell-`, `at-`) and the box size.
+- Events (C7) may carry `archived: true` (also a flat property in the GeoJSON files): found by an earlier run, on dates that are no longer in the area's series (a newer data maturity took over). They stay in `events.json`, the per-area file and the history; they may point at `layer_ids` that no longer exist.
+- `POST /sites` (public): a point within 10 km of a curated site's box is answered with that site.
 
 ## Validation rules
 

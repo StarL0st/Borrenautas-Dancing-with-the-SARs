@@ -1,6 +1,6 @@
 # 10. Status, to-do and time log
 
-Updated: 2026-11-14 21:45 (local time, UTC-7). Judging starts 2026-11-16.
+Updated: 2026-11-14 23:55 (local time, UTC-7). Judging starts 2026-11-16.
 
 This file records what is built, what is left, and the time spent, for the project submission. Add a row to the time log at the end of each work session.
 
@@ -66,6 +66,12 @@ Not checked on Azure: the 500-stream cap (passed locally), a 12-hour refresh, a 
 - **History.** `areas/<id>/history.json` per area and `GET /history` by point and dates: every layer, event and series value in time order (contract C10).
 - **Launch design** (running on Azure, see above): results in Blob Storage read directly by browsers, the virtual machine only for lookups, queries and refreshes; push after the copy to storage; stream cap, disk guard, memory limit and swap. Details: `docs/02`, `backend/deploy/README.md`.
 - **Load test** on a laptop: 300 open push streams plus 50 requests a second for 20 s, 1000 of 1000 answered, median 120 ms, slowest 435 ms; beyond 500 streams the server answers 503 as designed.
+- **Work branch `testing` (2026-11-14 night).** `main` holds both lanes as of 23:00; `testing` started from it and holds what follows, not merged into `main` yet. Preview of the site: https://testing-gigas-project.starl0stgaming.workers.dev. The backend part runs on the Azure VM (deployed from `testing`).
+- **The page loads on demand** (contract 0.7.0, C11). It starts from a short `index.json`; an area's layers and events are fetched when it is opened or when the map is zoomed in over it. Before, every visit fetched every event outline (13 MB).
+- **Grouped markers.** Events on the globe are small square markers with the filter icons; events of one type close together share one marker with a count. Hollow: live event. Filled: seen by the radar. A click lists the events in the right panel.
+- **City names** on the globe in three languages (Natural Earth).
+- **My places.** The left list shows the places the visitor opened or asked for (positions kept in the browser only), with a remove button; suggestions until there are any. A request next to a known city opens the city instead of processing a new place.
+- **More data, kept longer.** Larger boxes for the three case studies (60 to 90 km), six city sites, 27 state capitals queued one at a time on the VM (visitors first). Searches start at a fixed date and keep every date; events whose dates leave a series are archived, not deleted.
 - **Confidence floor.** Since 2026-11-14 21:30 no event under confidence 0.3 is published: 406 events in all, 738 before. The weak half was small regions barely past their threshold; 80 to 85% of the changed area stays. A judgment call, not checked against ground truth. Live on Azure.
 - **Calls for other programs.** `GET /api/areas`, `/api/events` (by area, category, dates, lowest confidence; paged) and `/api/live` (by category, source), next to `/query` and `/history`. All listed with a try-it page at https://gigas-sars.westus2.cloudapp.azure.com/docs.
 - **Tests.** 48 automated tests pass; lint is clean.
@@ -109,6 +115,9 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
 | 14 | Try the phone layout on a real phone (iOS Safari, Android Chrome): tabs, panel growing on scroll, before/now drag (`frontend/README.md`, handoff of the `mobile` branch) | Humans |
+| 15 | Try the `testing` preview (https://testing-gigas-project.starl0stgaming.workers.dev) in a real browser and on a phone: markers, group list, city names, my places, zoom-in loading. Then merge `testing` into `main` and publish | Humans |
+| 16 | Newer GCOV passes (late October on) are published as VALIDATED and are not shown: a series never mixes maturities and VALIDATED has 1 or 2 dates per frame. When it reaches 4 the selection moves to it; the earlier events stay (archived) but the earlier images leave the area. Showing both maturities as separate periods is not built | Backend |
+| 17 | A place NISAR has no data for stays "processing" in My places until removed by hand | Frontend |
 
 ### Decisions (asked at 20:00 on 2026-11-14, answered at 21:15)
 
@@ -150,5 +159,7 @@ Times come from git commit timestamps (local time, UTC-7), rounded to the quarte
 | 2026-11-14 | 18:15 | 20:00 | 1.75 | Frontend | Phone layout, satellite model from NASA's NISAR illustration, Cloudflare Worker config, README draft, handoff notes |
 | 2026-11-14 | 19:15 | 20:00 | 0.75 | Backend, docs | Session close: deploy notes match the real site host, open decisions written down |
 | 2026-11-14 | 21:15 | 21:45 | 0.5 | Backend, docs | Confidence floor 0.3, rerun of the four areas, `/api` calls, deployed to Azure and checked |
+| 2026-11-14 | 22:00 | 22:25 | 0.5 | Backend | API on `api.gigas.earth`, larger case-study boxes, six city sites, deployed |
+| 2026-11-14 | 23:00 | 23:55 | 1.0 | Backend, frontend, docs | `main` and `testing` updated; contract 0.7 (index, per-area files), fixed search start, slow queue, event archive, 27 state capitals; page loads on demand, grouped markers, city names, my places; preview and VM deploy |
 
-Total so far: backend and docs 18.25 h, frontend 11.25 h (16:45 to 18:15 had no frontend commits; after 20:00 not counted yet), 29.5 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
+Total so far: backend and docs 19.25 h, frontend 11.75 h (16:45 to 18:15 had no frontend commits; other agents' frontend work after 20:00 not counted), 31.0 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
