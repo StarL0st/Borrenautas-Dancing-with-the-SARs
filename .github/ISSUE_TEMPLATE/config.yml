@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Sources policy
+    url: https://github.com/StarL0st/GIGAS-Project/blob/jopa-testing/docs/13-sources-policy.md
+    about: How facts get into the app, and how to correct one.

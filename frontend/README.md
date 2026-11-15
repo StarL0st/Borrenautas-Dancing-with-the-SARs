@@ -21,7 +21,7 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
-> **Branch `jopa-testing` (local):** the latest `frontend` plus Mexico context data, compact icon filters, worldwide live events, a remarkable-events timeline per zone, notes on plants and animals, a source-and-date badge on every piece of data (NISAR radar, other satellite, live report, published record), a simple "why the radar sees changes" explainer, a before/after comparator with zoom and a change-percentage control (radar and satellite photos), a decision log, a Simple-mode guide written for a 10-year-old, top-5 timelines in Technical mode, and a downloadable PDF report per zone that is remade as a new version whenever new data changes it, with every explanation cited (mostly NASA sources). See [JOPA_TESTING.md](JOPA_TESTING.md).
+> **Branch `jopa-testing`:** the team's latest `main` and `frontend` (merged 2026-11-15) plus: a source-and-date badge on every piece of data, a "why the radar sees changes" explainer, before/after comparators with zoom and a change percentage (radar and satellite photos), a Simple-mode guide written for a 10-year-old, top-5 timelines in Technical mode, Mexico zone notes and remarkable events, and a PDF report per area that is remade as a new version whenever new data changes it, with every explanation cited. Overview: [../README.md](../README.md). Using it: [../docs/11-user-guide.md](../docs/11-user-guide.md). Reports: [../docs/12-pdf-reports.md](../docs/12-pdf-reports.md). Sources: [../docs/13-sources-policy.md](../docs/13-sources-policy.md). History: [JOPA_TESTING.md](JOPA_TESTING.md).
 
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 

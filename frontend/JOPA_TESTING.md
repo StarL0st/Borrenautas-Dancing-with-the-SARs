@@ -65,7 +65,18 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `9cd2dde` | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
 | `7145939` | 10 | Docs: round 10 |
 | `a40d77a` | 11 | Second review: report layout, reader drawing, comparator controls, live and status edge cases |
-| *this commit* | 11 | Docs: round 11 |
+| `cf0e2b5` | 11 | Docs: round 11 (pushed) |
+| `042dc39` | 12 | Merged the latest `main` (backend, docs) |
+| `3f218a0` | 12 | Merged the latest `frontend` (phone layout, satellite model, README draft, screenshots) |
+| *this commit* | 12 | Repository organized: README, docs index and guides, contributing, changelog, GitHub templates and workflow |
+
+## Round 12 (2026-11-15): the branch as a complete repository
+
+| Request | What changed |
+|---|---|
+| Create a well-organized, complete repository in my personal branch, without touching `main` | **Brought up to date:** merged the latest `main` (newest backend: confidence floor 0.3, `/api` calls, live events aligned with the app, four demo areas; docs and status log) and the latest `frontend` (phone layout, NISAR satellite model, Cloudflare Worker config, README draft and screenshots). Backend conflicts take `main`'s newer versions; `backend/README.md` keeps a note of this branch's early backend work. `main` and `frontend` are not changed. **Organized:** `README.md` (the team's draft, completed and updated for this branch: what it adds, area reports, quick start with the team's data, repository layout, documentation, sources, limits, use of AI), `docs/README.md` (index of every document), `docs/11-user-guide.md`, `docs/12-pdf-reports.md`, `docs/13-sources-policy.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `.github/` (pull request template, bug / feature / wrong-information issue templates, a check workflow that runs only on pull requests or by hand), `.editorconfig`. The old spec-package README moved to `docs/spec-package.md`, unchanged. |
+
+**Checked:** 30 frontend tests, 48 backend tests and the backend lint pass; type-check and production build pass; every relative link in the new documents points to a file that exists.
 
 ## Round 11 (2026-11-15): second review (local, not pushed; checked with tests, type-check and a build, not run)
 
