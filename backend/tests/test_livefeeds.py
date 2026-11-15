@@ -250,3 +250,24 @@ def test_every_event_says_where():
     assert storm["properties"]["place"] == "Atlantic Ocean"
     (fire,) = lf.parse_firms(FIRMS, "VIIRS_NOAA20_NRT")
     assert fire["properties"]["place"] == ""  # the app shows coordinates instead
+
+
+def test_firms_keeps_the_last_24_hours_across_the_utc_day_change(monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    rows = "latitude,longitude,acq_date,acq_time,confidence\n" + "".join(
+        f"20.{i},-103.{i},{t:%Y-%m-%d},{t:%H%M},n\n"
+        for i, t in enumerate((now - timedelta(hours=2), now - timedelta(hours=30)))
+    )
+    asked = []
+
+    def get(url):
+        asked.append(url)
+        return rows.encode()
+
+    monkeypatch.setenv("FIRMS_MAP_KEY", "k")
+    got = lf.fetchers(get)["firms"]()
+    assert len(got) == 2  # the 2-hour-old fire from each satellite; the 30-hour-old ones dropped
+    assert all(u.endswith("/2") for u in asked)  # 2 UTC days, never only "today"
+    assert lf.collect({}, minutes=5)["refresh_minutes"] == 5

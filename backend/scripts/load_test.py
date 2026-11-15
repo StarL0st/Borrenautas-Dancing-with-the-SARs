@@ -14,7 +14,7 @@ import time
 
 import httpx
 
-# Points with data: Chapala, Hopelchén, Villahermosa, Mexico City, and open sea (no area).
+# Points with data: Chapala, Hopelchén, Villahermosa, Mexico City (country map only), and open sea (no area).
 POINTS = [(20.3, -103.2), (19.75, -89.85), (17.99, -92.93), (19.43, -99.13), (15.0, -110.0)]
 
 

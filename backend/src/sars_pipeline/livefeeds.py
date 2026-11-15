@@ -331,10 +331,13 @@ def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[
                 "no FIRMS_MAP_KEY set (free key: firms.modaps.eosdis.nasa.gov/api/map_key/)"
             )
         bbox = ",".join(f"{v:g}" for v in _bbox_env())
+        # FIRMS counts days by UTC date: "1 day" is only today, so it is empty after 00:00 UTC
+        # (seen 2026-11-15: 0 fires at 00:45 UTC, 1041 the day before). Ask 2, keep 24 hours.
+        since = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%MZ")
         out = []
         for src in ("VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT"):
-            out += parse_firms(get(f"{SOURCES['firms']['url']}{key}/{src}/{bbox}/1").decode(), src)
-        return out
+            out += parse_firms(get(f"{SOURCES['firms']['url']}{key}/{src}/{bbox}/2").decode(), src)
+        return [f for f in out if f["properties"]["date"] >= since]
 
     return {
         "usgs": lambda: parse_usgs(json.loads(get(SOURCES["usgs"]["url"]))),
@@ -346,8 +349,11 @@ def fetchers(get: Callable[[str], bytes] = _get) -> dict[str, Callable[[], list[
     }
 
 
-def collect(feeds: dict[str, Callable[[], list[dict]]] | None = None) -> dict:
-    """Run every feed; one failing feed never stops the others."""
+def collect(
+    feeds: dict[str, Callable[[], list[dict]]] | None = None, minutes: float | None = None
+) -> dict:
+    """Run every feed; one failing feed never stops the others. `minutes`: how often the caller
+    refreshes, written as `refresh_minutes` so the app can say it."""
     feeds = feeds if feeds is not None else fetchers()
     features, status = [], []
     for sid, fetch in feeds.items():
@@ -364,13 +370,14 @@ def collect(feeds: dict[str, Callable[[], list[dict]]] | None = None) -> dict:
         "type": "FeatureCollection",
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "note": "Live context from public feeds, not NISAR detections. Each feature names its source.",
+        **({"refresh_minutes": minutes} if minutes else {}),
         "sources": status,
         "features": features,
     }
 
 
-def write(data_dir: Path, feeds=None) -> dict:
-    doc = collect(feeds)
+def write(data_dir: Path, feeds=None, minutes: float | None = None) -> dict:
+    doc = collect(feeds, minutes)
     path = Path(data_dir) / FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -383,7 +390,7 @@ def poll(data_dir: Path, minutes: float) -> None:
     """Refresh live.geojson forever (run in a daemon thread by `serve --live-minutes`)."""
     while True:
         try:
-            doc = write(data_dir)
+            doc = write(data_dir, minutes=minutes)
             log.info("live feeds: %d events", len(doc["features"]))
         except Exception:
             log.exception("live feeds failed")
