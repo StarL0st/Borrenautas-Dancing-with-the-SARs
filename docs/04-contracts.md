@@ -121,6 +121,10 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 | `GET /events.json` | All events: `{ contract_version, events: Event[] }` (C7). Also present in the static export |
 | `GET /query?lat=<lat>&lon=<lon>` | `{ contract_version, events: Event[], area_ids: string[] }`: events whose geometry contains the point, and areas whose `bbox` contains it |
 | `GET /query?bbox=w,s,e,n` | Same shape: events and areas whose `bbox` intersects the box |
+| `GET /api/areas` | `{ contract_version, areas: [{ id, title, summary, bbox, center, categories, products, layers (count), events (count), friendly, history }] }`: every processed area without its layer list. Since 2026-11-15 |
+| `GET /api/events` | `{ contract_version, total, events: Event[] }` (C7), highest `confidence` first. Optional `area=<area id>`, `category=<category>`, `from=`, `to=` (as `/query`), `min_confidence=<0 to 1>`, `limit=<1 to 1000, default 100>`, `offset=`. `total` counts every match, not only the page. Since 2026-11-15 |
+| `GET /api/live` | C9 document with `features` filtered by optional `category=` and `source=<source id>`. 404 when there is no `live.geojson`. Since 2026-11-15 |
+| `GET /docs`, `GET /openapi.json` | Every call with its parameters, as a page to try them and as OpenAPI JSON |
 | `GET /events.geojson` | The same events as a GeoJSON FeatureCollection with flat properties (`id`, `area_id`, `category` (primary), `categories` (comma-separated), `title`, `summary`, `from`, `to`, `confidence`, `area_km2`, `maturity`, `lon`, `lat`), for a MapLibre source. Also in the static export |
 | `GET /sites` | Only with `serve --jobs`. `{ sites: [{ id, title, bbox, requested, status, error?, result?, finished? }] }`; `status` is `idle`, `queued`, `running`, `done`, or `error` |
 | `POST /sites` | Only with `serve --jobs`. Body `{ lat, lon, km? (default 20, max 30), title?, id? }`. Adds a requested site and processes it in the background. 202 `{ id, status }`. When done, `/events` fires a `manifest` event |
@@ -130,6 +134,8 @@ The backend serves the same data root over HTTP, so the frontend can switch betw
 
 - `/query` also takes optional filters `category=<category>`, `type=<change type>`, `from=YYYY-MM-DD`, `to=YYYY-MM-DD` (event `date_range` overlaps `[from, to]`).
 - POST requests need `Authorization: Bearer <token>` when the server has an admin token set (always in the cloud: they start downloads). On a public server the token is needed only for `km`, `title`, `id` and `/refresh`.
+- The three `/api/` calls exist only on the server (like `/query`). They were added without a version bump: no file changed shape and the frontend does not depend on them.
+- Events with `confidence` under 0.3 are not published (backend setting `min_confidence`, since 2026-11-15), so `events.json`, `events.geojson`, friendly cards and histories hold only events at 0.3 or more.
 - CORS is open for GET; responses carry `Cache-Control: no-cache`.
 - `/query` exists only on the server. Against the static export the frontend loads `events.json` and filters it itself.
 - Area IDs are site ids (`cdmx`; requested places `at-<lat>n-<lon>w`, looked-up cells `cell-<lat>n-<lon>w`, dots as `_`; `mexico` is a country mosaic: soil moisture at about 2 km per 12-day cycle, layers with `date_range`, far larger than other areas). An area mixes products; each product keeps one viewing geometry and maturity, stated in `products` and in every layer's provenance. Backscatter layer IDs are `<pol>-<YYYY-MM-DD>`.

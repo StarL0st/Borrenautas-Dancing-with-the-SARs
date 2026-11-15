@@ -1,6 +1,6 @@
 # 10. Status, to-do and time log
 
-Updated: 2026-11-14 20:00 (local time, UTC-7). Judging starts 2026-11-16.
+Updated: 2026-11-14 21:45 (local time, UTC-7). Judging starts 2026-11-16.
 
 This file records what is built, what is left, and the time spent, for the project submission. Add a row to the time log at the end of each work session.
 
@@ -66,16 +66,18 @@ Not checked on Azure: the 500-stream cap (passed locally), a 12-hour refresh, a 
 - **History.** `areas/<id>/history.json` per area and `GET /history` by point and dates: every layer, event and series value in time order (contract C10).
 - **Launch design** (running on Azure, see above): results in Blob Storage read directly by browsers, the virtual machine only for lookups, queries and refreshes; push after the copy to storage; stream cap, disk guard, memory limit and swap. Details: `docs/02`, `backend/deploy/README.md`.
 - **Load test** on a laptop: 300 open push streams plus 50 requests a second for 20 s, 1000 of 1000 answered, median 120 ms, slowest 435 ms; beyond 500 streams the server answers 503 as designed.
-- **Tests.** 47 automated tests pass; lint is clean.
+- **Confidence floor.** Since 2026-11-14 21:30 no event under confidence 0.3 is published: 406 events in all, 738 before. The weak half was small regions barely past their threshold; 80 to 85% of the changed area stays. A judgment call, not checked against ground truth. Live on Azure.
+- **Calls for other programs.** `GET /api/areas`, `/api/events` (by area, category, dates, lowest confidence; paged) and `/api/live` (by category, source), next to `/query` and `/history`. All listed with a try-it page at https://gigas-sars.westus2.cloudapp.azure.com/docs.
+- **Tests.** 48 automated tests pass; lint is clean.
 
 ### Results on real data (2026-11-14)
 
 | Area | Events | Notes |
 |---|---|---|
-| Mexico | 7 drying regions, 4 layers | 1,777 fire detections inside the border in the last 10 days |
-| Chapala | 224 | wildfires 91, agriculture 71, deforestation 55, floods 20, urban 10 |
-| Yucatán | 443 | agriculture 239, wildfires 172, deforestation 64, urban 21 |
-| Villahermosa | 64 | floods 5 (0.4 km²): thin, the data ends in mid-October |
+| Mexico | 5 drying regions (7 before the floor), 4 layers | 1,777 fire detections inside the border in the last 10 days |
+| Chapala | 127 (224 before the floor) | agriculture 42, wildfires 32, deforestation 30, floods 20, other 14, urban 4 |
+| Yucatán | 227 (443) | agriculture 142, wildfires 65, deforestation 28, other 9, urban 9 |
+| Villahermosa | 47 (64) | deforestation 24, agriculture 18, wildfires 15, floods 5 (0.4 km²): thin, the data ends in mid-October |
 
 A new search on 2026-11-14 at 17:50 found no newer NISAR granules for any of the four areas: the data ends 2026-10-21 because that is the latest published.
 
@@ -101,20 +103,21 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 5 | Frontend: show history (`areas/<id>/history.json`, C10) in the bottom timeline; friendly cards (C8); a "processing" state from `GET /sites/<id>`; the server's sentence on a 429 answer | Frontend |
 | 6 | Decide what to take from `archive/jopa-testing` (not merged). Its backend change (`refresh_minutes` in `live.geojson`) is on `backend` since 2026-11-14 | Both lanes |
 | 7 | Licenses (`docs/09`): confirm the Meshy plan used for the satellite model; show the OpenStreetMap credit openly on the Street map look; decide whether to keep GDACS (no data license stated) | Frontend, team |
-| 8 | Event quality: decide a lowest confidence for published events (0.3 keeps about half the events and four fifths of the changed area), then rerun the three case studies and `azure.sh seed` | Human with backend |
-| 12 | Updating Azure is by hand (`azure.sh deploy` over SSH, VPN needed at the venue). Decide whether the VM should update itself from the `backend` branch | Human with backend |
+| 12 | Pending (decided 2026-11-14: not now): the VM updating itself from the `backend` branch. Until then Azure is updated by hand (`azure.sh deploy`, then `seed` when data changed; VPN needed at the venue) | Backend |
+| 13 | Domain `gigas.earth`: nameservers to Cloudflare, `A api` to the VM with proxy off, the bare domain on the Worker; then one redeploy with `SARS_DOMAIN=gigas.earth` | Human, then backend |
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
 
-### Open decisions (asked, not answered, at the end of the 2026-11-14 session)
+### Decisions (asked at 20:00 on 2026-11-14, answered at 21:15)
 
-| Decision | Recommendation |
+| Decision | Outcome |
 |---|---|
-| Lowest confidence for published events | 0.3: Chapala 224 to 127 events, Yucatán 443 to 227, Villahermosa 64 to 47, keeping 80 to 85% of the changed area. One setting and a rerun from cache |
-| REST calls for the processed data beyond `/query` and `/history` | Add `GET /api/areas`, `GET /api/events?area=&category=&from=&to=&min_confidence=`, `GET /api/live?category=&source=`, shown on the server's `/docs` page. About 40 lines plus tests |
-| The VM updating itself from the `backend` branch | Yes if only tested commits reach `backend`; needs a public repository or a read-only key |
-| `frontend` into `main` (8 commits newer than `main`: phone layout, satellite model, Worker config) | Frontend lane decides when it is ready |
+| Lowest confidence for published events | 0.3, done and live |
+| REST calls for the processed data beyond `/query` and `/history` | Done and live: `/api/areas`, `/api/events`, `/api/live` (C6 in `docs/04`) |
+| The VM updating itself from the `backend` branch | Not now; stays pending (needs a public repository or a read-only key on the VM) |
+| `frontend` into `main` (newer than `main`: phone layout, satellite model, Worker config) | Open: frontend lane decides. The frontend was not touched for the changes above |
+| Domain | The team lead sets up `gigas.earth` |
 
 ### If time allows
 
@@ -145,5 +148,6 @@ Times come from git commit timestamps (local time, UTC-7), rounded to the quarte
 | 2026-11-14 | 17:30 | 19:15 | 1.75 | Backend, docs | Cloudflare Pages for the site, data reduced to four areas (local, VM, storage), live fire fix, live events aligned with the app, new granule search |
 | 2026-11-14 | 18:15 | 20:00 | 1.75 | Frontend | Phone layout, satellite model from NASA's NISAR illustration, Cloudflare Worker config, README draft, handoff notes |
 | 2026-11-14 | 19:15 | 20:00 | 0.75 | Backend, docs | Session close: deploy notes match the real site host, open decisions written down |
+| 2026-11-14 | 21:15 | 21:45 | 0.5 | Backend, docs | Confidence floor 0.3, rerun of the four areas, `/api` calls, deployed to Azure and checked |
 
-Total so far: backend and docs 17.75 h, frontend 11.25 h (16:45 to 18:15 had no frontend commits), 29.0 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
+Total so far: backend and docs 18.25 h, frontend 11.25 h (16:45 to 18:15 had no frontend commits; after 20:00 not counted yet), 29.5 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
