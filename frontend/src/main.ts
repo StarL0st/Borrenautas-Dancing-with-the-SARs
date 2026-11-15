@@ -172,7 +172,7 @@ const countrySearch = $<HTMLInputElement>("country-search");
 function buildCountries() {
   const chosen = countries.filter((c) => picked.has(c.id));
   countrySearch.placeholder = t("country.search");
-  $("country-names").replaceChildren(...countries.map((c) => el("option", { value: c[settings.lang] })));
+  suggestCountries();
   $("country-status").textContent = chosen.length ? t("country.note") : "";
   $("country-picked").replaceChildren(
     ...chosen.map((c) => {
@@ -206,9 +206,17 @@ function searchCountry(loose: boolean) {
     pickCountry(found, true);
   } else if (loose) $("country-status").textContent = t("country.none");
 }
-// Choosing from the suggestions arrives as a replacement (or a plain event), typing does not:
-// typing "Niger" must not pick Niger on the way to Nigeria.
-countrySearch.oninput = (e) => ((e as InputEvent).inputType ?? "insertReplacementText") === "insertReplacementText" && searchCountry(false);
+// Our own suggestions under the box: phones show a <datalist> badly or not at all.
+function suggestCountries() {
+  const typed = countrySearch.value.trim().toLowerCase();
+  const name = (c: Country) => c[settings.lang].toLowerCase();
+  const open = countries.filter((c) => !picked.has(c.id) && name(c).includes(typed));
+  const hits = typed ? [...open.filter((c) => name(c).startsWith(typed)), ...open.filter((c) => !name(c).startsWith(typed))].slice(0, 6) : [];
+  $("country-names").replaceChildren(
+    ...hits.map((c) => el("li", {}, el("button", { type: "button", className: "chip", onclick: () => ((countrySearch.value = ""), pickCountry(c, true)) }, c[settings.lang]))),
+  );
+}
+countrySearch.oninput = suggestCountries;
 $<HTMLFormElement>("country-form").onsubmit = (e) => {
   e.preventDefault();
   searchCountry(true);
@@ -1601,11 +1609,35 @@ async function leaveHome() {
   try {
     if (!localStorage.getItem("tour-seen")) {
       localStorage.setItem("tour-seen", "1");
-      startTour(tourBtn);
+      askTour();
     }
   } catch {
     // Storage blocked (private window): the tour stays available from the button.
   }
+}
+
+// First visit: the tour starts the newcomer in Simple mode, "I know what I am doing" goes to Technical.
+// Later visits keep the last mode (saved with the settings).
+function askTour() {
+  const ask = el(
+    "dialog",
+    { className: "sheet ask" },
+    el(
+      "form",
+      { method: "dialog", className: "sheet-body" },
+      el("h2", {}, t("ask.title")),
+      el("p", {}, t("ask.text")),
+      el("div", { className: "tour-actions" }, el("button", { value: "no" }, t("ask.no")), el("button", { value: "yes", className: "primary" }, t("ask.yes"))),
+    ),
+  );
+  ask.onclose = () => {
+    ask.remove();
+    const yes = ask.returnValue === "yes"; // Escape counts as no
+    setMode(yes ? "simple" : "technical"); // at once: the tour leaves out what Simple mode hides
+    if (yes) startTour(tourBtn);
+  };
+  document.body.append(ask);
+  ask.showModal();
 }
 
 async function goHome() {

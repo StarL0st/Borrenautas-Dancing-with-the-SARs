@@ -26,8 +26,8 @@
       <nav id="nav" data-i18n-label="nav.label">
         <h3 data-i18n="h.countries"></h3>
         <form id="country-form">
-          <input type="search" id="country-search" list="country-names" autocomplete="off" data-i18n-label="country.search" />
-          <datalist id="country-names"></datalist>
+          <input type="search" id="country-search" autocomplete="off" enterkeyhint="search" data-i18n-label="country.search" />
+          <ul id="country-names" class="chips"></ul>
         </form>
         <p id="country-status" class="muted" role="status"></p>
         <ul id="country-picked" class="chips"></ul>
