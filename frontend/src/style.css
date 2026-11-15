@@ -1,0 +1,445 @@
+/* Team palette: Ink Black #031927, Powder Blue #8eb1c7, White #fefdff, Tangerine Dream #ef946c,
+   Ebony #6b654b. Ink is the surface (the other surface tones are steps of it), white is
+   text, powder blue is secondary text and lines, tangerine marks what is on or primary, ebony
+   carries notices (always as a fill under white text: as text on ink it is too dark to read). */
+:root {
+  --bg: #010d15;
+  --panel: #031927;
+  --raised: #0a2638;
+  --hover: #123449;
+  --line: #1d4159;
+  --text: #fefdff;
+  --muted: #8eb1c7;
+  --ink: #031927; /* text on a light fill */
+  --accent: #ef946c;
+  --on: #8eb1c7; /* a button or option that is switched on */
+  --ebony: #6b654b;
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Strong ease-out for things that enter or respond to a press. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* How far entering things travel and how much a press shrinks; flattened for reduced motion. */
+  --enter-y: 8px;
+  --press: 0.97;
+  color-scheme: dark;
+  accent-color: var(--accent);
+  caret-color: var(--accent);
+  scrollbar-color: var(--line) transparent;
+  font-size: 87.5%;
+  /* Switching mode cross-fades the two side panels only; the globe keeps running underneath. */
+  view-transition-name: none;
+}
+#nav { view-transition-name: nav; }
+#detail { view-transition-name: detail; }
+::view-transition-group(*) { animation-duration: 220ms; animation-timing-function: var(--ease-out); }
+/* Simple mode leaves the technical parts of the page out. */
+:root[data-mode="simple"] .tech { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fades stay; movement and scaling go. */
+  :root { --enter-y: 0px; --press: 1; }
+}
+
+* { box-sizing: border-box; }
+::selection { background: var(--accent); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 1rem/1.5 var(--sans);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+h1 { margin: 0 auto 0 0; font-size: 1.3rem; font-weight: 600; letter-spacing: 0.08em; }
+h2 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 600; text-wrap: balance; }
+h3, h4 { margin: 24px 0 8px; font-size: 0.93rem; font-weight: 600; }
+h3 { color: var(--muted); }
+nav > h3:first-child { margin-top: 4px; }
+p { margin: 6px 0; }
+ul, ol { margin: 6px 0; padding-left: 20px; }
+/* Dates and measurements line up in the data face. */
+time, output, td, .legend, .axis, .chart-tip, #coords input { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.muted { color: var(--muted); font-size: 0.93rem; }
+.error { color: var(--accent); font-weight: 600; }
+
+#banner { flex-basis: 100%; padding: 3px 10px; border-radius: 4px; background: var(--ebony); color: var(--text); font-size: 0.93rem; }
+#banner[hidden] { display: none; }
+
+.app {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--nav-w, 300px) 1fr var(--detail-w, 360px);
+  overflow: hidden;
+  /* The globe has to be re-fitted as a panel slides, so this is a layout change by nature. */
+  transition: grid-template-columns 280ms var(--ease-in-out);
+}
+.app.no-nav { --nav-w: 0px; }
+.app.no-detail { --detail-w: 0px; }
+/* The panels keep their width and slide out past the edge instead of squeezing their text. */
+#nav { width: 300px; justify-self: end; }
+#detail { width: 360px; justify-self: start; }
+@media (prefers-reduced-motion: reduce) {
+  .app { transition: none; }
+}
+
+.app > nav, .app > aside { overflow-y: auto; padding: 16px; background: var(--panel); }
+.app > nav { border-right: 1px solid var(--line); }
+.app > aside { border-left: 1px solid var(--line); }
+
+/* ---- Controls ---- */
+
+button, select, #coords input, #country-search {
+  font: inherit;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 10px;
+}
+#coords input { font-family: var(--mono); }
+button, select, summary, .check, .seg label { cursor: pointer; }
+button { transition: scale 140ms var(--ease-out), background-color 150ms ease; }
+/* Press feedback: the control answers the moment it is touched. */
+button:active:not(:disabled) { scale: var(--press); }
+button:disabled { opacity: 0.5; cursor: default; }
+/* The main action is a tangerine fill; "on" is a light blue one, here and in the segmented switches. */
+button.primary, button[aria-pressed="true"], .seg input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+button[aria-pressed="true"], .seg input:checked + span { background: var(--on); border-color: var(--on); }
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled, .primary, [aria-pressed="true"]), select:hover, .seg input:not(:checked) + span:hover { background: var(--hover); }
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.actions button { font-size: 0.93rem; }
+
+label { display: block; margin-top: 10px; font-size: 0.93rem; color: var(--muted); }
+input[type="range"], select, #coords input, #country-search { width: 100%; }
+#coords .actions { margin-top: 10px; }
+output { color: var(--text); }
+
+.dot, .swatch { display: inline-block; flex: none; width: 10px; height: 10px; margin-right: 8px; }
+.dot { border-radius: 50%; }
+.swatch { border-radius: 2px; }
+
+/* Segmented switch: joined options, one of them on. */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg label { position: relative; margin: 0; color: var(--text); }
+.seg label + label { border-left: 1px solid var(--line); }
+.seg input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.seg span { display: block; padding: 5px 12px; background: var(--raised); text-align: center; transition: background-color 150ms ease; }
+.seg:has(:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.mode { display: flex; align-items: center; gap: 8px; }
+
+/* ---- Filters and area list ---- */
+
+#filters details { margin: 0; padding: 8px 0; border-top: 1px solid var(--line); }
+#filters details:first-child { border-top: 0; padding-top: 0; }
+#filters summary { font-weight: 600; }
+.check { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; color: var(--text); }
+.check.all { color: var(--muted); }
+.check input { flex: none; margin-top: 0.3em; }
+
+/* Countries picked in the search: one chip each, pressed to remove it. */
+.chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 1px 8px; background: var(--on); border-color: var(--on); color: var(--ink); font-size: 0.93rem; font-weight: 600; }
+#country-status:empty { display: none; }
+
+/* ---- From jopa-testing: type icons in the filters and lists ---- */
+
+/* Visually hidden but still focusable and read by screen readers (the filter checkboxes). */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* One silhouette per type: outline only when off, filled with the group color when on. */
+.ticon { flex: none; width: 22px; height: 22px; color: var(--c, currentColor); }
+.ticon path { fill: transparent; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; transition: fill 150ms ease; }
+.ticon.on path, .ftype input:checked + .ticon path { fill: currentColor; }
+.ticon.sm { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
+.ticon.sm path { stroke-width: 1.6; }
+.ftypes { display: grid; gap: 1px; margin-top: 4px; }
+.ftype { display: flex; align-items: center; gap: 8px; margin: 0; padding: 2px 6px; border-radius: 4px; font-size: 0.93rem; color: var(--muted); cursor: pointer; }
+.ftype[hidden] { display: none; }
+.ftype .ticon { width: 18px; height: 18px; }
+button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86rem; }
+.ftype:has(input:checked) { color: var(--text); }
+.ftype:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .ftype:hover { background: var(--raised); }
+}
+/* Simple mode: a grid of icon tiles with short names, easier to tap than a checklist. */
+:root[data-mode="simple"] .ftypes { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+:root[data-mode="simple"] .ftype { flex-direction: column; gap: 2px; padding: 4px 2px; text-align: center; font-size: 0.72rem; line-height: 1.15; border: 1px solid var(--line); overflow-wrap: anywhere; }
+:root[data-mode="simple"] .ftype .ticon { width: 20px; height: 20px; }
+:root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+
+#results { list-style: none; padding: 0; }
+#results li + li { border-top: 1px solid var(--line); }
+/* Live events: what is happening and where, newest first. */
+#live-list { list-style: none; padding: 0; max-height: 320px; overflow-y: auto; }
+#live-list li + li { border-top: 1px solid var(--line); }
+#live-list .result strong { display: flex; align-items: center; }
+#live-list .where { display: block; }
+button.link { margin-top: 6px; padding: 4px 8px; }
+.result { display: block; width: 100%; padding: 8px; text-align: left; background: none; border: 0; border-radius: 0; font-weight: 400; }
+.result strong { display: block; font-weight: 600; }
+/* An open area keeps its row marked; the row is a list entry, not a filled button. */
+.result[aria-pressed="true"] { background: var(--raised); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); font-weight: 400; }
+/* While the page loads, the list cascades in row by row. */
+.stagger {
+  transition: opacity 320ms var(--ease-out), translate 320ms var(--ease-out);
+  transition-delay: calc(var(--i) * 35ms);
+  @starting-style { opacity: 0; translate: 0 var(--enter-y); }
+}
+
+.tag { display: inline-block; margin: 0 6px 4px 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; font-size: 0.86rem; color: var(--muted); }
+.tag.warn { border-color: var(--ebony); background: var(--ebony); color: var(--text); }
+
+/* ---- Globe, toolbar, view wheel ---- */
+
+.stage { position: relative; min-height: 0; background: var(--bg); }
+/* The map itself is see-through around the globe, so letters can pass behind the Earth. */
+#map { position: absolute; inset: 0; }
+
+.toolbar { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 70px); }
+.toolbar button { font-size: 0.93rem; background: var(--panel); }
+.toolbar button[aria-pressed="true"] { background: var(--on); }
+
+/* Home, auto-rotate and view wheel: squares in the map's own button column, drawn like its + and -. */
+.stage .maplibregl-ctrl-group button.icon { color: #333; }
+.stage .maplibregl-ctrl-group button.icon[aria-pressed="true"] { background: var(--on); color: var(--ink); }
+.icon svg { display: block; width: 19px; margin: auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Date sliders of the open areas, bottom middle of the globe (between the wheel and the credits). */
+#timebar { position: absolute; left: 50%; bottom: 34px; translate: -50% 0; width: clamp(200px, calc(100% - 340px), 400px); max-height: 40%; overflow-y: auto; padding: 4px 12px 8px; background: #031927ee; border: 1px solid var(--line); border-radius: 6px; }
+#timebar:empty { display: none; }
+#timebar label { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+#timebar strong { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.time-row.enter {
+  transition: opacity 220ms var(--ease-out), translate 220ms var(--ease-out);
+  @starting-style { opacity: 0; translate: 0 var(--enter-y); }
+}
+
+/* ---- Welcome screen: the title over the turning Earth; everything else waits behind it ---- */
+
+#home { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 12vh 16px 0; text-align: center; opacity: 0; visibility: hidden; transition: opacity 400ms var(--ease-out), visibility 400ms; }
+.at-home #home { opacity: 1; visibility: visible; }
+/* While the letters circle the Earth they stand in for the name; Start and the greeting wait. */
+.orbiting #home { pointer-events: none; }
+.orbiting .home-name { visibility: hidden; }
+.orbiting #start, .orbiting .home-hello { opacity: 0; transition-delay: 0s; transition-duration: 160ms; }
+.home-hello { transition: opacity 400ms var(--ease-out); }
+/* The flying letters: one layer over everything, one under the map where the Earth hides them. */
+.fly-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+#fly-front { z-index: 6; }
+.fly { position: absolute; left: 0; top: 0; line-height: 1; opacity: 0; will-change: transform; }
+#home h2 { margin: 0; text-shadow: 0 2px 24px var(--bg); }
+/* A small greeting over the name, which carries the screen. */
+.home-hello { display: block; font-size: clamp(1.3rem, 3vw, 2.2rem); font-weight: 400; }
+/* The name is a little 3D: a stack of darker copies behind each letter gives it a side. In em, so
+   the flying letters (same rule, other sizes) keep the same depth. */
+.home-name, .fly {
+  text-shadow:
+    0.012em 0.012em 0 #b9cfdc, 0.024em 0.024em 0 #a3bfd0, 0.036em 0.036em 0 #8eb1c7, 0.048em 0.048em 0 #7a9db3,
+    0.06em 0.06em 0 #66899f, 0.072em 0.072em 0 #53758b, 0.1em 0.12em 0.14em #000a;
+}
+.home-name { display: block; font-size: clamp(3.4rem, 13vw, 9rem); line-height: 1.05; letter-spacing: 0.04em; }
+#home button { padding: 10px 48px; font-size: 1.3rem; }
+#home > * {
+  transition: opacity 600ms var(--ease-out), translate 600ms var(--ease-out), scale 140ms var(--ease-out);
+  @starting-style { opacity: 0; translate: 0 calc(var(--enter-y) * 2); }
+}
+#home > button { transition-delay: 120ms, 120ms, 0s; }
+header, .toolbar, .panel-toggle, #wheel, #timebar, .maplibregl-ctrl-top-right { transition: opacity 400ms var(--ease-out), scale 140ms var(--ease-out), background-color 150ms ease; }
+.at-home :is(header, .toolbar, .panel-toggle, #wheel, #timebar, .maplibregl-ctrl-top-right) { opacity: 0; }
+
+/* Arrows on the edges of the globe that push a side panel away and pull it back. */
+.panel-toggle { position: absolute; top: 50%; translate: 0 -50%; width: 22px; height: 64px; padding: 0; background: var(--panel); }
+.panel-toggle svg { display: block; width: 10px; margin: auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: rotate 280ms var(--ease-in-out); }
+#nav-toggle { left: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+#detail-toggle { right: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+/* The arrow points the way the panel will move. */
+#nav-toggle[aria-expanded="false"] svg, #detail-toggle[aria-expanded="true"] svg { rotate: 180deg; }
+
+#wheel { position: absolute; left: 10px; bottom: 30px; width: 190px; touch-action: none; user-select: none; }
+#wheel[data-size="medium"] { width: 150px; }
+#wheel[data-size="small"] { width: 116px; }
+#wheel[hidden] { display: none; }
+#wheel svg { display: block; width: 100%; }
+#wheel g { cursor: grab; outline: none; }
+#wheel g:active { cursor: grabbing; }
+#wheel path { fill: #031927ee; stroke: #8eb1c799; stroke-width: 1; transition: fill 120ms ease; }
+#wheel g:focus-visible path { fill: #123449; stroke: var(--text); stroke-width: 3; }
+#wheel g:active path { fill: #1d4159; }
+@media (hover: hover) and (pointer: fine) {
+  #wheel g:hover path { fill: #123449; }
+}
+#wheel text { fill: var(--text); font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+#wheel text.inner { font-size: 8.5px; }
+#wheel p { margin: 4px 0 0; padding: 2px 6px; min-height: 2.9em; background: #010d15cc; border-radius: 4px; font-size: 12px; }
+#wheel[data-size="small"] p { display: none; }
+.wheel-close { position: absolute; top: -4px; right: -4px; width: 24px; height: 24px; padding: 5px; border-radius: 50%; }
+.wheel-close svg { stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+
+/* Event popups: dark like the panels. `.stage` outranks MapLibre's own stylesheet, which loads later. */
+.stage .maplibregl-popup-content { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.stage .maplibregl-popup .maplibregl-popup-tip { border-top-color: var(--panel); border-bottom-color: var(--panel); }
+.stage .maplibregl-popup-close-button { color: var(--text); background: none; border: 0; font-size: 18px; }
+.event-popup p { margin: 6px 0 0; }
+.event-popup a { display: inline-block; margin-top: 6px; color: var(--text); }
+
+/* ---- Open areas ---- */
+
+.card { margin: 0; padding: 14px 0; border-top: 1px solid var(--line); }
+/* Only the tab that was just opened animates in, so ticking a filter does not replay it. */
+.card.enter {
+  transition: opacity 220ms var(--ease-out), translate 220ms var(--ease-out);
+  @starting-style { opacity: 0; translate: 0 var(--enter-y); }
+}
+.card > summary { font-size: 1.07rem; font-weight: 600; }
+.card > .actions { margin: 8px 0; }
+
+.ramp { height: 10px; margin-top: 10px; border: 1px solid var(--line); }
+.legend { display: flex; justify-content: space-between; font-size: 0.86rem; color: var(--muted); }
+.swatches { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font-size: 0.93rem; }
+
+details { margin-top: 10px; }
+/* Opened sections fade their contents in (browsers without this simply show them). */
+details::details-content { opacity: 0; transition: opacity 200ms ease, content-visibility 200ms allow-discrete; }
+details[open]::details-content { opacity: 1; }
+summary { color: var(--muted); }
+.card > summary, #filters summary { color: var(--text); }
+dt { margin-top: 8px; font-size: 0.86rem; color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+
+.timeline { list-style: none; padding: 0 0 0 14px; border-left: 1px solid var(--line); }
+.timeline li { position: relative; margin-bottom: 12px; }
+.timeline li::before { content: ""; position: absolute; left: -18px; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.timeline time { display: block; font-size: 0.86rem; color: var(--muted); }
+
+/* ---- From jopa-testing: satellite view. "Now" underneath, "before" on top, clipped at the swipe position. ---- */
+
+.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
+.compare { position: relative; display: grid; margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: #000; }
+.compare[hidden] { display: none; }
+.compare img { grid-area: 1 / 1; display: block; width: 100%; height: auto; }
+.compare .sat-before { clip-path: inset(0 calc(100% - var(--x, 50%)) 0 0); }
+.compare::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: var(--text); box-shadow: 0 0 4px #000; pointer-events: none; }
+.compare .swipe { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.compare .swipe:focus-visible { opacity: 0.25; }
+.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
+.tag-before { left: 6px; }
+.tag-now { right: 6px; }
+
+/* ---- Chart ---- */
+
+.chart { margin: 0 0 10px; }
+.legend-row { display: flex; gap: 14px; font-size: 0.86rem; }
+.chart-plot { position: relative; }
+.chart-plot svg { display: block; width: 100%; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 10px; }
+.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .mark { stroke: var(--panel); stroke-width: 2; }
+.chart .end { fill: var(--text); font-size: 11px; }
+.chart .cross { stroke: var(--muted); stroke-width: 1; }
+.chart-tip {
+  position: absolute;
+  top: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.chart-tip[hidden] { display: none; }
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+th, td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 400; }
+
+/* ---- Tour ---- */
+
+.tour {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  translate: -50% 0;
+  z-index: 10;
+  width: min(460px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 30px #000a;
+  transition: opacity 250ms var(--ease-out), translate 250ms var(--ease-out);
+  @starting-style { opacity: 0; translate: -50% calc(var(--enter-y) * 1.5); }
+}
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.tour-actions .muted { margin-right: auto; font-family: var(--mono); }
+.tour-target { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- Accessibility menu ---- */
+
+#settings {
+  width: min(760px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 16px 50px #000c;
+}
+/* Modals stay centered and grow slightly into place; closing is instant. */
+#settings[open] {
+  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out);
+  @starting-style { opacity: 0; scale: var(--press); }
+}
+#settings::backdrop { background: #000000b3; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.settings-head h2 { margin: 0; }
+.settings-body { display: grid; grid-template-columns: 1.5fr 1fr; }
+.settings-rows { padding: 4px 16px 16px; }
+.settings-help { padding: 16px; border-left: 1px solid var(--line); }
+.settings-help h3 { margin-top: 0; color: var(--text); }
+.settings-help p { color: var(--muted); }
+
+.setting { margin: 16px 0 0; padding: 0; border: 0; }
+.setting legend { padding: 0 0 6px; font-weight: 600; }
+
+/* Phones and narrow windows: globe on top, panels below, the page scrolls. */
+@media (max-width: 900px) {
+  body { height: auto; }
+  .app { display: flex; flex-direction: column; overflow: visible; }
+  #nav, #detail { width: auto; }
+  .panel-toggle { display: none; }
+  .at-home header, .at-home .app > :is(nav, aside) { display: none; }
+  .at-home .stage { height: 100dvh; }
+  #timebar { left: auto; right: 10px; translate: none; width: calc(100% - 180px); }
+  .stage { order: -1; flex: none; height: 60dvh; }
+  #wheel[data-size="large"] { width: 150px; }
+  .app > nav, .app > aside { border: 0; border-top: 1px solid var(--line); }
+  .settings-body { grid-template-columns: 1fr; }
+  .settings-help { border-left: 0; border-top: 1px solid var(--line); }
+}

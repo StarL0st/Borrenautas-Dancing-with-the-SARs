@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G.I.G.A.S</title>
+  </head>
+  <body class="at-home">
+    <section id="home" aria-labelledby="home-title">
+      <h2 id="home-title"><span class="home-hello" data-i18n="home.welcome"></span> <span class="home-name">G.I.G.A.S</span></h2>
+      <button type="button" id="start" class="primary" data-i18n="home.start"></button>
+    </section>
+    <div id="fly-front" class="fly-layer" aria-hidden="true"></div>
+    <header>
+      <h1>G.I.G.A.S</h1>
+      <button type="button" id="tour-btn" data-i18n="btn.tutorial"></button>
+      <div id="mode" class="mode" role="radiogroup" aria-labelledby="mode-label">
+        <span id="mode-label" class="muted" data-i18n="mode.label"></span>
+        <div id="mode-seg" class="seg"></div>
+      </div>
+      <button type="button" id="settings-btn" data-i18n="btn.settings"></button>
+      <div id="banner" role="status" hidden></div>
+    </header>
+    <main class="app no-nav no-detail">
+      <nav id="nav" data-i18n-label="nav.label">
+        <h3 data-i18n="h.countries"></h3>
+        <form id="country-form">
+          <input type="search" id="country-search" list="country-names" autocomplete="off" data-i18n-label="country.search" />
+          <datalist id="country-names"></datalist>
+        </form>
+        <p id="country-status" class="muted" role="status"></p>
+        <ul id="country-picked" class="chips"></ul>
+        <h3 data-i18n="h.filters"></h3>
+        <div id="filters"></div>
+        <h3 data-i18n="h.live"></h3>
+        <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
+        <p id="live-status" class="muted" role="status"></p>
+        <ul id="live-list" data-i18n-label="live.list"></ul>
+        <button type="button" id="live-more" class="link" hidden></button>
+        <h3 class="tech" data-i18n="h.coords"></h3>
+        <form id="coords" class="tech">
+          <label for="lat" data-i18n="coords.lat"></label>
+          <input id="lat" type="number" min="-90" max="90" step="any" required placeholder="19.43" />
+          <label for="lon" data-i18n="coords.lon"></label>
+          <input id="lon" type="number" min="-180" max="180" step="any" required placeholder="-99.13" />
+          <div class="actions">
+            <button type="submit" class="primary" data-i18n="coords.go"></button>
+            <button type="button" id="process" data-i18n="coords.process"></button>
+          </div>
+        </form>
+        <h3 data-i18n="h.areas"></h3>
+        <p id="status" class="muted" role="status"></p>
+        <ul id="results"></ul>
+      </nav>
+      <div class="stage" id="stage">
+        <div id="fly-back" class="fly-layer" aria-hidden="true"></div>
+        <div id="map" role="region" data-i18n-label="map.label"></div>
+        <div class="toolbar" id="toolbar" role="group" data-i18n-label="view.label">
+          <button type="button" id="view-globe" aria-pressed="true" data-i18n="view.globe"></button>
+          <button type="button" id="view-closeup" aria-pressed="false" data-i18n="view.closeup"></button>
+        </div>
+        <!-- These two groups are moved into the map's own column of square buttons (see main.ts). -->
+        <div class="maplibregl-ctrl maplibregl-ctrl-group" id="ctrl-home">
+          <button type="button" class="icon" id="home-btn" data-i18n-label="home.btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" /></svg></button>
+        </div>
+        <div class="maplibregl-ctrl maplibregl-ctrl-group" id="ctrl-view">
+          <button type="button" class="icon" id="spin-btn" aria-pressed="false" data-i18n-label="view.spin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4h-4" /></svg></button>
+          <button type="button" class="icon" id="wheel-btn" aria-pressed="true" data-i18n-label="view.wheel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v5M5.1 16l4.3-2.5M18.9 16l-4.3-2.5" /></svg></button>
+        </div>
+        <div id="timebar"></div>
+        <div id="wheel" role="group" data-i18n-label="view.wheel"></div>
+        <button type="button" class="panel-toggle" id="nav-toggle" aria-controls="nav" aria-expanded="true" data-i18n-label="panel.nav"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
+        <button type="button" class="panel-toggle" id="detail-toggle" aria-controls="detail" aria-expanded="true" data-i18n-label="panel.detail"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
+      </div>
+      <aside id="detail" data-i18n-label="h.open">
+        <h2 data-i18n="h.open"></h2>
+        <div id="cards"></div>
+      </aside>
+    </main>
+    <dialog id="settings" aria-labelledby="settings-title"></dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
