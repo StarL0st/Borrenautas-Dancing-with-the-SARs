@@ -1,9 +1,11 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Rounds 4 to 7 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
+**Rounds 4 to 8 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 7)
+## What the branch has now (after round 8)
+
+- **No decision log on the page** (round 8): the header button and the cards' "Why these data and methods?" link are gone. The decisions live in the repository as [DECISIONS.md](DECISIONS.md), generated from `src/decisions.ts` with `npm run decisions`. The PDF report keeps its "Methods and decisions" table.
 
 - **Left panel:** the "Most destructive recent events" section is gone (round 7).
 - **Simple mode, section 3 "Look for yourself":** the child picks the kind of picture (NISAR radar when the area has it, close-up photo, whole-region photo, fire view, green leaves map) and how far back (1 month to 5 years).
@@ -51,7 +53,16 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `fa02065` | 6 | Versioned PDFs kept up to date; every explanation sourced (NASA first) |
 | `cd616da` | 6 | Docs: round 6 |
 | `bb7a14f` | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
-| *this commit* | 7 | Docs: round 7 |
+| `99896ae` | 7 | Docs: round 7 |
+| *next commit* | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
+| *this commit* | 8 | Docs: round 8 |
+
+## Round 8 (2026-11-15)
+
+| Request | What changed |
+|---|---|
+| Erase the decision log from the app; it will be in the repository for the curious | **Removed from the page:** the header's **Decision log** button and its dialog (list, kind filter), the decision texts (`btn.decisions`, `dec.*`) in three languages and their styles. The explainer dialog ("How radar sees") stays. **In the repository:** [DECISIONS.md](DECISIONS.md), all 13 decisions with date, kind, what we chose, why, instead of what, what we give up, and numbered sources (mostly NASA). It is generated from `src/decisions.ts` and `src/sources.ts` by `npm run decisions` (`scripts/decisions-md.mjs`), so it never drifts from the data. **Kept:** the PDF report's "Methods and decisions" table. |
+| Erase "Why these data and methods?" | The link at the end of each Technical card is gone (it only opened the decision log). |
 
 ## Round 7 (2026-11-15)
 

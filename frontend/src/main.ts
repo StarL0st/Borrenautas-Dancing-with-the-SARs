@@ -14,7 +14,6 @@ import { contentKey, diffSnapshots, type Change, type ReportSnapshot } from "./r
 import { CLASSES, RAMPS } from "./legend";
 import { topicsFor, TOPICS } from "./explain";
 import { explainer, sourceLinks } from "./explain-view";
-import { DECISIONS, type Decision } from "./decisions";
 import type { RefId } from "./sources";
 import { KID_FOUND, KID_TYPES, kidFact } from "./kid";
 import {
@@ -400,7 +399,6 @@ function card(a: AreaView) {
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
     ...(a.events.length > timeline.length ? [moreInReport(a, a.events.length - timeline.length)] : []),
     ...historySection(a),
-    el("p", {}, el("button", { type: "button", className: "link", onclick: () => openSheet("decisions") }, t("card.decisions"))),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
   box.ontoggle = () => (box.open ? collapsed.delete(a.id) : collapsed.add(a.id));
@@ -798,7 +796,7 @@ function moreInReport(a: AreaView, n: number): Node {
   return el("p", { className: "muted more-report" }, t("card.more", { n }), " ", reportButton(a, "report.short"));
 }
 
-// ---- Why the radar sees changes (explain.ts) and the decision log (decisions.ts) ----
+// ---- Why the radar sees changes (explain.ts) ----
 
 // In each card: the ideas behind this area's kind of change, folded until asked for.
 function whySection(a: AreaView): Node {
@@ -809,64 +807,18 @@ function whySection(a: AreaView): Node {
     box.append(
       el("p", { className: "muted" }, t("why.intro")),
       explainer(topicsFor(a.types), lang()),
-      el("button", { type: "button", className: "link", onclick: () => openSheet("explain") }, t("why.all")),
+      el("button", { type: "button", className: "link", onclick: () => openSheet() }, t("why.all")),
     );
   };
   return box;
 }
 
 const sheet = $<HTMLDialogElement>("sheet");
-let decisionKind: Decision["kind"] | "all" = "all";
-
-function decisionItem(d: Decision): HTMLElement {
-  const row = (key: Key, text: string) => [el("dt", {}, t(key)), el("dd", {}, text)];
-  return el(
-    "article",
-    { className: "decision", id: `decision-${d.id}` },
-    el("p", { className: "muted" }, el("time", { dateTime: d.date }, d.date), " · ", el("span", { className: `tag k-${d.kind}` }, t(`dec.kind.${d.kind}` as Key))),
-    el("h3", {}, tx(d.title, lang())),
-    el(
-      "dl",
-      {},
-      ...row("dec.chose", tx(d.chose, lang())),
-      ...row("dec.why", tx(d.why, lang())),
-      ...row("dec.instead", tx(d.instead, lang())),
-      ...row("dec.tradeoff", tx(d.tradeoff, lang())),
-    ),
-    sourceLinks(d.refs),
-  );
-}
-
-function decisionsBody(): Node[] {
-  const list = el("div", { className: "decisions" });
-  const show = () =>
-    list.replaceChildren(
-      ...DECISIONS.filter((d) => decisionKind === "all" || d.kind === decisionKind)
-        .sort((x, y) => y.date.localeCompare(x.date))
-        .map(decisionItem),
-    );
-  const kinds = ["all", "data", "method", "design"] as const;
-  const chips = el("div", { className: "seg" });
-  chips.setAttribute("role", "radiogroup");
-  chips.setAttribute("aria-label", t("btn.decisions"));
-  for (const k of kinds) {
-    const input = el("input", { type: "radio", name: "dec-kind", value: k, id: `dec-${k}`, checked: k === decisionKind });
-    input.onchange = () => {
-      decisionKind = k;
-      show();
-    };
-    chips.append(el("label", {}, input, el("span", {}, k === "all" ? t("dec.all") : t(`dec.kind.${k}` as Key))));
-  }
-  show();
-  return [el("p", { className: "muted" }, t("dec.intro")), chips, list];
-}
-
-function openSheet(kind: "explain" | "decisions") {
-  const title = el("h2", { id: "sheet-title" }, t(kind === "explain" ? "why.title" : "btn.decisions"));
+// The decision log is not on the page: it lives in the repository (frontend/DECISIONS.md).
+function openSheet() {
+  const title = el("h2", { id: "sheet-title" }, t("why.title"));
   const close = el("button", { type: "button", onclick: () => sheet.close() }, t("dialog.close"));
-  const body = kind === "explain"
-    ? [el("p", { className: "muted" }, t("why.intro")), explainer(TOPICS.map((x) => x.id), lang())]
-    : decisionsBody();
+  const body = [el("p", { className: "muted" }, t("why.intro")), explainer(TOPICS.map((x) => x.id), lang())];
   sheet.replaceChildren(el("div", { className: "settings-head" }, title, close), el("div", { className: "sheet-body" }, ...body));
   if (!sheet.open) sheet.showModal();
   close.focus();
@@ -876,8 +828,7 @@ function openSheet(kind: "explain" | "decisions") {
 sheet.onclick = (e) => {
   if (e.target === sheet) sheet.close();
 };
-$("explain-btn").onclick = () => openSheet("explain");
-$("decisions-btn").onclick = () => openSheet("decisions");
+$("explain-btn").onclick = () => openSheet();
 
 // ---- Before/after comparator on NISAR radar pictures (compare.ts) ----
 

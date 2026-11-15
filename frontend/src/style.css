@@ -512,7 +512,7 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
   .settings-help { border-left: 0; border-top: 1px solid var(--line); }
 }
 
-/* ---- jopa-testing: data origins, comparator, radar explainer, decision log ---- */
+/* ---- jopa-testing: data origins, comparator, radar explainer ---- */
 
 /* Origin badges: shape + name, never color alone. NISAR is a diamond, other satellites a circle,
    live reports a triangle, published records a square. */
@@ -597,7 +597,7 @@ details.why > summary { font-weight: 600; }
 .why-art .wave.later { stroke: #cc79a7; }
 .why-art .rain { stroke: #56b4e9; stroke-width: 1.5; }
 
-/* Explainer and decision log dialog (same frame as the accessibility menu) */
+/* Explainer dialog (same frame as the accessibility menu) */
 .sheet {
   width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0;
   color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 16px 50px #000c;
@@ -605,18 +605,8 @@ details.why > summary { font-weight: 600; }
 .sheet[open] { transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out); @starting-style { opacity: 0; scale: var(--press); } }
 .sheet::backdrop { background: #000000b3; }
 .sheet-body { padding: 12px 16px 16px; }
-.sheet .seg { margin: 8px 0 12px; max-width: 420px; }
-.decisions { display: grid; gap: 10px; }
-.decision { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--raised); }
-.decision h3 { margin: 2px 0 6px; color: var(--text); font-size: 1.05rem; }
-.decision p { margin: 0; }
-.decision dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
-.decision dt { color: var(--muted); font-size: 0.88rem; }
-.decision dd { margin: 0; }
-.decision .tag { margin: 0; }
 @media (max-width: 600px) {
   .why-card { grid-template-columns: 1fr; }
-  .decision dl { grid-template-columns: 1fr; }
   .cmp-pick { grid-template-columns: 1fr; }
 }
 
