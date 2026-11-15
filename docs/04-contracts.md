@@ -208,16 +208,17 @@ A GeoJSON FeatureCollection with extra top-level fields:
 | `generated_at` | string | yes | UTC, `YYYY-MM-DDTHH:MM:SSZ` |
 | `note` | string | yes | Plain sentence saying these are not NISAR detections |
 | `sources` | Source[] | yes | One per feed, also the feeds that failed |
+| `refresh_minutes` | number | no | How often the server rewrites the file (since 2026-11-15) |
 | `features` | Feature[] | yes | Point features, newest first. May be empty |
 
 Source:
 
 | Field | Type | Req | Notes |
 |---|---|---|---|
-| `id` | enum | yes | `eonet` (NASA EONET), `usgs` (earthquakes), `gdacs`, `nhc` (NOAA hurricanes), `firms` (NASA fire detections, last 24 h, Mexico) |
+| `id` | enum | yes | `usgs` (earthquakes of magnitude 2.5+ and other shaking, last 24 h), `gdacs`, `eonet` (NASA EONET), `nws` (US weather alerts), `volcano` (US volcano alert levels), `nhc` (NOAA hurricanes), `firms` (NASA fire detections, last 24 h, Mexico) |
 | `name`, `owner`, `url`, `credit` | string | yes | Feed name, who runs it, its address, credit line |
 | `ok` | boolean | yes | `false`: the feed failed or has no key; the other feeds still load |
-| `count` | integer | yes | Features from this feed; 0 when `ok` is false |
+| `count` | integer | yes | Features kept from this feed; 0 when `ok` is false |
 | `error` | string | when `ok` is false | Reason, at most 200 characters |
 
 Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
@@ -228,16 +229,20 @@ Feature: `geometry` is a `Point` (`[lon, lat]`); `properties` are flat:
 | `source` | enum | yes | A Source `id` |
 | `source_name` | string | yes | Who runs the feed |
 | `credit` | string | yes | Credit line. Must be shown with the event |
-| `category` | string | yes | A category id (C1 Categories): `wildfires`, `volcanoes`, `floods`, `landslides`, `drought`, `earthquakes`, `sea-ice`, `storms`, `marine` or `other` |
+| `category` | string | yes | A category id (C1 Categories): `wildfires`, `volcanoes`, `floods`, `landslides`, `drought`, `earthquakes`, `sea-ice`, `storms`, `hurricanes`, `marine`, `cold`, `heat`, `dust`, `forecast`, `industrial`, `oil-spills`, `glaciers`, `sinkholes`, `induced-seismicity` or `other` (the frontend's filter ids) |
 | `title` | string | yes | What is happening, e.g. `Magnitude 5.1 earthquake` |
 | `place` | string | yes | Where, in words; `""` when the feed gives none |
 | `date` | string | yes | UTC. `YYYY-MM-DD`, or with a time (`YYYY-MM-DDTHH:MMZ`) when the feed gives one. The latest update of the event |
 | `detail` | string | yes | One short line (size, alert level, who reported it); may be `""` |
 | `url` | string | yes | Link to the source's page for the event; may be `""` |
 | `lon`, `lat` | number | yes | Same as the geometry, for popups |
+| `severity` | integer | no | 0 minor to 3 most dangerous, from the source's own scale (magnitude, alert level). Since 2026-11-15 |
+| `active` | boolean | no | `true`: the source still lists the event as going on. Absent otherwise. Since 2026-11-15 |
 
 - One event may reach us through two feeds; the backend keeps one (GDACS events are taken from GDACS, not EONET; earthquakes from USGS, not GDACS).
 - A fire detection (`firms`) is a hot spot seen from space: it can also be a crop burn or a gas flare. Its `detail` says so.
+- What is in the file: events dated within the last 24 hours, plus `active` ones however old. The frontend's own collector (`frontend/src/livefeeds.ts`, used when no server file is reachable) follows the same rules, so both give the same events; only the server has `nhc` and `firms` (a web page cannot ask them).
+- `severity`, `active`, `refresh_minutes`, the two new sources and the new categories were added on 2026-11-15 without a version bump: the frontend already produced and read them.
 - Refresh: the server rewrites the file every N minutes; the frontend reloads on the `live` push event or on its own timer.
 
 ## C10. History (`areas/<area>/history.json`, `GET /history`)
