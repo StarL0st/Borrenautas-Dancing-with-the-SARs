@@ -18,7 +18,7 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is an open-source w
 2. [Background](#background)
 3. [Who it is for](#who-it-is-for)
 4. [Video and demo](#video-and-demo)
-5. [The web application](#the-web-application)
+5. [The web page](#the-web-page)
 6. [Features](#features)
 7. [Live events: sources and update times](#live-events-sources-and-update-times)
 8. [The NISAR pipeline (back end)](#the-nisar-pipeline-back-end)
@@ -854,7 +854,7 @@ Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direc
 
 ## License
 
-<!-- TODO (team): add a LICENSE file. Space Apps requires an open-source (OSI) licence; Apache 2.0 applies if none is given. -->
+G.I.G.A.S is open source under the [GNU Affero General Public License v3.0](LICENSE).
 
 ## Team members and their contributions
 
