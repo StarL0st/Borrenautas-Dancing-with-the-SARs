@@ -287,10 +287,16 @@ export type IndexArea = Omit<ManifestArea, "layers" | "timeseries" | "credits" |
   events?: number; layers?: number; dates?: string[]; requested?: boolean; kind?: string;
 };
 
+// Areas written before contract 0.7 carry neither flag, so the id and the size also count:
+// looked-up places are `cell-...` or `at-...`, and only a country is wider than 3 degrees.
+export const flags = (a: { id: string; bbox?: Bbox; requested?: boolean; kind?: string }) => ({
+  requested: a.requested ?? /^(cell|at)-/.test(a.id),
+  kind: a.kind ?? (a.bbox && a.bbox[2] - a.bbox[0] > 3 ? "mosaic" : undefined),
+});
+
 export const stubView = (a: IndexArea): AreaView => ({
   ...toAreaView({ ...a, layers: [] }),
-  requested: a.requested,
-  kind: a.kind,
+  ...flags(a),
   stub: { events: a.events ?? 0, layers: a.layers ?? 0, dates: a.dates ?? [] },
 });
 

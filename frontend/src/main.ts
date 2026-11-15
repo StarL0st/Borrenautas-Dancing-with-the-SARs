@@ -22,7 +22,7 @@ import {
 import citiesUrl from "./assets/cities.json?url";
 import countriesUrl from "./assets/countries.json?url";
 import {
-  ago, areaAt, datesFor, inFilter, inside, layerAt, overlaps, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, stubView, supportedVersion, toAreaView,
+  ago, areaAt, datesFor, flags, inFilter, inside, layerAt, overlaps, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, stubView, supportedVersion, toAreaView,
   type AreaView, type Friendly, type EventFeature, type IndexArea, type Layer, type LiveFeature, type Manifest, type ManifestArea,
 } from "./logic";
 import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
@@ -461,7 +461,7 @@ function loadArea(id: string): Promise<void> {
       .then(([area, events]) => {
         if (!area) return;
         const features = events?.features ?? [];
-        loaded.set(id, { view: { ...toAreaView(area, features), requested: area.requested, kind: area.kind }, features });
+        loaded.set(id, { view: { ...toAreaView(area, features), ...flags(area) }, features });
         live = live.map((a) => (a.id === id ? loaded.get(id)!.view : a));
         reports = [...loaded.values()].flatMap((l) => l.features);
       })

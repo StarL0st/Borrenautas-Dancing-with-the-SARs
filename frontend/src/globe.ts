@@ -85,7 +85,7 @@ const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
 
 export type MarkerKind = "live" | "radar";
 type Dot = { id: string; lon: number; lat: number; type: string; color: string };
-const GROUP_PX = 56; // events of one type closer than this on screen share a marker
+const GROUP_PX = 64; // events of one type closer than this on screen share a marker
 const MAX_MARKERS = 150; // HTML markers get slow in the hundreds: beyond this, groups grow
 
 // "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.

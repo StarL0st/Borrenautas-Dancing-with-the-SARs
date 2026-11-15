@@ -414,6 +414,9 @@ test("a position belongs to the area it is in or next to; index entries become s
   const stub = stubView({ id: "a", title: "A", summary: "", change_types: ["wildfire"], bbox: [0, 0, 1, 1], events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"], requested: true });
   assert.deepEqual(stub.stub, { events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"] });
   assert.deepEqual([stub.requested, stub.layers.length, stub.types], [true, 0, ["wildfires"]]);
+  // Entries from before contract 0.7 have no flags: the id and the size stand in.
+  const old = (id: string, bbox: [number, number, number, number]) => stubView({ id, title: "", summary: "", change_types: [], bbox });
+  assert.deepEqual([old("cell-1n-2w", [0, 0, 1, 1]).requested, old("mexico", [-118, 14, -86, 33]).kind, old("chapala", [0, 0, 1, 1]).kind], [true, "mosaic", undefined]);
 });
 
 test("markers group events of one type that are close on screen", async () => {
