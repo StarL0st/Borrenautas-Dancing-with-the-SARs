@@ -16,6 +16,7 @@ npm run build     # type-check + static build into dist/
 The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1), layers (C2), and time series (C4), from one base URL.
 
 - **Live backend (default):** `http://127.0.0.1:8765/`. Start it from the `backend` branch with `cd backend && uv run sars-pipeline serve`, then `uv run sars-pipeline synthetic` to feed it test granules. It pushes `event: manifest` on `/events` when data changes (contract C6).
+- **Deployed (Azure):** two addresses. `VITE_DATA_BASE=<storage url>/` for files (manifest, layers, events, live), `VITE_API_BASE=<server url>/` for calls (`sites`, `events`). Without `VITE_API_BASE` calls go to `VITE_DATA_BASE`, as before.
 - **Static build:** set `VITE_DATA_BASE=./data/` and copy the backend output into `public/data/`. There is no `/events` endpoint there, so the app must work without live updates.
 
 ## Current state
@@ -137,6 +138,55 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 
 - Live events need the back end from `testing-live-events` (`live.geojson`); without it the panel says the feeds are not available.
 
+### Sixth batch
+
+- Welcome screen ("Welcome to G.I.G.A.S." and Start) over the close-up view of the turning Earth; Start swings the camera round to the whole globe while the panels come in. It is the same page: the app waits behind it, inert (`setHome` in `src/main.ts`, `welcome` in `src/globe.ts`). The first-visit tutorial now starts after Start.
+- Home (house), auto-rotate and view wheel are square buttons in the map's own column, top right. The zoom slider is gone.
+- The date slider of each open area sits at the bottom middle of the globe (`#timebar`), one row per open area.
+- Fix: going from close-up view back to globe view keeps the zoom; it only levels the camera.
+- Checked in headless Chrome at desktop and phone size (no console errors). Not checked: other browsers, a real phone, a screen reader, more than three open areas in the date bar.
+
+### Seventh batch
+
+- **Country search** (left panel): pick one or more countries; they are outlined on the globe, and the area list, detected changes and live events keep only what lies inside them. Outlines and names (EN/ES/DE) are Natural Earth 1:110m (public domain), stored in `src/assets/countries.json`. Limits: a point just off the coast (many earthquakes) counts as outside, and the smallest countries are not in that file (177 countries).
+- **Welcome screen** redrawn: small "Welcome to", large "G.I.G.A.S", the Earth higher on the screen.
+- **"On" color** is light blue (Powder Blue, `--on`); the main action (Start, Go) stays tangerine.
+- **From the `jopa-testing` branch** (its front-end code, not merged as a whole):
+  - type icons (`src/icons.ts`) in the filters and the "Happening now" list, with "Show N more". The polar types that branch had dropped keep their place here and got three new drawings.
+  - satellite before/now comparison in each open area (`src/satview.ts`, NASA GIBS). Added here: when the 30 m pictures have nothing (open sea, many days), it falls back to the daily VIIRS pictures.
+  - the new live types (hurricanes, heat, cold, dust, industrial) and the line "The server checks the sources every N minutes", read from `refresh_minutes` in `live.geojson`.
+  - Not taken: Mexico-only scope, most dangerous now, recent destructive events, zone timelines, and the panel hidden in Simple mode.
+- The 15-minute refresh itself is back-end code (`serve --live-minutes 15`, `livefeeds.py` on `jopa-testing`); this branch holds no back end. With an older back end the page still works, without the new types or the refresh line.
+- Checked in headless Chrome at desktop size with a live file made by that branch's `livefeeds.py` (FIRMS needs a key and was off). Not checked: phone layout of the new parts, other browsers, a screen reader.
+
+### Eighth batch
+
+- **Start and house button animation:** on Start the button fades and the title ("Welcome to G.I.G.A.S") circles the Earth and ends hidden behind it; the house button plays it backwards. The title is HTML over the map, so "behind" is a circular mask measured from the map (`hideBehind`, `orbitTitle` in `src/main.ts`). With reduced motion the screens simply cross-fade.
+- **Live events not refreshing:** the 15-minute refresh is done by the back end (`serve --live-minutes 15`). Without a back end running, the page reads a fixed `public/data/live.geojson`, which never changes. The page now re-reads the file every 5 minutes and never from the browser cache.
+
+### Ninth batch
+
+- **Live events work without a back end.** `src/livefeeds.ts` is a port of the back end's `livefeeds.py` (branch `jopa-testing`; keep the two in step). When no back end keeps `live.geojson` fresh (older than 30 minutes, or missing), the page asks USGS, GDACS and NASA EONET itself, at most every 15 minutes, and drops events older than 24 hours. A fresh back-end file still wins, because only the back end can add NOAA NHC (its server refuses requests from web pages) and NASA FIRMS (needs a key).
+- **Start animation, letter by letter:** the name's letters leave the title one after another, cross the front of the Earth as a line, round its side and go behind it; the house button plays it backwards. Each letter is drawn in two layers, over the map and under it (`#fly-front`, `#fly-back`); the map is see-through around the globe, so the Earth itself hides the letters behind it. This replaces the mask of the eighth batch.
+- Checked in headless Chrome at desktop size: events loaded with no data file (194 events), and still frames of both animations. Not checked: the animation playing in a real browser, phone size, other browsers.
+- Later: the name has a 3D look (stacked text shadows; the flying letters also turn edge-on as they round the globe). The house button no longer plays the orbit backwards: the letters rise one by one from behind the Earth's horizon into the title (`riseName`).
+
+### Tenth batch: live events for more types than earthquakes
+
+`src/livefeeds.ts` now goes beyond the back end's `livefeeds.py` (the back-end lane may want to take these over):
+
+| Source | Types it feeds | Note |
+|---|---|---|
+| USGS earthquake feed (all kinds, past day) | earthquakes (M2.5+), landslides, sinkholes and collapses, ice quakes, shaking caused by people (blasts, mining, induced) | the non-earthquake kinds are rare |
+| GDACS (UN OCHA, EU JRC) | hurricanes, floods, volcanoes, drought, wildfires | last 7 days; floods, droughts, cyclones and eruptions stay while GDACS marks them current |
+| NASA EONET | wildfires, storms, hurricanes, volcanoes, sea ice, dust, heat, cold, marine, landslides, industrial | open events of the last 7 days |
+| NOAA National Weather Service alerts | storms, hurricanes, floods, heat, cold, dust, wildfires (fire weather), marine (tsunami, surf, surge), forecast (watches) | United States only; newest 40; each alert's zone is looked up once and remembered in the browser |
+| USGS Volcano Hazards Program | volcanoes at a raised alert level | United States only |
+
+- **When an event leaves:** a moment in time (earthquake, fire detection) after 24 hours; an event its source still lists as going on (flood, drought, weather alert, restless volcano) when the source stops listing it. `active` on a feature marks the second kind.
+- **No live source found** (so nothing live for them): oil spills (NOAA's incident list refuses requests from web pages), groundwater, subsidence, logging, coastal loss, reservoirs, permafrost, ice sheets, glacial lakes. These are slow changes: the radar areas are where they show.
+- Checked 2026-11-14 in headless Chrome: 233 events across ten types (earthquakes 46, wildfires 139, cold 16, floods 12, sea ice 6, hurricanes 4, volcanoes 3, forecast 3, marine 2, drought 2).
+
 ## Test
 
 ```
@@ -150,6 +200,9 @@ To see the radar path without the back end, copy `../data/processed` to `public/
 The code in this folder from the globe viewer onward was written with Claude Code (Anthropic), directed and reviewed by the front-end lane, including the Spanish and German translations (machine-written, not yet checked by native speakers). No AI-generated images, audio or video are used.
 
 ## Credits
+
+- Country outlines and names: Natural Earth (public domain), naturalearthdata.com.
+- Before/now satellite pictures: NASA GIBS (Global Imagery Browse Services), credited under each picture.
 
 - Radar data: NISAR, NASA/JPL-Caltech and ISRO, distributed by ASF DAAC (each layer carries its own credit line).
 - Globe imagery: Sentinel-2 cloudless (https://s2maps.eu) by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2016, CC BY 4.0. The newer editions are non-commercial only, which is why the 2016 one is used.

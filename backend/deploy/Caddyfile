@@ -1,0 +1,11 @@
+# HTTPS front door of the API (compose.yaml). SARS_HOST is the public host name.
+{$SARS_HOST} {
+	# The only request with a body is POST /sites, a few dozen bytes.
+	request_body {
+		max_size 16KB
+	}
+	# /events is a long-lived stream: compressing it would hold messages back.
+	@files not path /events
+	encode @files gzip
+	reverse_proxy api:8080
+}

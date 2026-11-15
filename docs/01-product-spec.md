@@ -63,7 +63,7 @@ Working title: "Dancing with the SARs" (**DECIDE**: final product name).
 ## Non-goals
 
 - Global coverage or on-demand processing during the hackathon. The query API is built for it, but the demo covers Mexico (three sites)
-- User accounts. The API server (Cloud Run) is used, but the demo must also run from a static export if the server is down
+- User accounts. The API server (an Azure virtual machine, `docs/02`) is used, but the demo must also run from a static export if the server is down
 - Writing new SAR processing from raw signal data (we use the mission's higher-level products)
 - Real-time or near-real-time updates. "Live" means the latest acquisition (12-day repeat per track and frame), and the app says so
 - Claims beyond what the data supports (every layer states its data maturity)

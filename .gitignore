@@ -29,6 +29,3 @@ dist/
 .claude/settings.local.json
 .qwen/.env
 tasks/results/*.log
-
-# Integration-check environment (testing branch)
-.venv-int/

@@ -22,6 +22,7 @@ The app has three modes; the backend feeds them from the same files and API.
 | Technical | People who read radar | Layers, events with evidence and provenance, time series (C1-C7), `/query` |
 | Friendly | Anyone | `areas/<id>/friendly.json`: the same detections as a few graded plain-language cards (below) |
 | Real-time weather | Anyone | Planned, not built (below) |
+| History (in any mode) | Timeline, replay | `areas/<id>/history.json` and `/history`: everything known about a place in time order (below) |
 
 Coverage, in three depths: `mexico` (the whole country at 2 km, soil moisture and fires), the three case-study sites (40 km, every date since June 2026), and any place a visitor looks up (22 km cell, processed on request, then cached).
 
@@ -136,7 +137,8 @@ Frontend filter types that need other data or more time, and are not produced: e
 | `/events.json`, `/events.geojson` | All events |
 | `/query?lat=&lon=` | Events whose outline contains the point, plus area ids |
 | `/query?bbox=w,s,e,n` | Events and areas intersecting the box. Both take `category=`, `type=`, `from=`, `to=` |
-| `/events` | Server-sent `manifest` events when data changes (also after a background refresh) |
+| `/history?lat=&lon=` | Per area at the point: its history (below), with only the events within 5 km of the point. Takes `from=`, `to=`, `category=` |
+| `/events` | Server-sent `manifest` events when data changes (also after a background refresh); `live` events when `live.geojson` changes. At most 500 open streams, then 503 |
 | `/health` | `{"ok": true}` |
 | `GET /sites` (with `--jobs`) | Every site and its processing status |
 | `GET /sites/<id>` (with `--jobs`) | One site: `status` (`idle`, `queued`, `running`, `done`, `error`), `position` in the queue, `processed` (has data), `error` |
@@ -154,6 +156,17 @@ With `SARS_ADMIN_TOKEN` set, POST requests need `Authorization: Bearer <token>`.
 - A cell is searched again when asked for 12 hours or more after its last check. The timer (`--watch-hours`) refreshes curated sites only.
 - Limits, answered with `429` and a reason: 5 new cells per client address per hour, 20 jobs queued, 300 cells in total. Kept in memory, so a restart resets the per-address count.
 - shortcut: one worker, one process, files on disk. Many visitors asking for new places wait in line (minutes each); upgrade to several workers with a real queue when that hurts.
+
+## History (`history.py`, contract C10)
+
+One builder, used twice: `areas/<id>/history.json` (written with every site run, linked from the manifest area as `history`) and `GET /history` (the same, cut to a point and a date range).
+
+- `timeline`: one entry per date that has anything: `layer_ids`, `event_ids`, `values` (series id -> value on that date).
+- A layer or event sits at its **last** date: the pass on which it became visible. A change layer for June 17 to June 29 is under June 29.
+- `events` are trimmed (no outline, evidence or provenance; those are in `events.json`), `layers` carry id, title, group, role, dates and URL, `series` id, title, units and URL.
+- `periods`: one per maturity level with its first and last date. Values from different levels must not be compared (docs/03).
+- Layers without a date (surface type) are not in a history. Passes without a reading have no value, not a null.
+- Bookkeeping only: nothing here detects anything.
 
 ## Planned: real-time weather (not built)
 
@@ -210,4 +223,4 @@ Known limits:
 
 ## Cloud
 
-`backend/deploy/README.md`: an Azure VM (Docker, HTTPS) for the backend, a Static Web App for the frontend.
+`backend/deploy/README.md`: results in Azure Blob Storage (browsers read them there), an Azure VM (Docker, HTTPS) for lookups, queries and refreshes, a Static Web App for the frontend. Guards against load and crashes, steps, cost.
