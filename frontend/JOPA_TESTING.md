@@ -62,7 +62,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `80b47e7` | 8 | Docs: round 8 |
 | `e8d9080` | 9 | Report reader inside the page; report buttons become links to a file made in advance |
 | `1d955b6` | 9 | Docs: round 9 (pushed to GitHub `jopa-testing`) |
-| *next commit* | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
+| `9cd2dde` | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
 | *this commit* | 10 | Docs: round 10 |
 
 ## Round 10 (2026-11-15): code review fixes (local, not pushed)
