@@ -331,6 +331,6 @@ Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direc
 | Adrian Madrid Castro | Front-end development |
 | Hector Lerma Scott | Back-end development |
 | Jose Pablo Mendez Espino | Back-end development |
-| Andre Samuel Rivera Dominguez | Documentation |
+| Samuel Andre Rivera Dominguez | Documentation |
 
 <!-- TODO (team): GitHub profile links, and a team photo if you want one. -->
