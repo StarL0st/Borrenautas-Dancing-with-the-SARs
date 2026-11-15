@@ -46,6 +46,9 @@ export function startTour(returnFocus?: HTMLElement) {
     target?.classList.remove("tour-target");
     target = document.querySelector(steps[i][0]);
     target?.classList.add("tour-target");
+    // A step inside a hidden panel (the other tab on a phone) brings that panel out first.
+    const panel = target?.closest<HTMLElement>("#nav, #detail");
+    if (panel?.inert) document.getElementById(`tab-${panel.id}`)?.click();
     target?.scrollIntoView({ block: "nearest" });
     // The words of each step fade in, so a change of step reads as a change.
     for (const node of [title, text]) node.animate({ opacity: [0, 1] }, { duration: 220, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
