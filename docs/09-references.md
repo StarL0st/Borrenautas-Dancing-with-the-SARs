@@ -103,6 +103,10 @@ Use the same pattern with each collection's title and DOI.
 | Shapely | 2.2.0 | BSD-3-Clause | backend: outline simplification, inside points |
 | affine | 3.0.1 | BSD-3-Clause | backend: grid transforms (rasterio dependency) |
 | uv | 0.12.13 | MIT OR Apache-2.0 | tooling |
+| rclone (`rclone/rclone` container image) | 1.x | MIT | deployment: copies results to Azure Blob Storage |
+| Caddy (`caddy` container image) | 2.x | Apache-2.0 | deployment: HTTPS in front of the API |
+| Docker Engine and Compose (Ubuntu packages) | as packaged in Ubuntu 24.04 | Apache-2.0 | deployment: runs the containers |
+| httpx | dev dependency | BSD-3-Clause | backend: tests and the load test script |
 | MapLibre GL JS | 6.18.0 | BSD-3-Clause | frontend: globe and map |
 | Vite | 8.3.8 | MIT | frontend: build |
 | TypeScript | 7.0.2 | Apache-2.0 | frontend |
