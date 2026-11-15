@@ -558,6 +558,19 @@ function satSection(a: AreaView): Node {
   const setSwipe = () => frame.style.setProperty("--x", `${(v.swipe = +swipe.value)}%`);
   swipe.oninput = setSwipe;
   setSwipe();
+  // Pressing anywhere on the pictures and dragging moves the line (the slider's own thumb is too small
+  // to find by touch); the slider stays for the keyboard and screen readers.
+  const drag = (e: PointerEvent) => {
+    if (!frame.hasPointerCapture(e.pointerId)) return;
+    const r = frame.getBoundingClientRect();
+    swipe.value = String(Math.round(((e.clientX - r.left) / r.width) * 100));
+    setSwipe();
+  };
+  frame.onpointerdown = (e) => {
+    frame.setPointerCapture(e.pointerId);
+    drag(e);
+  };
+  frame.onpointermove = drag;
   const credit = el("p", { className: "muted sources" });
 
   const agoOut = el("output");
@@ -777,13 +790,30 @@ const buildWheel = () =>
 
 // ---- Side panels: the arrows on the edges of the globe push them away and pull them back ----
 
+// On a phone the two panels share the space under the globe: tabs pick one, showing it hides the other,
+// and pressing the open one again hides it so the globe takes the whole screen.
+const phone = matchMedia("(max-width: 900px)");
 function showPanel(id: "nav" | "detail", on: boolean) {
   $(id).inert = !on;
   $(id).parentElement!.classList.toggle(`no-${id}`, !on);
   $(`${id}-toggle`).setAttribute("aria-expanded", String(on));
+  $(`tab-${id}`).setAttribute("aria-pressed", String(on));
+  if (on && phone.matches) showPanel(id === "nav" ? "detail" : "nav", false);
+  fitReading();
 }
+
+// Phone: scrolling down the open panel gives it most of the screen (the globe shrinks to a strip,
+// see `.reading` in the stylesheet); back at the top the globe returns.
+function fitReading() {
+  const app = document.querySelector("main")!, panel = [$("nav"), $("detail")].find((p) => !p.inert);
+  if (!panel || panel.scrollTop < 1) app.classList.remove("reading");
+  // Only when the panel would still scroll once taller, or the grown panel would snap back to the top.
+  else if (panel.scrollTop > 40 && panel.scrollHeight - panel.clientHeight > innerHeight * 0.3 + 40) app.classList.add("reading");
+}
+for (const id of ["nav", "detail"]) $(id).addEventListener("scroll", fitReading, { passive: true });
 for (const id of ["nav", "detail"] as const) {
   $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
+  $(`tab-${id}`).onclick = () => showPanel(id, $(`tab-${id}`).getAttribute("aria-pressed") !== "true");
 }
 
 // ---- Welcome screen: the Earth's horizon turning under the title, until Start ----
@@ -792,8 +822,9 @@ for (const id of ["nav", "detail"] as const) {
 function homeUi(on: boolean) {
   document.body.classList.toggle("at-home", on);
   for (const part of document.querySelectorAll<HTMLElement>("header, main")) part.inert = on;
-  showPanel("nav", !on);
+  // Detail first, so on a phone the filters are the tab left showing.
   showPanel("detail", !on);
+  showPanel("nav", !on);
   for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === "globe"));
 }
 
@@ -815,9 +846,9 @@ let orbiting = false; // an animation is running: Start and the house button wai
 // The panel widths and the phone layout mirror the stylesheet (`.app`, `.stage`).
 function globeCenter(panels: boolean) {
   const m = document.querySelector("main")!.getBoundingClientRect();
-  const wide = !matchMedia("(max-width: 900px)").matches;
+  const wide = !phone.matches;
   const left = m.left + (panels && wide ? 300 : 0), right = m.right - (panels && wide ? 360 : 0);
-  const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.6 : 1);
+  const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.5 : 1);
   return { x: (left + right) / 2, y: (m.top + bottom) / 2 };
 }
 type Point = ReturnType<typeof globeCenter>;
@@ -894,6 +925,8 @@ async function leaveHome() {
   const move = !calm.matches;
   if (move) document.body.classList.add("orbiting"); // the flying letters stand in for the name
   homeUi(false);
+  // On a phone the open credits cover the date slider; folded, they stay one tap away on the (i).
+  if (phone.matches) document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
   globe.welcome(false, 1700);
   $("home-btn").focus();
   if (move) {
@@ -979,6 +1012,7 @@ function onSetting(key: keyof Settings) {
 $("settings-btn").onclick = () => dialog.showModal();
 
 wheel.dataset.size = settings.wheel;
+if (phone.matches) showWheel(false); // it would cover most of a phone's small globe; the button brings it back
 applyLanguage();
 loadLive();
 loadLiveFeeds();

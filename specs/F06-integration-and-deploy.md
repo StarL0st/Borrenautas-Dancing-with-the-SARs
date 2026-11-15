@@ -24,11 +24,11 @@ As the team, we want integration problems found within hours, not on the last ni
 5. Smoke test the deployed site: manifest loads, a layer shows, story mode opens.
 6. Sanity check in at least two desktop browsers and one phone-sized viewport.
 7. A fresh-clone test works from the README.
-8. Google Cloud (team credit), scripted under `deploy/` with a README:
-   - Batch: a VM in `us-west1` runs the pipeline and writes to a Cloud Storage bucket; stopped when idle.
-   - API: the backend server as a container on Cloud Run, reading the data root from the bucket.
-   - Earthdata token in Secret Manager; nothing secret in images or the repo.
-   - A budget alert on the project.
+8. Microsoft Azure (decided 2026-11-14, replaces the Google Cloud proposal), scripted under `backend/deploy/` with a README. Design: `docs/02`.
+   - Results in Blob Storage, read by browsers directly.
+   - One virtual machine in `westus2` runs the API, place lookups and the 12-hour refresh (`sars-pipeline serve --jobs --public --watch-hours 12 --live-minutes 15`), and copies results to storage.
+   - Earthdata token, FIRMS key and the admin token for `POST /sites` in an owner-only file on the machine; nothing secret in images or the repo.
+   - A budget alert on the subscription.
 9. Integration happens on the `testing` branch (backend + frontend together) before humans merge to `main`.
 
 ## Acceptance criteria
@@ -53,4 +53,4 @@ Run the checks above; record the browser/device matrix and measurements in the P
 Scripts (`sync-data`, smoke tests) suit the executor. Deployment decisions and secrets stay human.
 
 ## Open questions
-Hosting is proposed as Google Cloud (Cloud Run + Cloud Storage); confirm in ADR-004.
+Hosting was decided on 2026-11-14: Microsoft Azure (`docs/02`).

@@ -1,0 +1,8 @@
+# Generated or downloaded; never committed (docs/03 data rules).
+inbox/
+processed/
+raw/
+interim/
+sites.json
+# Places looked up by visitors: selections are made again on the server.
+selected/cell-*.json

@@ -206,11 +206,48 @@ Everything is committed and pushed to `frontend` (last commit: this one). 16 uni
 2. Add a `LICENSE` file (Space Apps applies Apache 2.0 if none is given).
 3. Which refresh time the README should state: the page's own collector uses 15 minutes, the hosted back end's file says 5.
 4. Native-speaker check of the Spanish and German texts.
-5. Not checked by anyone yet: the letter animations playing in a real browser, a real phone, browsers other than Chrome, a screen reader. The `mobile` branch (back-end lane, 2026-11-14) has phone fixes that are not merged here.
+5. Not checked by anyone yet: the letter animations playing in a real browser, a real phone, browsers other than Chrome, a screen reader. The `mobile` branch's phone layout is now merged here (see the next two sections).
 6. The back-end lane took the page's live-event rules into `livefeeds.py` (commit on `backend`, 18:58); `src/livefeeds.ts` and that file must be kept in step by hand.
 7. One chart line is labelled "HH/HV" on the soil-moisture and percent charts of Lake Chapala (seen in the screenshots); the label comes from the time series files, so check it on the back-end side.
 
 **To resume:** `cd frontend && npm ci && npm run dev`. With no back end it shows example places and live events. For the real radar areas, start it with `VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/` (the team's public storage, see `docs/10-status-log.md` on `main`).
+
+## Phone layout (branch `mobile`, merged 2026-11-14)
+
+- At 900px wide or less the globe stays on top (half the screen height) and one panel shows under it; the tabs Explore / Open areas pick which. Opening an area switches to Open areas; the tutorial switches tabs to show each step. Pressing the open tab again hides the panel and the globe takes the screen.
+- Scrolling down the open panel past 40px gives it most of the screen: the globe shrinks to a strip (20% high), its overlays (view buttons, date slider, wheel) and the mode switch step aside; back at the top the globe returns. Only when the panel would still scroll once taller, so it cannot snap back and forth (`fitReading` in `src/main.ts`).
+- Satellite before/now (all screen sizes): press anywhere on the pictures and drag to move the line; a tap jumps it there; up and down still scrolls the panel. The hidden slider stays for the keyboard and screen readers.
+- The view wheel starts hidden on phones (the wheel button brings it back), the map credits start folded behind the (i) (open, they covered the date slider), the date slider sits clear of the wheel and the map buttons, fields are 16px so iOS does not zoom into them, buttons are at least 40px tall on touch screens, and the page keeps clear of the notch and home bar.
+- Desktop is unchanged.
+- Checked 2026-11-14 in headless Chrome at 390×844, 844×390 and 1440×900: no page scroll sideways, no console errors besides the missing back-end file, touch drag moves the before/now line (50% to 80%), closing the tab grows the globe 422 to 634px, scrolling a panel shrinks it to 169px and back. Not checked: a real phone, Safari, dragging the wheel by touch, the feel of the panel growing under a real finger (the emulator's swipes do not scroll; the test scrolled from code). In the emulator the first tap after a drag on the pictures was sometimes lost, also with all drag code removed, so it looks like the emulator; check on a phone. Landscape phones are cramped: the map's button column is cut off at the bottom of the globe.
+
+## Deploy (Cloudflare Worker `gigas-project`)
+
+`wrangler.jsonc` serves `dist/` as static files. Workers Builds (Cloudflare dashboard → `gigas-project` → Settings → Build) builds from GitHub:
+
+- Root directory `frontend`, build command `npm ci && npm run build`, deploy command `npx wrangler deploy`, non-production branch deploy command `npx wrangler versions upload`, production branch `main`.
+- Build variables: `VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/`, `VITE_API_BASE=https://gigas-sars.westus2.cloudapp.azure.com/`.
+- Every push to another branch gets its own preview at `https://<branch>-gigas-project.starl0stgaming.workers.dev`; only `main` changes the live site.
+
+By hand, from `frontend/` after a build with those two variables: `npx wrangler versions upload --preview-alias <branch>` (preview) or `npx wrangler deploy` (live).
+
+## Handoff: `mobile` branch, 2026-11-14 (end of session)
+
+Work done on branch `mobile` (made from `main` at a036035, worktree `sars-mobile/`), merged into `frontend` in this commit's merge. `mobile` is kept, not deleted.
+
+**Commits:** d67a7e0 phone layout with tabs; 052b783 Worker config and deploy notes; e9cc745 before/now drag and tab that hides the panel; 3e71962 panel grows while scrolled down.
+
+**Files:** `index.html` (tab bar, `viewport-fit=cover`), `src/style.css` (phone block, touch sizes, `.reading`, `.compare`), `src/main.ts` (`showPanel` tabs, `fitReading`, before/now drag, wheel and credits on phones, `globeCenter` uses 0.5), `src/tour.ts` (opens the panel a step points into), `src/i18n.ts` (`h.explore` in en, es, de), `wrangler.jsonc` (new).
+
+**Hosting:** the Cloudflare Worker `gigas-project` (account StarL0stGaming) is assets-only. Production still serves the version uploaded by hand at 00:39 UTC on 2026-11-15; nothing here promoted a new one. Preview of `mobile` (version abdac703, built against the Azure storage and API): https://mobile-gigas-project.starl0stgaming.workers.dev. The Workers Builds settings in the Deploy section are not set in the dashboard yet (not visible from the command line).
+
+**Open:**
+1. Try the preview on a real phone (iOS Safari and Android Chrome): tabs, panel growing on scroll, before/now drag, then a tap right after a drag.
+2. Set the Workers Builds settings in the Cloudflare dashboard, or keep deploying by hand. `main` has no `wrangler.jsonc` until `frontend` is merged into it, so a build from `main` before then fails.
+3. One host for the site: `backend/deploy/azure.sh site` still deploys to Azure Static Web Apps while the docs say Cloudflare.
+4. Landscape phones: maybe put the globe and the panel side by side when the screen is short.
+
+**To resume:** `cd frontend && npm ci && npm run dev`, then Chrome DevTools device mode (390×844). Preview upload: build with the two `VITE_` variables, then `npx wrangler versions upload --preview-alias <branch>`.
 
 ## Test
 

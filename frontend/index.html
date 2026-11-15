@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>G.I.G.A.S</title>
   </head>
   <body class="at-home">
@@ -71,6 +71,11 @@
         <div id="wheel" role="group" data-i18n-label="view.wheel"></div>
         <button type="button" class="panel-toggle" id="nav-toggle" aria-controls="nav" aria-expanded="true" data-i18n-label="panel.nav"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
         <button type="button" class="panel-toggle" id="detail-toggle" aria-controls="detail" aria-expanded="true" data-i18n-label="panel.detail"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M7 3 3 8l4 5" /></svg></button>
+      </div>
+      <!-- Phones only: the globe stays on top and these pick which panel shows under it. -->
+      <div class="tabs" id="tabs" role="group">
+        <button type="button" id="tab-nav" aria-pressed="true" data-i18n="h.explore"></button>
+        <button type="button" id="tab-detail" aria-pressed="false" data-i18n="h.open"></button>
       </div>
       <aside id="detail" data-i18n-label="h.open">
         <h2 data-i18n="h.open"></h2>

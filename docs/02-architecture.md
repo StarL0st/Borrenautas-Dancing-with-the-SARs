@@ -17,24 +17,39 @@ Status: Draft. Stack defaults below are proposals; ratify or change in ADR-001 a
 ASF DAAC / Earthdata Cloud (NISAR HDF5, AWS us-west-2)
         |  asf_search (select) + h5py/fsspec over HTTPS (stream windows, no full downloads)
         v
-backend/ batch (Python; local, or a GCP VM in us-west1)
+backend/ processing (Python; local, or on the Azure virtual machine)
   select -> read -> change -> classify -> export
         |  manifest.json, layers, time series, events.json  (contracts C1-C7)
         v
-data root (local data/processed/, or a Cloud Storage bucket)
+data root (local data/processed/; in Azure the VM disk, copied to Blob Storage)
         |
-        +--> backend/ API (local, or Cloud Run): C6 endpoints incl. /events.json and /query
+        +--> Blob Storage (Azure): the files, read by browsers directly
+        +--> backend/ API (local, or the virtual machine): C6 calls (/sites, /query, /history, /events)
         +--> static export (frontend/public/data/): fallback, same files
         v
 frontend/ (Vite + TypeScript + MapLibre GL JS globe)
 ```
 
-## Deployment (Google Cloud, team credit)
+## Deployment (Microsoft Azure, since 2026-11-14)
 
-- Batch: one VM in `us-west1` (next to the data in AWS `us-west-2`), started for a run and stopped after. Streams over HTTPS; ASF HTTPS egress is free.
-- Data: one Cloud Storage bucket (public read, CORS for GET) holds outputs and tiles too big for the repo.
-- API: Cloud Run, scales to zero. Reads the data root from the bucket.
-- Secrets: the Earthdata token lives in Secret Manager (cloud) or `backend/.env` (local), never in images or the repo.
+The earlier Google Cloud Run plan was dropped on 2026-11-14. Storage and the virtual machine have run since 2026-11-14 (addresses and checks: `docs/10`); the site is not published yet. Scripts and steps are in `backend/deploy/`.
+
+```
+browser --files (manifest, layers, events, cards, history, live)--> Blob Storage (public read)
+   |                                                                   ^ copied every 20 s
+   +--lookup, status, /query, /history, push--> Caddy (HTTPS) --> API on the VM --> VM disk
+```
+
+- **Results in Blob Storage.** Everything under `data/processed` is copied to one container that anyone may read (not list, not write). Browsers load the map from there, so visitor load never reaches the virtual machine, and the site keeps showing every map, event, card and history if the machine stops. Only looking up a new place and live push need the machine.
+- **Backend: one Azure virtual machine** (Ubuntu 24.04, 2 vCPU / 8 GB) in `westus2`, next to the data in AWS `us-west-2`. Docker Compose runs three containers: the API (`serve --jobs --public --watch-hours 12 --live-minutes 15`), a copier (rclone) that sends results to storage, and Caddy for HTTPS. Streams NISAR over HTTPS; ASF HTTPS egress is free.
+- **Processing happens inside the API process**: a queue handles places that visitors look up (public, rate limited), a timer re-checks the curated sites every 12 hours and processes only those with new granules, and another refreshes the live disaster feeds. One process on purpose: the queue and the limits live in memory.
+- **Order of a new result**: written to the VM disk, copied to storage (files first, then the manifest and event indexes), and only then pushed to browsers as "new data".
+- **Working data** (selections, cached radar windows) stays on the VM disk and survives rebuilds. Results processed locally are uploaded with `azure.sh seed`.
+- **Frontend**: a static site on Cloudflare Pages (free plan; it stays up when the virtual machine or the Azure credit is gone), detached from the backend, built with two addresses: storage for files, the API for calls (contract C6).
+- **Transport**: plain HTTPS downloads and one server-sent-events stream. No message broker and no database: the cache is files, and a push stream already tells browsers when to reload.
+- **Guards**: at most 500 open push streams, lookup limits per address, no new places on a nearly full disk, a memory limit and swap so a heavy job restarts the API instead of freezing the machine. Measured numbers: `backend/deploy/README.md`.
+- **Secrets**: the Earthdata token, the FIRMS key and the admin token live in `/opt/sars/.env` on the virtual machine (owner-only) or `backend/.env` (local), never in images or the repo. The machine writes to storage as itself (managed identity); no storage key is kept.
+- **Names**: the API at `api.<domain>`, the site at `<domain>` (set in the Pages project), DNS at Cloudflare with its proxy off for `api`.
 
 ## Default stack (ADR-001)
 
@@ -47,7 +62,7 @@ frontend/ (Vite + TypeScript + MapLibre GL JS globe)
 | Charts | uPlot or Chart.js | Small and fast; decide in ADR-001 |
 | Tests | pytest; Vitest | `make test` runs both |
 | CI | GitHub Actions | Lint, test, contract validation, build, smoke |
-| Hosting | Google Cloud: Cloud Run (API), Cloud Storage (data, static site) | Proposed for ADR-004; always keep `vite preview` and the static export as fallback |
+| Hosting | Microsoft Azure: Blob Storage (results), one virtual machine (API and processing); Cloudflare Pages (site) | Decided 2026-11-14; always keep `vite preview` and the static export as fallback |
 | License | Permissive (MIT or Apache-2.0) | Decide in ADR-005; challenge wants open source |
 
 ## Pipeline stages

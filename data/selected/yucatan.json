@@ -1,0 +1,506 @@
+{
+  "site": "yucatan",
+  "bbox": [
+    -89.91093,
+    19.60034,
+    -89.52907,
+    19.95966
+  ],
+  "window": [
+    "2026-05-18",
+    "2026-11-14"
+  ],
+  "products": {
+    "GCOV": {
+      "searched": 52,
+      "maturity": "PROVISIONAL",
+      "granules": [
+        {
+          "id": "NISAR_L2_PR_GCOV_023_127_D_079_4005_DHDH_A_20260623T003155_20260623T003230_P05023_N_F_J_001",
+          "date": "2026-06-23",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_023_127_D_079_4005_DHDH_A_20260623T003155_20260623T003230_P05023_N_F_J_001/NISAR_L2_PR_GCOV_023_127_D_079_4005_DHDH_A_20260623T003155_20260623T003230_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001",
+          "date": "2026-07-05",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001/NISAR_L2_PR_GCOV_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001",
+          "date": "2026-07-17",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001/NISAR_L2_PR_GCOV_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001.h5",
+          "coverage": 0.998
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001",
+          "date": "2026-08-22",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001",
+          "date": "2026-09-03",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001",
+          "date": "2026-09-15",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001",
+          "date": "2026-09-27",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001",
+          "date": "2026-10-09",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L2_PR_GCOV_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001",
+          "date": "2026-10-21",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GCOV_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GCOV_PROVISIONAL_V1/NISAR_L2_PR_GCOV_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001/NISAR_L2_PR_GCOV_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        }
+      ],
+      "track": 127,
+      "frame": 79,
+      "direction": "DESCENDING"
+    },
+    "GUNW": {
+      "searched": 42,
+      "maturity": "PROVISIONAL",
+      "granules": [
+        {
+          "id": "NISAR_L2_PR_GUNW_023_127_D_079_024_4000_SH_20260623T003155_20260623T003230_20260705T003154_20260705T003229_P05023_N_F_J_001",
+          "date": "2026-07-05",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_023_127_D_079_024_4000_SH_20260623T003155_20260623T003230_20260705T003154_20260705T003229_P05023_N_F_J_001/NISAR_L2_PR_GUNW_023_127_D_079_024_4000_SH_20260623T003155_20260623T003230_20260705T003154_20260705T003229_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-06-23",
+          "sec_date": "2026-07-05"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_024_127_D_079_025_4000_SH_20260705T003154_20260705T003229_20260717T003154_20260717T003228_P05023_N_F_J_001",
+          "date": "2026-07-17",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_024_127_D_079_025_4000_SH_20260705T003154_20260705T003229_20260717T003154_20260717T003228_P05023_N_F_J_001/NISAR_L2_PR_GUNW_024_127_D_079_025_4000_SH_20260705T003154_20260705T003229_20260717T003154_20260717T003228_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-07-05",
+          "sec_date": "2026-07-17"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_025_127_D_079_028_4000_SH_20260717T003154_20260717T003228_20260822T003152_20260822T003226_P05023_N_F_J_001",
+          "date": "2026-08-22",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_025_127_D_079_028_4000_SH_20260717T003154_20260717T003228_20260822T003152_20260822T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_025_127_D_079_028_4000_SH_20260717T003154_20260717T003228_20260822T003152_20260822T003226_P05023_N_F_J_001.h5",
+          "coverage": 0.998,
+          "ref_date": "2026-07-17",
+          "sec_date": "2026-08-22"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_028_127_D_079_029_4000_SH_20260822T003152_20260822T003226_20260903T003152_20260903T003226_P05023_N_F_J_001",
+          "date": "2026-09-03",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_028_127_D_079_029_4000_SH_20260822T003152_20260822T003226_20260903T003152_20260903T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_028_127_D_079_029_4000_SH_20260822T003152_20260822T003226_20260903T003152_20260903T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-08-22",
+          "sec_date": "2026-09-03"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_029_127_D_079_030_4000_SH_20260903T003152_20260903T003226_20260915T003151_20260915T003226_P05023_N_F_J_001",
+          "date": "2026-09-15",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_029_127_D_079_030_4000_SH_20260903T003152_20260903T003226_20260915T003151_20260915T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_029_127_D_079_030_4000_SH_20260903T003152_20260903T003226_20260915T003151_20260915T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-09-03",
+          "sec_date": "2026-09-15"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_030_127_D_079_031_4000_SH_20260915T003151_20260915T003226_20260927T003151_20260927T003226_P05023_N_F_J_001",
+          "date": "2026-09-27",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_030_127_D_079_031_4000_SH_20260915T003151_20260915T003226_20260927T003151_20260927T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_030_127_D_079_031_4000_SH_20260915T003151_20260915T003226_20260927T003151_20260927T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-09-15",
+          "sec_date": "2026-09-27"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_031_127_D_079_032_4000_SH_20260927T003151_20260927T003226_20261009T003152_20261009T003226_P05023_N_F_J_001",
+          "date": "2026-10-09",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_031_127_D_079_032_4000_SH_20260927T003151_20260927T003226_20261009T003152_20261009T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_031_127_D_079_032_4000_SH_20260927T003151_20260927T003226_20261009T003152_20261009T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-09-27",
+          "sec_date": "2026-10-09"
+        },
+        {
+          "id": "NISAR_L2_PR_GUNW_032_127_D_079_033_4000_SH_20261009T003152_20261009T003226_20261021T003152_20261021T003226_P05023_N_F_J_001",
+          "date": "2026-10-21",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L2_GUNW_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L2_GUNW_PROVISIONAL_V1/NISAR_L2_PR_GUNW_032_127_D_079_033_4000_SH_20261009T003152_20261009T003226_20261021T003152_20261021T003226_P05023_N_F_J_001/NISAR_L2_PR_GUNW_032_127_D_079_033_4000_SH_20261009T003152_20261009T003226_20261021T003152_20261021T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0,
+          "ref_date": "2026-10-09",
+          "sec_date": "2026-10-21"
+        }
+      ],
+      "track": 127,
+      "frame": 79,
+      "direction": "DESCENDING"
+    },
+    "SME2": {
+      "searched": 46,
+      "maturity": "PROVISIONAL",
+      "granules": [
+        {
+          "id": "NISAR_L3_PR_SME2_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001",
+          "date": "2026-07-05",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001/NISAR_L3_PR_SME2_024_127_D_079_4005_DHDH_A_20260705T003154_20260705T003229_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_025_033_A_012_4005_DHDH_A_20260710T112436_20260710T112506_P05023_N_F_J_001",
+          "date": "2026-07-10",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_025_033_A_012_4005_DHDH_A_20260710T112436_20260710T112506_P05023_N_F_J_001/NISAR_L3_PR_SME2_025_033_A_012_4005_DHDH_A_20260710T112436_20260710T112506_P05023_N_F_J_001.h5",
+          "coverage": 0.991
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_025_055_D_078_4005_DHDH_A_20260712T003941_20260712T004014_P05023_N_F_J_001",
+          "date": "2026-07-12",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_025_055_D_078_4005_DHDH_A_20260712T003941_20260712T004014_P05023_N_F_J_001/NISAR_L3_PR_SME2_025_055_D_078_4005_DHDH_A_20260712T003941_20260712T004014_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001",
+          "date": "2026-07-17",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001/NISAR_L3_PR_SME2_025_127_D_079_4005_DHDH_A_20260717T003154_20260717T003228_P05023_N_F_J_001.h5",
+          "coverage": 0.998
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_026_033_A_012_4005_DHDH_A_20260722T112436_20260722T112506_P05023_N_F_J_001",
+          "date": "2026-07-22",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_026_033_A_012_4005_DHDH_A_20260722T112436_20260722T112506_P05023_N_F_J_001/NISAR_L3_PR_SME2_026_033_A_012_4005_DHDH_A_20260722T112436_20260722T112506_P05023_N_F_J_001.h5",
+          "coverage": 0.924
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_026_055_D_078_4005_DHDH_A_20260724T003941_20260724T004013_P05023_N_F_J_001",
+          "date": "2026-07-24",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_026_055_D_078_4005_DHDH_A_20260724T003941_20260724T004013_P05023_N_F_J_001/NISAR_L3_PR_SME2_026_055_D_078_4005_DHDH_A_20260724T003941_20260724T004013_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_028_033_A_012_4005_DHDH_A_20260815T112434_20260815T112505_P05023_N_F_J_001",
+          "date": "2026-08-15",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_028_033_A_012_4005_DHDH_A_20260815T112434_20260815T112505_P05023_N_F_J_001/NISAR_L3_PR_SME2_028_033_A_012_4005_DHDH_A_20260815T112434_20260815T112505_P05023_N_F_J_001.h5",
+          "coverage": 0.996
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_028_055_D_078_4005_DHDH_A_20260817T003940_20260817T004012_P05023_N_F_J_001",
+          "date": "2026-08-17",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_028_055_D_078_4005_DHDH_A_20260817T003940_20260817T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_028_055_D_078_4005_DHDH_A_20260817T003940_20260817T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001",
+          "date": "2026-08-22",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_028_127_D_079_4005_DHDH_A_20260822T003152_20260822T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_029_033_A_012_4005_DHDH_A_20260827T112434_20260827T112504_P05023_N_F_J_001",
+          "date": "2026-08-27",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_029_033_A_012_4005_DHDH_A_20260827T112434_20260827T112504_P05023_N_F_J_001/NISAR_L3_PR_SME2_029_033_A_012_4005_DHDH_A_20260827T112434_20260827T112504_P05023_N_F_J_001.h5",
+          "coverage": 0.984
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_029_055_D_078_4005_DHDH_A_20260829T003940_20260829T004012_P05023_N_F_J_001",
+          "date": "2026-08-29",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_029_055_D_078_4005_DHDH_A_20260829T003940_20260829T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_029_055_D_078_4005_DHDH_A_20260829T003940_20260829T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001",
+          "date": "2026-09-03",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_029_127_D_079_4005_DHDH_A_20260903T003152_20260903T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_030_033_A_012_4005_DHDH_A_20260908T112434_20260908T112504_P05023_N_F_J_001",
+          "date": "2026-09-08",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_030_033_A_012_4005_DHDH_A_20260908T112434_20260908T112504_P05023_N_F_J_001/NISAR_L3_PR_SME2_030_033_A_012_4005_DHDH_A_20260908T112434_20260908T112504_P05023_N_F_J_001.h5",
+          "coverage": 0.974
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_030_055_D_078_4005_DHDH_A_20260910T003939_20260910T004012_P05023_N_F_J_001",
+          "date": "2026-09-10",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_030_055_D_078_4005_DHDH_A_20260910T003939_20260910T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_030_055_D_078_4005_DHDH_A_20260910T003939_20260910T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001",
+          "date": "2026-09-15",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_030_127_D_079_4005_DHDH_A_20260915T003151_20260915T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_031_033_A_012_4005_DHDH_A_20260920T112434_20260920T112504_P05023_F_F_J_001",
+          "date": "2026-09-20",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_031_033_A_012_4005_DHDH_A_20260920T112434_20260920T112504_P05023_F_F_J_001/NISAR_L3_PR_SME2_031_033_A_012_4005_DHDH_A_20260920T112434_20260920T112504_P05023_F_F_J_001.h5",
+          "coverage": 0.982
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_031_055_D_078_4005_DHDH_A_20260922T003939_20260922T004012_P05023_N_F_J_001",
+          "date": "2026-09-22",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_031_055_D_078_4005_DHDH_A_20260922T003939_20260922T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_031_055_D_078_4005_DHDH_A_20260922T003939_20260922T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001",
+          "date": "2026-09-27",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_031_127_D_079_4005_DHDH_A_20260927T003151_20260927T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_032_033_A_012_4005_DHDH_A_20261002T112434_20261002T112505_P05023_N_F_J_001",
+          "date": "2026-10-02",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_032_033_A_012_4005_DHDH_A_20261002T112434_20261002T112505_P05023_N_F_J_001/NISAR_L3_PR_SME2_032_033_A_012_4005_DHDH_A_20261002T112434_20261002T112505_P05023_N_F_J_001.h5",
+          "coverage": 0.989
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_032_055_D_078_4005_DHDH_A_20261004T003940_20261004T004012_P05023_N_F_J_001",
+          "date": "2026-10-04",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_032_055_D_078_4005_DHDH_A_20261004T003940_20261004T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_032_055_D_078_4005_DHDH_A_20261004T003940_20261004T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001",
+          "date": "2026-10-09",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_032_127_D_079_4005_DHDH_A_20261009T003152_20261009T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_033_033_A_012_4005_DHDH_A_20261014T112434_20261014T112505_P05023_N_F_J_001",
+          "date": "2026-10-14",
+          "track": 33,
+          "frame": 12,
+          "direction": "ASCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_033_033_A_012_4005_DHDH_A_20261014T112434_20261014T112505_P05023_N_F_J_001/NISAR_L3_PR_SME2_033_033_A_012_4005_DHDH_A_20261014T112434_20261014T112505_P05023_N_F_J_001.h5",
+          "coverage": 0.997
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_033_055_D_078_4005_DHDH_A_20261016T003940_20261016T004012_P05023_N_F_J_001",
+          "date": "2026-10-16",
+          "track": 55,
+          "frame": 78,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_033_055_D_078_4005_DHDH_A_20261016T003940_20261016T004012_P05023_N_F_J_001/NISAR_L3_PR_SME2_033_055_D_078_4005_DHDH_A_20261016T003940_20261016T004012_P05023_N_F_J_001.h5",
+          "coverage": 0.002
+        },
+        {
+          "id": "NISAR_L3_PR_SME2_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001",
+          "date": "2026-10-21",
+          "track": 127,
+          "frame": 79,
+          "direction": "DESCENDING",
+          "collection": "NISAR_L3_SME2_PROVISIONAL_V1",
+          "maturity": "PROVISIONAL",
+          "url": "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/NISAR_L3_SME2_PROVISIONAL_V1/NISAR_L3_PR_SME2_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001/NISAR_L3_PR_SME2_033_127_D_079_4005_DHDH_A_20261021T003152_20261021T003226_P05023_N_F_J_001.h5",
+          "coverage": 1.0
+        }
+      ]
+    }
+  }
+}

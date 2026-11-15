@@ -1,0 +1,14 @@
+#cloud-config
+# First boot of the Azure VM (backend/deploy/azure.sh vm): Docker, swap and the data folder.
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+# A site run peaks at a few GB; swap keeps a bad moment from killing the machine.
+swap:
+  filename: /swapfile
+  size: 4G
+  maxsize: 4G
+runcmd:
+  - mkdir -p /opt/sars/data
+  - chown azureuser /opt/sars
