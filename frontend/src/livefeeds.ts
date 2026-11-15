@@ -299,5 +299,8 @@ export async function collectLive(get: (url: string) => Promise<Json> = (url) =>
   ]);
   const features = answers.flatMap((a) => (a.status === "fulfilled" ? a.value : []));
   features.sort((a, b) => (a.properties.date < b.properties.date ? 1 : -1));
-  return { features, ok: answers.filter((a) => a.status === "fulfilled").length, generated_at: new Date().toISOString() };
+  // Which sources did not answer, in the order asked: the page keeps their last events meanwhile.
+  const order: SourceId[] = ["usgs", "gdacs", "eonet", "nws", "volcano"];
+  const failed = order.filter((_, i) => answers[i].status === "rejected");
+  return { features, ok: answers.length - failed.length, failed, generated_at: new Date().toISOString() };
 }

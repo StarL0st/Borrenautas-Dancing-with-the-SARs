@@ -247,12 +247,17 @@ const PAGE_W = 210, PAGE_H = 297, M = 16, CW = PAGE_W - 2 * M, TOP = 24, BOTTOM 
 
 const parseRgb = (css: string): RGB => (css.match(/\d+/g) ?? ["0", "0", "0"]).slice(0, 3).map(Number) as RGB;
 
+// A picture, or undefined if it fails or takes longer than 30 s (the report is made without it).
 function loadImage(url: string): Promise<HTMLImageElement | undefined> {
   return new Promise((resolve) => {
     const img = new Image();
+    const timer = setTimeout(() => {
+      img.src = "";
+      resolve(undefined);
+    }, 30_000);
     img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(undefined);
+    img.onload = () => (clearTimeout(timer), resolve(img));
+    img.onerror = () => (clearTimeout(timer), resolve(undefined));
     img.src = url;
   });
 }

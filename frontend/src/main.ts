@@ -293,13 +293,7 @@ function render() {
   globe.setEvents(
     reports.filter((e) => eventShown(e) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
-  renderLiveList();
-  // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
-  globe.setLive(
-    liveToggle.checked
-      ? liveHere().filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
-      : [],
-  );
+  renderLive();
   globe.keepOverlays(opened);
   timebar.replaceChildren(); // each open area's card puts its date slider back
   $("detail-title").textContent = t(simple() ? "kid.panel" : "h.open");
@@ -314,6 +308,19 @@ function render() {
     );
   }
   entering = undefined;
+}
+
+// Only the live parts: the "Happening now" list and the globe's live dots. Live updates come every
+// few minutes; redrawing the whole page for them would rebuild the open cards (closing what the
+// reader had opened and reloading their pictures).
+function renderLive() {
+  renderLiveList();
+  // The globe shows exactly what the list shows: filters, time window, danger level, Mexico.
+  globe.setLive(
+    liveToggle.checked
+      ? liveHere().filter((f) => liveShown(f, ticked, isType)).map((f) => ({ ...f, properties: { ...f.properties, color: typeColor(f.properties.category) } }))
+      : [],
+  );
 }
 
 // Clicking a dot or a list row opens the area as a tab; clicking again closes it.
@@ -394,6 +401,7 @@ function card(a: AreaView) {
     ...changesSection(a, true),
     // "The 5 most important" only when there were more to choose from.
     el("h4", {}, a.events.length > TOP_N ? t(changes ? "card.top" : "card.toppasses", { n: TOP_N }) : t("card.timeline")),
+    ...(eventsMissing ? [el("p", { className: "note" }, t("card.noevents"))] : []),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
     ...(a.events.length > timeline.length ? [moreInReport(a, a.events.length - timeline.length)] : []),
     ...historySection(a),
@@ -513,7 +521,7 @@ function kidCard(a: AreaView): HTMLElement {
               ),
               el("p", { className: "muted" }, t("kid.saw.maybe")),
             ]
-          : [el("p", {}, t("kid.saw.none"))]),
+          : [el("p", {}, t(eventsMissing ? "kid.saw.loading" : "kid.saw.none"))]),
       ];
 
   // Section 3: the child picks the kind of picture and how far back; the comparison follows.
@@ -670,6 +678,17 @@ type Pdf = { snap: ReportSnapshot; key: string; version: number; made: string; b
 const pdfs = new Map<string, Pdf>();
 const pdfJobs = new Map<string, Promise<Pdf | undefined>>();
 const pdfFailed = new Set<string>(); // areas whose last attempt failed: their link offers a retry
+const pdfAgain = new Set<string>(); // new data arrived while their PDF was being made: make it again
+const pdfStale = new Set<string>(); // new data arrived while they were off screen: remake when shown
+const PDF_STEP_MS = 90_000; // one step (gathering, drawing) longer than this has failed
+
+// A promise that gives up after `ms`, so one request that never answers cannot stall every report.
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${what} took longer than ${ms / 1000} s`)), ms);
+    p.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
 let pdfEnv: ReportEnv | undefined;
 
 // "radar", "changes"... in words, for the card and the PDF's "what is new" box.
@@ -686,13 +705,26 @@ function changeText(c: Change): string {
 }
 
 /** The newest PDF of an area: the kept one if its data has not changed, else a new version. */
-function updatePdf(a: AreaView): Promise<Pdf | undefined> {
+// `newData`: called because data changed. If a PDF is already being made from older data, it is
+// made once more when that one finishes, so no update is lost.
+function updatePdf(a: AreaView, newData = false): Promise<Pdf | undefined> {
   const running = pdfJobs.get(a.id);
-  if (running) return running;
+  if (running) {
+    if (newData) pdfAgain.add(a.id);
+    return running;
+  }
+  // Without the detected changes a report would say there are none: wait for them.
+  if (eventsMissing) {
+    pdfStale.add(a.id);
+    return Promise.resolve(pdfs.get(a.id));
+  }
+  pdfStale.delete(a.id);
   const job = (async () => {
     const mod = await import("./report");
     pdfEnv ??= { base: BASE, typeName: shortLabel, satName: gibsName };
-    const snap = await mod.snapshotReport(reportInput(a));
+    // The area as it is now: the caller may hold one from before the data was reloaded.
+    const area = areas().find((x) => x.id === a.id) ?? a;
+    const snap = await withTimeout(mod.snapshotReport(reportInput(area)), PDF_STEP_MS, "gathering the report's data");
     const key = contentKey(snap);
     const old = pdfs.get(a.id);
     if (old && old.key === key) return old;
@@ -700,7 +732,7 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
     const changes = old ? diffSnapshots(old.snap, snap).map(changeText) : [];
     const made = new Date().toISOString();
     const version = (old?.version ?? 0) + 1;
-    const blob = await mod.renderReport(snap, pdfEnv, { version, made, replaces: old?.version, changes });
+    const blob = await withTimeout(mod.renderReport(snap, pdfEnv, { version, made, replaces: old?.version, changes }), PDF_STEP_MS, "drawing the report");
     const pdf: Pdf = { snap, key, version, made, blob, url: URL.createObjectURL(blob), changes };
     pdfs.set(a.id, pdf); // the old version's file is dropped here
     // A tab may still be reading the old version: let it go a little later.
@@ -719,26 +751,37 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
     .finally(() => {
       pdfJobs.delete(a.id);
       showPdfStatus(a.id); // the links point at the new file only now
+      if (pdfAgain.delete(a.id)) updatePdf(a, true);
     });
   pdfJobs.set(a.id, job);
   return job;
 }
 
-// After new data: bring every kept PDF up to date, one at a time. PDFs of areas that left the
-// data are thrown away.
+// After new data: bring the PDFs of the areas on screen up to date, one at a time; the others are
+// marked stale and remade when they are shown or read (making every kept PDF again on each live
+// update would keep the page busy for nothing). PDFs of areas that left the data are thrown away.
+// A call during a pass is not dropped: the pass runs again.
 let refreshing = false;
+let refreshAgain = false;
 async function refreshPdfs() {
-  if (refreshing) return;
+  if (refreshing) {
+    refreshAgain = true;
+    return;
+  }
   refreshing = true;
   try {
-    for (const id of [...pdfs.keys()]) {
-      const a = areas().find((x) => x.id === id);
-      if (!a) {
-        URL.revokeObjectURL(pdfs.get(id)!.url);
-        pdfs.delete(id);
+    do {
+      refreshAgain = false;
+      for (const id of [...pdfs.keys()]) {
+        const a = areas().find((x) => x.id === id);
+        if (!a) {
+          URL.revokeObjectURL(pdfs.get(id)!.url);
+          pdfs.delete(id);
+          pdfStale.delete(id);
+        } else if (opened.includes(id)) await updatePdf(a, true);
+        else pdfStale.add(id);
       }
-      else await updatePdf(a);
-    }
+    } while (refreshAgain);
   } finally {
     refreshing = false;
   }
@@ -750,6 +793,7 @@ const hhmm = (iso: string) => new Date(iso).toLocaleString(lang(), { dateStyle: 
 function pdfStatusText(id: string, busy?: Key): string {
   const pdf = pdfs.get(id);
   if (busy) return t(busy, { v: (pdf?.version ?? 0) + 1 });
+  if (eventsMissing && (!pdf || pdfStale.has(id))) return t("pdf.waiting");
   if (!pdf) return "";
   const head = t("pdf.ready", { v: pdf.version, time: hhmm(pdf.made) });
   return pdf.version > 1 && pdf.changes.length ? `${head} ${t("pdf.new", { old: pdf.version - 1, list: pdf.changes.join("; ") })}` : head;
@@ -780,8 +824,9 @@ function pdfLinks(a: AreaView, labels: LinkLabels = { open: "report.open", save:
   box.append(read);
   if (labels.save) box.append(el("a", { className: "btn" }));
   fillPdfLinks(box, a.id, pdfJobs.has(a.id));
-  // Made in the background the first time a place is shown, then kept up to date.
-  if (!pdfs.has(a.id) && !pdfJobs.has(a.id)) setTimeout(() => updatePdf(a), 800);
+  // Made in the background the first time a place is shown (or remade if data changed while it was
+  // off screen), then kept up to date. Skipped if the place is closed again meanwhile.
+  if ((!pdfs.has(a.id) || pdfStale.has(a.id)) && !pdfJobs.has(a.id)) setTimeout(() => opened.includes(a.id) && updatePdf(a, true), 800);
   return box;
 }
 
@@ -795,8 +840,16 @@ async function readPdf(id: string) {
     updatePdf(a); // failed before: try again; the button says when it is ready
     return;
   }
-  const { openReader } = await import("./reader");
-  openReader({ title: a.title, subtitle: pdfStatusText(id), url: pdf.url, fileName: pdfName(id, pdf) });
+  try {
+    // Never an outdated report: one marked stale is brought up to date first.
+    const fresh = pdfStale.has(id) ? ((await updatePdf(a, true)) ?? pdf) : pdf;
+    const { openReader } = await import("./reader");
+    openReader({ title: a.title, subtitle: pdfStatusText(id), url: fresh.url, fileName: pdfName(id, fresh) });
+  } catch (err) {
+    // The reader's code could not be loaded (offline, or the site was updated meanwhile).
+    console.error(err);
+    for (const node of document.querySelectorAll<HTMLElement>(`[data-pdf-status="${CSS.escape(id)}"]`)) node.textContent = t("reader.failed");
+  }
 }
 
 function fillPdfLinks(box: HTMLElement, id: string, busy: boolean) {
@@ -1011,7 +1064,7 @@ function loadSeries(a: AreaView) {
     pending = Promise.all(
       a.series.map(async (ref) => {
         try {
-          const file = await (await fetch(new URL(ref.url, BASE))).json();
+          const file = await (await fetch(new URL(ref.url, BASE), { signal: AbortSignal.timeout(20_000) })).json();
           const points = (file.points as { date: string; value: number }[]).filter((p) => p.date && Number.isFinite(p.value));
           return points.length ? { units: String(file.units), label: String(file.polarization ?? file.title ?? ref.title), points } : undefined;
         } catch {
@@ -1232,10 +1285,12 @@ function satSection(a: AreaView): Node {
   ago.onchange = () => {
     v.ago = +ago.value;
     load();
+    updatePdf(a, true); // the report shows the same pictures as the card
   };
   select.onchange = () => {
     v.layer = select.value;
     load();
+    updatePdf(a, true);
   };
   load();
   return el(
@@ -1253,28 +1308,59 @@ function satSection(a: AreaView): Node {
 
 // ---- Live data from the back end (optional: the app works without it) ----
 
+// Loads are numbered: when two overlap (a pushed "manifest" and the 5-minute check), only the
+// newest one is applied, so older data never overwrites newer data.
+let loadSeq = 0;
+// The areas loaded but their detected changes did not (first visit only): the areas show, the
+// status says so, no PDF is made (it would claim there are no changes), and the next 5-minute
+// check tries again.
+let eventsMissing = false;
+const LOAD_MS = 60_000; // the files can be large (events.geojson: about 2 MB)
+
 async function loadLive() {
-  seriesCache.clear();
+  const mine = ++loadSeq;
+  if (!live.length && !statusNow) setStatus("status.loading");
   try {
-    const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" }); // never an old copy
+    const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store", signal: AbortSignal.timeout(LOAD_MS) }); // never an old copy
     if (!res.ok) throw new Error(String(res.status));
     const manifest: Manifest & { generated_at?: string } = await res.json();
+    let next: EventFeature[] = [];
+    let missing = false;
+    if (supportedVersion(manifest.contract_version)) {
+      // events.geojson is optional: older back ends have none (404). Any other failure is a failed
+      // load, not "no changes": an empty list here would tell the reports that every detected
+      // change disappeared. On a refresh the last data stays; on a first visit the areas still show.
+      try {
+        const ev = await fetch(new URL("events.geojson", BASE), { cache: "no-store", signal: AbortSignal.timeout(LOAD_MS) });
+        if (ev.ok) next = (await ev.json()).features ?? [];
+        else if (ev.status !== 404) throw new Error(`events.geojson ${ev.status}`);
+      } catch (err) {
+        if (live.length) throw err;
+        missing = true;
+      }
+    }
+    if (mine !== loadSeq) return; // a newer load is under way
+    seriesCache.clear();
     manifestAt = manifest.generated_at ?? res.headers.get("last-modified") ?? "";
     if (supportedVersion(manifest.contract_version)) {
-      // events.geojson is optional (older back ends have none); the areas still load without it.
-      reports = await fetch(new URL("events.geojson", BASE), { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : { features: [] }))
-        .then((g) => g.features ?? [])
-        .catch(() => []);
+      reports = next;
+      eventsMissing = missing;
       live = manifest.areas.map((a) => toAreaView(a, reports));
-      setStatus("status.connected", { areas: live.length, events: reports.length });
+      if (missing) setStatus("status.noevents", { areas: live.length }, true);
+      else setStatus("status.connected", { areas: live.length, events: reports.length });
     } else {
       live = [];
       reports = [];
       setStatus("status.version", { version: manifest.contract_version }, true);
     }
   } catch {
-    live = [];
+    if (mine !== loadSeq) return;
+    // A failed refresh keeps what was already shown (and the reports made from it); only a first
+    // load with nothing to show falls back to the example places.
+    if (live.length) {
+      setStatus("status.stale", {}, true);
+      return;
+    }
     reports = [];
     setStatus("status.offline");
   }
@@ -1288,9 +1374,10 @@ async function loadLive() {
 async function checkManifest() {
   try {
     const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" });
-    const m = res.ok ? ((await res.json()) as { generated_at?: string }) : undefined;
-    const at = m?.generated_at ?? res.headers.get("last-modified") ?? "";
-    if (at && at !== manifestAt) loadLive();
+    if (!res.ok) return; // an error page is not new data
+    const m = (await res.json()) as { generated_at?: string };
+    const at = m.generated_at ?? res.headers.get("last-modified") ?? "";
+    if (eventsMissing || (at && at !== manifestAt)) loadLive();
   } catch {
     // offline: try again next time
   }
@@ -1301,7 +1388,7 @@ setInterval(refreshPdfs, 60 * 60 * 1000);
 
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
-liveToggle.onchange = render;
+liveToggle.onchange = renderLive;
 // Simple mode lists fewer events at a time.
 const livePage = () => (simple() ? 6 : LIVE_PAGE);
 const liveHere = () => liveEvents.filter((f) => inPicked(f.properties.lon, f.properties.lat));
@@ -1378,16 +1465,18 @@ async function loadLiveFeeds() {
   } else if (now - askedAt > (LIVE_MINUTES - 1) * 60000) {
     const got = await collectLive();
     // With no source answering (offline), what is already on the globe stays until it expires.
+    // A source that did not answer keeps its last events (they still expire after 24 hours), so one
+    // failing feed does not look like its events all ended.
     if (got.ok) {
       askedAt = now;
-      liveEvents = got.features;
+      liveEvents = [...got.features, ...liveEvents.filter((f) => (got.failed as string[]).includes(f.properties.source))];
       liveUpdated = got.generated_at;
       liveEvery = LIVE_MINUTES;
     }
   }
   liveEvents = recent(liveEvents, Date.now()); // events past 24 hours leave the globe and the list
   showLiveStatus();
-  render();
+  renderLive();
   refreshPdfs(); // live reports nearby are part of each report
 }
 
@@ -1627,6 +1716,7 @@ function onSetting(key: keyof Settings) {
   if (key === "wheel") wheel.dataset.size = settings.wheel;
   if (key === "texture") globe.setTexture(settings.texture);
   if (key === "lang") {
+    refreshPdfs(); // reports are written in the page's language
     setLang(settings.lang);
     applyLanguage();
     // The menu was rebuilt in the new language; put the keyboard back where it was.

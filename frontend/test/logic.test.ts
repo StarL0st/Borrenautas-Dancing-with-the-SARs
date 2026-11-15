@@ -213,6 +213,7 @@ test("live feeds: events expire after 24 hours; one source failing does not stop
     return eonet;
   });
   assert.equal(got.ok, 4); // the weather and volcano feeds answered with nothing in them
+  assert.deepEqual(got.failed, ["gdacs"]); // the page keeps GDACS's last events until they expire
   assert.deepEqual(got.features.map((f) => f.properties.source).sort(), ["eonet", "usgs"]);
   // An event its source still lists as going on stays past 24 hours.
   assert.equal(recent([{ properties: { date: "2026-11-01", active: true } } as LiveFeature], now).length, 1);

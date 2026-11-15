@@ -3,7 +3,9 @@
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
 **Rounds 4 to 9 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 9)
+## What the branch has now (after round 10)
+
+- **Round 10 (code review fixes):** failed or slow loads no longer wipe data or put false numbers in reports; no update is lost while a report is being made; the reader draws only the pages near the view; open cards no longer reset every 5 minutes. Pushed to GitHub only up to round 9; round 10 is local.
 
 - **Reading a zone's report works everywhere** (round 9): "Read the report" opens it inside the page; "Download full report (PDF)" is a plain link to the finished file.
 
@@ -59,7 +61,31 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `0ea75a8` | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
 | `80b47e7` | 8 | Docs: round 8 |
 | `e8d9080` | 9 | Report reader inside the page; report buttons become links to a file made in advance |
-| *this commit* | 9 | Docs: round 9 |
+| `1d955b6` | 9 | Docs: round 9 (pushed to GitHub `jopa-testing`) |
+| *next commit* | 10 | Code review fixes (13 findings) and a sweep for breakages and inconsistencies |
+| *this commit* | 10 | Docs: round 10 |
+
+## Round 10 (2026-11-15): code review fixes (local, not pushed)
+
+| # | Problem found | Fix |
+|---|---|---|
+| 1 | A failed refresh replaced the real zones with the examples and threw the reports away; a failed `events.geojson` read as "no changes", so a new PDF version said "detected changes: 224 → 0" | A failed refresh keeps the last good data and says so ("Could not refresh the radar data; still showing the last results loaded"). Only a 404 means "no changes file". On a first visit, if only the changes file fails, the real zones still show with a note, no PDF is made (it would claim zero changes), and the 5-minute check tries again. |
+| 2 | New data arriving while a PDF was being made was dropped | A request with new data during a build marks it, and the PDF is made once more when the build ends; a refresh pass called during another pass runs again. |
+| 3 | The reader drew every page at up to 2× (about 570 MB for 31 pages) and never released the document | Pages are drawn only within one screen of the view and cleared beyond four, at 1.5× at most; the document is released when the reader closes or another opens. Checked: 2 of 25 pages drawn at the top, 3 after scrolling. |
+| 4 | Every live update (every 5 minutes) rebuilt the open cards, closing opened sections and reloading pictures | Live updates now redraw only the live list and the globe's live dots (`renderLive`). |
+| 5 | A request that never answered could stall every report forever | Time limits: thumbnails 15 s, report pictures 30 s, charts 20 s, area files 60 s, each report step 90 s. |
+| 6 | Changing the language or the card's satellite settings left the kept PDF out of date | Both now remake the report. |
+| 7 | A background build could use the zone as it was before a reload | The build looks the zone up again when it starts. |
+| 8 | Two overlapping area loads could finish out of order | Loads are numbered; only the newest is applied. |
+| 9 | If the reader's code failed to load, "Read" did nothing | The status line says the report could not be shown. |
+| 10 | Pictures that failed to load were reported as "change cannot be measured" | Now "The pictures could not be loaded. Try again later." |
+| 11 | When some live sources failed, their events vanished and the PDF said "live reports changed" | Events from sources that did not answer are kept until they expire (`collectLive` now says which failed). |
+| 12 | The satellite photo search checked one day at a time (up to about a minute) | It checks 6 days at once and still takes the newest clear day. |
+| 13 | Every kept PDF was remade on every live update | Only zones on screen are remade at once; the others are marked stale and remade when shown or read. |
+
+**Also found in the sweep:** the first load showed the 25 example places with no message while a 2 MB file downloaded (40+ seconds today); it now says "Loading radar data…". Eight unused texts and 36 duplicated or dead style rules left by the frontend merge were removed (computed styles unchanged; one property, `overflow-wrap`, was kept by moving it). The 5-minute check no longer treats an error page as new data.
+
+**Checked:** 30 frontend tests and 45 backend tests pass; a production build works; in the browser, the loading message, the real zones (5 areas, 406 changes today), a report ready in about 11 seconds, an opened section that stays open, no page errors, and the reader's lazy drawing. **Not exercised live:** the "changes file failed on first visit" path (the storage answered).
 
 ## Round 9 (2026-11-15)
 

@@ -295,7 +295,7 @@ export function comparator(o: CompareOptions): HTMLElement {
       status.textContent = "";
       draw();
     })
-    .catch(() => (status.textContent = t("cmp.nostats")));
+    .catch(() => (status.textContent = t("cmp.loadfailed")));
 
   return el(
     "div",
