@@ -8,7 +8,7 @@
 
 G.I.G.A.S is an open-source web app that shows how the Earth's surface changes, as seen by the NISAR radar satellite, on an interactive 3D globe. A back end turns NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe shows them next to live disaster reports from official public sources. Every piece of information says where it comes from and when, in plain words for the public and with full technical detail for scientists.
 
-> **About this branch.** `jopa-testing` is a teammate's working branch. It holds the team's latest `main` and `frontend` (merged on 2026-11-15) plus the work described in [What this branch adds](#what-this-branch-adds). `main` is the team's ground truth and is not changed from here. The change history is in [CHANGELOG.md](CHANGELOG.md) and, round by round, in [frontend/JOPA_TESTING.md](frontend/JOPA_TESTING.md).
+> **About this branch.** `jopa-testing` is a teammate's working branch. Its `frontend/` is exactly `main`'s (taken on 2026-11-15, which already includes this branch's earlier work described in [What this branch adds](#what-this-branch-adds)) plus one fix: the opening animation zooms out so the Earth's curve shows and the name's letters circle the globe and hide behind it. The rest of the repository holds the team's latest `main` with this branch's documentation. `main` is the team's ground truth and is not changed from here. The change history is in [CHANGELOG.md](CHANGELOG.md) and, round by round, in [frontend/JOPA_TESTING.md](frontend/JOPA_TESTING.md).
 
 ## Contents
 
@@ -68,7 +68,7 @@ The challenge asks for an interactive application that uses NISAR data to track 
 
 ## Live site and demo
 
-- **Live site** (the team's build of `main`/`frontend`, on a Cloudflare Worker): https://gigas-project.starl0stgaming.workers.dev. It does not include this branch's additions until the team merges them.
+- **Live site** (the team's build, on a Cloudflare Worker): https://gigas-project.starl0stgaming.workers.dev. It is built from the team's branches, not from `jopa-testing`.
 - **Demo video:** awaiting video.
 - **Run this branch yourself:** see [Quick start](#quick-start).
 
@@ -308,6 +308,8 @@ cd frontend && npm run decisions
 | `frontend/src/main.ts` | The page: panels, filters, areas, cards, Simple-mode guide, live events, report controls |
 | `frontend/src/globe.ts`, `satellite.ts` | The MapLibre globe, its layers and camera; the orbiting satellite |
 | `frontend/src/livefeeds.ts` | Live events fetched from the public sources |
+| `frontend/src/places.ts` | The visitor's own places, kept in the browser |
+| `frontend/src/assets/cities.json`, `frontend/scripts/cities.mjs` | City names drawn on the globe (Natural Earth populated places) and the script that makes them |
 | `frontend/src/satview.ts` | Satellite photos from NASA GIBS (clear-day search) |
 | `frontend/src/compare.ts`, `compare-core.ts` | The before/after comparator and its change arithmetic |
 | `frontend/src/report.ts`, `report-core.ts`, `reader.ts`, `pdf-text.ts`, `legend.ts` | The report template, its versions, the in-page reader |
