@@ -1,6 +1,6 @@
 # 10. Status, to-do and time log
 
-Updated: 2026-11-14 23:55 (local time, UTC-7). Judging starts 2026-11-16.
+Updated: 2026-11-15 11:00 (local time, UTC-7). Judging starts 2026-11-16.
 
 This file records what is built, what is left, and the time spent, for the project submission. Add a row to the time log at the end of each work session.
 
@@ -8,10 +8,10 @@ This file records what is built, what is left, and the time spent, for the proje
 
 | Branch | Holds |
 |---|---|
-| `main` | Everything: specs, contracts v0.6.0, backend, frontend. `backend` and `frontend` were merged in on 2026-11-14 at 17:15 on the team lead's instruction |
-| `backend` | Backend lane work (`backend/`, `data/`). Equal to `main` at the merge |
-| `frontend` | Frontend lane work (`frontend/`). Equal to `main` at the merge |
-| `testing` | Same files as `main` at the merge; the place to try both lanes together before the next merge to `main` |
+| `main` | Everything: specs, contracts v0.7.0, backend, frontend, the project README. What the live site runs |
+| `backend` | Backend lane work (`backend/`, `data/`). Equal to `main` since 2026-11-15 11:00 |
+| `frontend` | Frontend lane work (`frontend/`). Equal to `main` since 2026-11-15 11:00 |
+| `testing` | Equal to `main` since 2026-11-15 11:00; the place to try both lanes together before the next merge to `main` |
 
 Branch clean-up on 2026-11-14:
 
@@ -23,18 +23,21 @@ Branch clean-up on 2026-11-14:
 | `jopa-testing` | A teammate's trial branch. Parts were ported to `frontend` (type icons, satellite before/now, live refresh note). The rest is **not merged**: kept as tag `archive/jopa-testing`, branch deleted |
 | `Front-End` | One early commit, never used; kept as tag `archive/Front-End`, branch deleted |
 
+Branch clean-up on 2026-11-15 at 10:00: `mobile`, `testing-frontend` and a second `jopa-testing` were deleted. All three were fully contained in `main` (nothing lost, no tag needed). GitHub holds `main`, `backend`, `frontend`, `testing`.
+
 Restore an archived branch: `git switch -c <name> archive/<name>`.
 
-The backend writes `contract_version` 0.6.0. The frontend accepts any `0.x`.
+The backend writes `contract_version` 0.7.0 (0.6.0 until 2026-11-14 23:35). The frontend accepts any `0.x`.
 
 ## Live deployment (Microsoft Azure, since 2026-11-14)
 
 | What | Where |
 |---|---|
 | API (HTTPS) | `https://api.gigas.earth` (also still `https://gigas-sars.westus2.cloudapp.azure.com`) |
-| Results | `https://gigassars.blob.core.windows.net/data/` (for example `manifest.json`) |
+| Results | `https://gigassars.blob.core.windows.net/data/` (the page starts from `index.json`). 37 curated areas, 3,191 events and 2,845 layers since the backfill ended on 2026-11-15 (2.1 GB of results, 4.2 GB of cached windows on the VM, 40 GB free) |
 | Site | https://gigas.earth, also https://gigas-project.starl0stgaming.workers.dev (Cloudflare Worker `gigas-project`, account StarL0stGaming; static files only, config in `frontend/wrangler.jsonc`; built with the storage address and an API address). Build and deploy steps: `frontend/README.md` (Deploy). Previews per branch: `https://<branch>-gigas-project.starl0stgaming.workers.dev` |
 | Resources | Resource group `sars`, region `westus2`: virtual machine `sars-vm` (`Standard_B2s_v2`, 2 vCPU, 8 GB), storage account `gigassars` |
+| Live version | Site: `main` at `3e3aa18`, released by hand 2026-11-15 10:25 (Worker version `2d48f28f`; the one before, `cc163214`, for rollback). Backend on the VM: branch `testing` as of 2026-11-15 00:45 (contract 0.7.0, memory fix); nothing newer in `backend/` since |
 
 Checked on Azure on 2026-11-14:
 
@@ -66,15 +69,19 @@ Not checked on Azure: the 500-stream cap (passed locally), a 12-hour refresh, a 
 - **History.** `areas/<id>/history.json` per area and `GET /history` by point and dates: every layer, event and series value in time order (contract C10).
 - **Launch design** (running on Azure, see above): results in Blob Storage read directly by browsers, the virtual machine only for lookups, queries and refreshes; push after the copy to storage; stream cap, disk guard, memory limit and swap. Details: `docs/02`, `backend/deploy/README.md`.
 - **Load test** on a laptop: 300 open push streams plus 50 requests a second for 20 s, 1000 of 1000 answered, median 120 ms, slowest 435 ms; beyond 500 streams the server answers 503 as designed.
-- **Work branch `testing` (2026-11-14 night).** `main` holds both lanes as of 23:00; `testing` started from it and holds what follows, not merged into `main` yet. Preview of the site: https://testing-gigas-project.starl0stgaming.workers.dev. The backend part runs on the Azure VM (deployed from `testing`).
+- **Released.** What follows was built on `testing` in the night of 2026-11-14, published to the live site at 00:30 on the team lead's word, and is on `main`.
 - **The page loads on demand** (contract 0.7.0, C11). It starts from a short `index.json`; an area's layers and events are fetched when it is opened or when the map is zoomed in over it. Before, every visit fetched every event outline (13 MB).
 - **Grouped markers.** Events on the globe are small square markers with the filter icons; events of one type close together share one marker with a count. Hollow: live event. Filled: seen by the radar. A click lists the events in the right panel.
 - **City names** on the globe in three languages (Natural Earth).
 - **My places.** The left list shows the places the visitor opened or asked for (positions kept in the browser only), with a remove button; suggestions until there are any. A request next to a known city opens the city instead of processing a new place.
 - **More data, kept longer.** Larger boxes for the three case studies (60 to 90 km), six city sites, 27 state capitals queued one at a time on the VM (visitors first). Searches start at a fixed date and keep every date; events whose dates leave a series are archived, not deleted.
+- **Marker fixes (2026-11-15 00:00 to 00:45).** A pressed marker no longer slides away (the page's press-shrink also shrank the marker's position on the map); radar markers show only from zoom 7 in and not for areas the visitor closed; markers can be clicked while the globe turns; selecting a group shows a dot at each of its events and fades the other markers; a double click zooms to the group; the group list has a close button on top.
+- **Phones and Simple mode (2026-11-15 01:00).** Markers take a 44 px tap; groups are wider (fewer markers in dense areas); in Simple mode an event shows its name, dates and size, not the radar wording. Checked in a headless browser at phone, sideways-phone and desktop sizes, not on a real phone.
+- **Backfill finished (2026-11-15, about 05:00).** All 37 curated sites processed on the VM with no errors and no restart, one at a time, about 9 minutes each. The server kept the memory of its largest run (5.9 of 6 GB after three large sites); it now hands memory back after each site (about 0.5 GB at rest).
+- **Favicon** from the project logo (globe and orbit, transparent background).
 - **Confidence floor.** Since 2026-11-14 21:30 no event under confidence 0.3 is published: 406 events in all, 738 before. The weak half was small regions barely past their threshold; 80 to 85% of the changed area stays. A judgment call, not checked against ground truth. Live on Azure.
 - **Calls for other programs.** `GET /api/areas`, `/api/events` (by area, category, dates, lowest confidence; paged) and `/api/live` (by category, source), next to `/query` and `/history`. All listed with a try-it page at https://gigas-sars.westus2.cloudapp.azure.com/docs.
-- **Tests.** 48 automated tests pass; lint is clean.
+- **Tests.** 52 backend and 33 frontend tests pass; lint and the type check are clean.
 
 ### Results on real data (2026-11-14)
 
@@ -85,7 +92,9 @@ Not checked on Azure: the 500-stream cap (passed locally), a 12-hour refresh, a 
 | Yucatán | 227 (443) | agriculture 142, wildfires 65, deforestation 28, other 9, urban 9 |
 | Villahermosa | 47 (64) | deforestation 24, agriculture 18, wildfires 15, floods 5 (0.4 km²): thin, the data ends in mid-October |
 
-A new search on 2026-11-14 at 17:50 found no newer NISAR granules for any of the four areas: the data ends 2026-10-21 because that is the latest published.
+The table above is the state on 2026-11-14 at 21:30. With the larger boxes (2026-11-15): Yucatán 1,173 events, Chapala 355, Villahermosa 223, and 3,191 over all 37 areas (`index.json` has the count per area; Xalapa has layers but no event above the confidence floor).
+
+A search on 2026-11-14 at 17:50 found no newer granules **of the same maturity**: the PROVISIONAL series end 2026-10-21. Correction (2026-11-14 22:10): newer GCOV passes, up to 2026-11-13, are published as VALIDATED and are not shown yet (to-do 16).
 
 Checked locally against a running server: manifest, `/query`, friendly cards, lookup of a curated site, lookup of a new place (Guanajuato: 5 minutes from request to ready), cache hit, rate limit, and the Mexico and Chapala layers in a headless browser (aligned with coastlines, no console errors).
 
@@ -102,9 +111,8 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 
 | # | Task | Owner |
 |---|---|---|
-| 1 | Try the published site end to end: map, Mexico, a case study, looking up a place, live events | Humans |
-| 2 | Cloudflare: set the production branch and build settings of the Worker so it rebuilds on push (`backend/deploy/README.md`, "Site") | Human |
-| 3 | Domain `gigas.earth` (DNS is at Porkbun today): move the nameservers to Cloudflare, record `A api 20.112.74.42` (proxy off), then `SARS_DOMAIN=gigas.earth backend/deploy/azure.sh dns` for the rest (`backend/deploy/README.md`) | Human |
+| 1 | Try the live site end to end on a desktop browser and on a real phone (iOS Safari, Android Chrome): markers and their lists, zoom-in loading, my places, city names, a case study, a state capital, looking up a place, live events. Only headless-browser checks were done | Humans |
+| 2 | Cloudflare automatic builds: pushes to `main` on 2026-11-15 produced no build, so the site is released by hand (`frontend/README.md`, Deploy). If builds start working, every push to `main` goes live by itself | Human |
 | 4 | Azure account is a Free Trial: credit ends 30 days after sign-up (to be confirmed in the portal). Check that date against the judging period; upgrade to pay-as-you-go if needed. Add a budget alert | Human |
 | 5 | Frontend: show history (`areas/<id>/history.json`, C10) in the bottom timeline; friendly cards (C8); a "processing" state from `GET /sites/<id>`; the server's sentence on a 429 answer | Frontend |
 | 6 | Decide what to take from `archive/jopa-testing` (not merged). Its backend change (`refresh_minutes` in `live.geojson`) is on `backend` since 2026-11-14 | Both lanes |
@@ -112,12 +120,17 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 12 | Pending (decided 2026-11-14: not now): the VM updating itself from the `backend` branch. Until then Azure is updated by hand (`azure.sh deploy`, then `seed` when data changed; VPN needed at the venue) | Backend |
 | 13 | Domain: site at https://gigas.earth and API at https://api.gigas.earth since 2026-11-14 22:00 (the API also still answers at its Azure name). The Worker's `VITE_API_BASE` build variable is `https://api.gigas.earth/` since 2026-11-15; left: the next build from `main` (the live site, released by hand as `5a53667b`, still calls the Azure name until then; settings in `frontend/README.md`, Deploy). Every `azure.sh deploy` now needs `SARS_DOMAIN=gigas.earth` | Human (Cloudflare), backend |
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
-| 10 | License file and repository visibility | Humans |
+| 10 | Repository visibility (a `LICENSE` file was added on 2026-11-15) | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
-| 14 | Try the phone layout on a real phone (iOS Safari, Android Chrome): tabs, panel growing on scroll, before/now drag (`frontend/README.md`, handoff of the `mobile` branch) | Humans |
-| 15 | Try the `testing` preview (https://testing-gigas-project.starl0stgaming.workers.dev) in a real browser and on a phone: markers, group list, city names, my places, zoom-in loading. Then merge `testing` into `main` and publish | Humans |
 | 16 | Newer GCOV passes (late October on) are published as VALIDATED and are not shown: a series never mixes maturities and VALIDATED has 1 or 2 dates per frame. When it reaches 4 the selection moves to it; the earlier events stay (archived) but the earlier images leave the area. Showing both maturities as separate periods is not built | Backend |
 | 17 | A place NISAR has no data for stays "processing" in My places until removed by hand | Frontend |
+| 18 | Simple mode: no way to ask for a new place (the coordinates form is Technical only); the place list says "radar images" and shows ISO dates; "Suggested places" and the remove button have no child-level wording; live event rows keep the feeds' own terms | Frontend |
+| 19 | Markers of different types can still overlap in a dense area. On a phone held sideways the map is about 195 px high: an opened area fits below zoom 7, so its radar markers stay hidden until zoomed in. Double tap on a marker is not verified on touch | Frontend |
+| 20 | Backend deploys: always `SARS_DOMAIN=gigas.earth AZ_PREFIX=gigas backend/deploy/azure.sh deploy` (without the domain the API drops `api.gigas.earth`). Never `azure.sh seed`: the VM holds 37 areas the local `data/` does not, and seeding replaces its index | Backend |
+| 21 | Speed: the VM reads one file at a time and uses about 5% of its processor while a site runs. Reading several at once is not built | Backend |
+| 22 | Radar (not only soil moisture) for the whole country: at full detail about 1,200 boxes, more than the VM's disk and a week of running. A coarse national radar mosaic is possible; one full frame must be timed first. Not built | Backend |
+| 23 | The Mexico mosaic keeps only its two latest cycles; earlier cycles since May 2026 are published and not shown. Not built | Backend |
+| 24 | Leftovers: `/opt/sars/old` on the VM (185 MB, the data from before the first clean-up); local folders `sars-mobile` and `sars-testing-frontend` are on branches deleted from GitHub; `docs/01`, `specs/F02` and `specs/F06` were last checked on 2026-11-14 | Backend, docs |
 
 ### Decisions (asked at 20:00 on 2026-11-14, answered at 21:15)
 
@@ -161,5 +174,7 @@ Times come from git commit timestamps (local time, UTC-7), rounded to the quarte
 | 2026-11-14 | 21:15 | 21:45 | 0.5 | Backend, docs | Confidence floor 0.3, rerun of the four areas, `/api` calls, deployed to Azure and checked |
 | 2026-11-14 | 22:00 | 22:25 | 0.5 | Backend | API on `api.gigas.earth`, larger case-study boxes, six city sites, deployed |
 | 2026-11-14 | 23:00 | 23:55 | 1.0 | Backend, frontend, docs | `main` and `testing` updated; contract 0.7 (index, per-area files), fixed search start, slow queue, event archive, 27 state capitals; page loads on demand, grouped markers, city names, my places; preview and VM deploy |
+| 2026-11-14 | 23:55 | 01:10 | 1.25 | Frontend, backend | Marker fixes, ghost dots, double-click zoom, memory fix on the VM, release of `testing` to the live site, phone and Simple-mode pass on `mobile` |
+| 2026-11-15 | 09:55 | 11:00 | 1.0 | Frontend, docs | Favicon, branch clean-up, release of `main` to the live site, README image moved, this log |
 
-Total so far: backend and docs 19.25 h, frontend 11.75 h (16:45 to 18:15 had no frontend commits; other agents' frontend work after 20:00 not counted), 31.0 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
+Total so far: backend and docs 20.25 h, frontend 13.0 h, 33.25 h in all. Not counted: the frontend lane's own sessions after 2026-11-14 20:00 (phone layout, reports, opening animation, deployment notes) and the README written by the team on 2026-11-15; their commits are in the git history. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
