@@ -31,7 +31,7 @@ The backend writes `contract_version` 0.6.0. The frontend accepts any `0.x`.
 
 | What | Where |
 |---|---|
-| API (HTTPS) | `https://gigas-sars.westus2.cloudapp.azure.com` (will move to `api.gigas.earth`) |
+| API (HTTPS) | `https://api.gigas.earth` (also still `https://gigas-sars.westus2.cloudapp.azure.com`) |
 | Results | `https://gigassars.blob.core.windows.net/data/` (for example `manifest.json`) |
 | Site | https://gigas.earth, also https://gigas-project.starl0stgaming.workers.dev (Cloudflare Worker `gigas-project`, account StarL0stGaming; static files only, config in `frontend/wrangler.jsonc`; built with the storage address and an API address). Build and deploy steps: `frontend/README.md` (Deploy). Previews per branch: `https://<branch>-gigas-project.starl0stgaming.workers.dev` |
 | Resources | Resource group `sars`, region `westus2`: virtual machine `sars-vm` (`Standard_B2s_v2`, 2 vCPU, 8 GB), storage account `gigassars` |
@@ -110,7 +110,7 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 6 | Decide what to take from `archive/jopa-testing` (not merged). Its backend change (`refresh_minutes` in `live.geojson`) is on `backend` since 2026-11-14 | Both lanes |
 | 7 | Licenses (`docs/09`): confirm the Meshy plan used for the satellite model; show the OpenStreetMap credit openly on the Street map look; decide whether to keep GDACS (no data license stated) | Frontend, team |
 | 12 | Pending (decided 2026-11-14: not now): the VM updating itself from the `backend` branch. Until then Azure is updated by hand (`azure.sh deploy`, then `seed` when data changed; VPN needed at the venue) | Backend |
-| 13 | Domain: site at https://gigas.earth and API at https://api.gigas.earth since 2026-11-14 22:00 (the API also still answers at its Azure name). Left: change the Worker's `VITE_API_BASE` build variable to `https://api.gigas.earth/` and rebuild; every `azure.sh deploy` now needs `SARS_DOMAIN=gigas.earth` | Human (Cloudflare), backend |
+| 13 | Domain: site at https://gigas.earth and API at https://api.gigas.earth since 2026-11-14 22:00 (the API also still answers at its Azure name). The Worker's `VITE_API_BASE` build variable is `https://api.gigas.earth/` since 2026-11-15; left: the next build from `main` (the live site, released by hand as `5a53667b`, still calls the Azure name until then; settings in `frontend/README.md`, Deploy). Every `azure.sh deploy` now needs `SARS_DOMAIN=gigas.earth` | Human (Cloudflare), backend |
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
