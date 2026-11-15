@@ -54,7 +54,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `cd616da` | 6 | Docs: round 6 |
 | `bb7a14f` | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
 | `99896ae` | 7 | Docs: round 7 |
-| *next commit* | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
+| `0ea75a8` | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
 | *this commit* | 8 | Docs: round 8 |
 
 ## Round 8 (2026-11-15)
