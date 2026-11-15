@@ -187,6 +187,31 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - **No live source found** (so nothing live for them): oil spills (NOAA's incident list refuses requests from web pages), groundwater, subsidence, logging, coastal loss, reservoirs, permafrost, ice sheets, glacial lakes. These are slow changes: the radar areas are where they show.
 - Checked 2026-11-14 in headless Chrome: 233 events across ten types (earthquakes 46, wildfires 139, cold 16, floods 12, sea ice 6, hurricanes 4, volcanoes 3, forecast 3, marine 2, drought 2).
 
+## Handoff: frontend, 2026-11-14 (evening, end of session)
+
+Everything is committed and pushed to `frontend` (last commit: this one). 16 unit tests and the build pass. The GitHub repo is now called `StarL0st/GIGAS-Project`; the old address still redirects.
+
+**Done this session** (details in the sixth to tenth batch sections above):
+- Welcome screen with the 3D name; Start sends the letters round the Earth and behind it, the house button brings them up from behind the horizon.
+- Square map buttons (home, auto-rotate, view wheel), no zoom slider, date slider on the globe, globe view keeps the zoom.
+- Country search; light blue "on" color; type icons, satellite before/now and the refresh line taken from `jopa-testing`.
+- Live events fetched by the page itself (`src/livefeeds.ts`), for ten types, from USGS, GDACS, NASA EONET, NOAA NWS and USGS volcanoes.
+- Satellite model replaced by one generated from NASA's NISAR illustration PIA26613 (the first came from a company's marketing picture, which the team had no rights to).
+- `README-Draft.md` and `images/` at the repo root: a project README for judges, waiting for the team's go-ahead. The root `README.md` is unchanged.
+
+**Superseded text above:** "Current state" still says Tangerine marks what is on (it is light blue now; Tangerine is the main action), that live events come only from the back end's `live.geojson` and refresh every 10 minutes (the page now asks the sources itself, every 15 minutes at most), and that Auto-rotate starts with the Earth gliding in (it starts on the welcome screen).
+
+**Open, for the team:**
+1. Say when `README-Draft.md` should replace the root `README.md` (then delete the draft). Still missing in it: demo video, live site link, GitHub profile links or a team photo.
+2. Add a `LICENSE` file (Space Apps applies Apache 2.0 if none is given).
+3. Which refresh time the README should state: the page's own collector uses 15 minutes, the hosted back end's file says 5.
+4. Native-speaker check of the Spanish and German texts.
+5. Not checked by anyone yet: the letter animations playing in a real browser, a real phone, browsers other than Chrome, a screen reader. The `mobile` branch (back-end lane, 2026-11-14) has phone fixes that are not merged here.
+6. The back-end lane took the page's live-event rules into `livefeeds.py` (commit on `backend`, 18:58); `src/livefeeds.ts` and that file must be kept in step by hand.
+7. One chart line is labelled "HH/HV" on the soil-moisture and percent charts of Lake Chapala (seen in the screenshots); the label comes from the time series files, so check it on the back-end side.
+
+**To resume:** `cd frontend && npm ci && npm run dev`. With no back end it shows example places and live events. For the real radar areas, start it with `VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/` (the team's public storage, see `docs/10-status-log.md` on `main`).
+
 ## Test
 
 ```
