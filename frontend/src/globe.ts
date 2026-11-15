@@ -78,6 +78,11 @@ const style: StyleSpecification = {
   ],
 };
 
+// City names (src/assets/cities.json, made by scripts/cities.mjs from Natural Earth).
+export type CityRow = [lon: number, lat: number, rank: number, capital: number, en: string, es: string, de: string];
+// [first rank, last rank, from zoom]: the largest cities show first, the rest as you zoom in.
+const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
+
 export type MarkerKind = "live" | "radar";
 type Dot = { id: string; lon: number; lat: number; type: string; color: string };
 const GROUP_PX = 56; // events of one type closer than this on screen share a marker
@@ -180,6 +185,21 @@ export function createGlobe(
         },
         paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.5 },
       });
+      // City names, under the areas' own labels. MapLibre leaves out labels that would overlap;
+      // capitals and larger cities win.
+      map.addSource("cities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      for (const [lo, hi, minzoom] of CITY_TIERS) {
+        map.addLayer({
+          id: `cities-${lo}`, type: "symbol", source: "cities", minzoom,
+          filter: ["all", [">=", ["get", "rank"], lo], ["<=", ["get", "rank"], hi]],
+          layout: {
+            "text-field": ["get", "name"], "text-font": ["Open Sans Semibold"],
+            "text-size": ["case", ["==", ["get", "capital"], 2], 13, 11],
+            "symbol-sort-key": ["-", ["get", "rank"], ["get", "capital"]], "text-padding": 6,
+          },
+          paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.2, "text-opacity": 0.85 },
+        }, "areas-halo");
+      }
       // Detected changes (events.geojson): outlines when close, dots at every zoom.
       const empty = { type: "FeatureCollection" as const, features: [] };
       map.addSource("events", { type: "geojson", data: empty });
@@ -210,6 +230,8 @@ export function createGlobe(
   function applyTexture(next: Texture) {
     const { show, ocean, border } = TEXTURES[next];
     for (const id of BASE_LAYERS) map.setLayoutProperty(id, "visibility", show.includes(id) ? "visible" : "none");
+    // The street map has its own place names.
+    for (const [lo] of CITY_TIERS) map.setLayoutProperty(`cities-${lo}`, "visibility", next === "street" ? "none" : "visible");
     map.setPaintProperty("ocean", "background-color", ocean);
     map.setPaintProperty("borders", "line-color", border);
   }
@@ -280,6 +302,20 @@ export function createGlobe(
       // animation (a hidden tab pauses animations, and "moveend" would never come).
       popup.setLngLat([lon, lat]).setDOMContent(content).addTo(map);
       map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
+    },
+
+    // City names in the page's language (English where the list has no other).
+    async setCities(rows: CityRow[], lang: "en" | "es" | "de") {
+      await ready;
+      const at = { en: 4, es: 5, de: 6 }[lang];
+      map.getSource<GeoJSONSource>("cities")!.setData({
+        type: "FeatureCollection",
+        features: rows.map((r) => ({
+          type: "Feature" as const,
+          properties: { name: r[at] || r[4], rank: r[2], capital: r[3] },
+          geometry: { type: "Point" as const, coordinates: [r[0], r[1]] },
+        })),
+      });
     },
 
     // Tell the page where the map looks each time it comes to rest: zoom and [w, s, e, n].

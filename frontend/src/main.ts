@@ -5,7 +5,7 @@ import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
 import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./filters";
-import { createGlobe, eventInfo, liveInfo, type MarkerKind, type ViewMode } from "./globe";
+import { createGlobe, eventInfo, liveInfo, type CityRow, type MarkerKind, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
 import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
@@ -19,6 +19,7 @@ import { KID_FOUND, KID_TYPES, kidFact } from "./kid";
 import {
   distanceKm, HISTORY, topHistory, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
 } from "./mexico";
+import citiesUrl from "./assets/cities.json?url";
 import countriesUrl from "./assets/countries.json?url";
 import {
   ago, areaAt, datesFor, inFilter, inside, layerAt, overlaps, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, stubView, supportedVersion, toAreaView,
@@ -247,6 +248,13 @@ fetch(countriesUrl)
     render();
   })
   .catch(() => (countrySearch.disabled = true)); // without the outlines there is nothing to search
+
+// City names on the globe; without the file the globe simply has none.
+let cities: CityRow[] = [];
+fetch(citiesUrl)
+  .then((r) => r.json())
+  .then((rows: CityRow[]) => globe.setCities((cities = rows), settings.lang))
+  .catch(() => {});
 
 // ---- Left panel: coordinates ----
 
@@ -1847,6 +1855,7 @@ function applyLanguage() {
   buildFilters();
   buildCountries();
   buildWheel();
+  globe.setCities(cities, settings.lang);
   showStatus();
   showLiveStatus();
   render();
