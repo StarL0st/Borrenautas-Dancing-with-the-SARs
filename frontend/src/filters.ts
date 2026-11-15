@@ -1,18 +1,15 @@
 // Filter groups and their subdivisions. The ids are the back end's `categories` (contract 0.3);
 // their names live in i18n.ts as `group.<id>` and `type.<id>`. Colors are from the Okabe-Ito
 // colorblind-safe palette; groups are always named in text too, never by color alone.
-import { STRINGS, t, type Key } from "./i18n";
+import { t, type Key } from "./i18n";
 
-// Scope (jopa-testing): Mexico only. Polar types (ice sheets, sea ice, permafrost, glacial lakes)
-// are left out; glaciers stay for Pico de Orizaba. Weather types are new: hurricanes (tropical
-// cyclones of any strength), storms (other severe storms), heat, cold and dust.
 export const GROUPS: { id: string; color: string; items: string[] }[] = [
   {
     id: "natural",
     color: "#E69F00",
     items: [
       "earthquakes", "volcanoes", "hurricanes", "storms", "floods", "landslides", "sinkholes", "wildfires", "drought",
-      "heat", "cold", "dust", "marine", "glaciers", "forecast",
+      "heat", "cold", "dust", "marine", "forecast", "glaciers", "ice-sheets", "sea-ice", "permafrost", "glacial-lakes",
     ],
   },
   {
@@ -26,8 +23,7 @@ export const GROUPS: { id: string; color: string; items: string[] }[] = [
 export const isType = (id: string) => GROUPS.some((g) => g.items.includes(id));
 export const groupLabel = (id: string) => t(`group.${id}` as Key);
 // An id the app does not know (a newer back end) is shown as it is.
-// Types the filters no longer list (sea ice, from worldwide live feeds) keep their translated name.
-export const typeLabel = (id: string) => (isType(id) || `type.${id}` in STRINGS.en ? t(`type.${id}` as Key) : id);
+export const typeLabel = (id: string) => (isType(id) ? t(`type.${id}` as Key) : id);
 export const typeColor = (id: string) => GROUPS.find((g) => g.items.includes(id))?.color ?? "#e6f1f5";
 // "Earthquakes", not "Earthquakes (location and impact assessment)".
 export const shortLabel = (id: string) => typeLabel(id).replace(/\s*[(:].*/, "");

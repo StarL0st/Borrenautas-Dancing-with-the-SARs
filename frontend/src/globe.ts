@@ -31,6 +31,7 @@ const TEXTURES: Record<Texture, { show: string[]; ocean: string; border: string 
   hologram: { show: ["land", "borders", "grid"], ocean: "#071a26", border: "#5fe3e0" },
   street: { show: ["street"], ocean: "#aad3df", border: "#5fe3e0" },
 };
+const WELCOME_DROP = 0.36; // how far down the welcome screen pushes the horizon, as a share of the height
 const SPIN_PX_PER_S = 24; // auto-rotate speed on screen: about one turn a minute when zoomed out
 
 // The background layer is local, so if the basemap tiles fail the globe and overlays still draw.
@@ -76,7 +77,7 @@ const style: StyleSpecification = {
 };
 
 export function createGlobe(container: string, texture: Texture, onPick: (id: string) => void) {
-  const map = new Map({ container, style, ...HOME.globe, zoom: 0.5, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
+  const map = new Map({ container, style, ...HOME.closeup, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
 
@@ -92,6 +93,10 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
 
   const ready = new Promise<void>((resolve) =>
     map.on("load", () => {
+      // Countries picked in the search: a light blue wash and outline, under everything else.
+      map.addSource("picked", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "picked-fill", type: "fill", source: "picked", paint: { "fill-color": "#8eb1c7", "fill-opacity": 0.3 } });
+      map.addLayer({ id: "picked-line", type: "line", source: "picked", paint: { "line-color": "#fefdff", "line-width": 1.5 } });
       map.addSource("areas", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
         id: "areas-box", type: "line", source: "areas", minzoom: 4,
@@ -163,8 +168,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "areas-halo", () => (map.getCanvas().style.cursor = picking ? "crosshair" : ""));
       map.addLayer(satelliteLayer(map));
-      // The Earth glides in from far away on arrival (MapLibre skips this for reduced motion).
-      map.easeTo({ zoom: HOME.globe.zoom, duration: 1600 });
       resolve();
     }),
   );
@@ -254,6 +257,20 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.getSource<GeoJSONSource>("live")!.setData({ type: "FeatureCollection", features: shown as never });
     },
 
+    // Outlines of the countries picked in the search, as MultiPolygon coordinates.
+    async setCountries(shapes: number[][][][][]) {
+      await ready;
+      map.getSource<GeoJSONSource>("picked")!.setData({
+        type: "FeatureCollection",
+        features: shapes.map((coordinates) => ({ type: "Feature" as const, properties: {}, geometry: { type: "MultiPolygon" as const, coordinates } })),
+      });
+    },
+
+    // Turn the globe to a country, close enough to see it whole.
+    lookAt(center: [number, number]) {
+      map.flyTo({ center, zoom: Math.min(Math.max(map.getZoom(), 2.5), 4) });
+    },
+
     async setAreas(shown: { area: AreaView; color: string }[], openIds: string[]) {
       await ready;
       map.getSource<GeoJSONSource>("areas")!.setData({
@@ -307,8 +324,23 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     setView(next: ViewMode) {
       mode = next;
       const { zoom, pitch } = HOME[mode];
-      // Keep looking at the same place; only the camera height and tilt change.
-      map.easeTo({ pitch, bearing: 0, zoom: mode === "closeup" ? Math.max(map.getZoom(), zoom) : Math.min(map.getZoom(), zoom) });
+      // Keep looking at the same place. Going back to the globe view only levels the camera: the
+      // zoom stays where it was.
+      map.easeTo({ pitch, bearing: 0, ...(mode === "closeup" && { zoom: Math.max(map.getZoom(), zoom) }) });
+    },
+
+    // The welcome screen skims the surface with the Earth's curve low on the screen; leaving it
+    // swings a sixth of a turn round to the whole globe. MapLibre jumps instead for reduced motion.
+    // About the globe's radius on screen in the whole-Earth view, in pixels (it varies a little
+    // with the window size), for planning a path round it.
+    roughRadius: (0.85 * 512 * 2 ** HOME.globe.zoom) / (2 * Math.PI * Math.cos((HOME.globe.center[1] * Math.PI) / 180)),
+
+    welcome(on: boolean, duration: number) {
+      popup.remove();
+      mode = "globe";
+      const lng = map.getCenter().lng;
+      if (on) map.easeTo({ ...HOME.closeup, center: [lng, 20], padding: { top: map.getContainer().clientHeight * WELCOME_DROP }, duration });
+      else map.easeTo({ ...HOME.globe, center: [lng - 60, 20], padding: { top: 0 }, duration });
     },
 
     async setTexture(next: Texture) {
@@ -350,13 +382,6 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async keepOverlays(areaIds: string[]) {
       await ready;
       for (const id of [...overlays]) if (!areaIds.includes(id)) await this.showOverlay(id, undefined, new URL(location.href), 1);
-    },
-
-    // For the zoom slider: read the zoom, set it, and hear about every change.
-    zoom: {
-      get: () => map.getZoom(),
-      set: (z: number) => map.setZoom(z),
-      onChange: (heard: (z: number) => void) => void map.on("zoom", () => heard(map.getZoom())),
     },
 
     // View wheel tools. Drag tools take the pointer movement in pixels.

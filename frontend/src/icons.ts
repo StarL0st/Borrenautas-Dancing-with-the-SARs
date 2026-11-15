@@ -23,6 +23,10 @@ const P: Record<string, string> = {
   glaciers: "M2 20.5 9 7l3.2 5.5 2-3.2 7.8 11.2ZM7.2 10.6 9 7.2l2 3.6-1 .9-1-1-1 1Z",
   forecast: "M12 3a7 7 0 0 1 4.6 12.3L18 18.5H6l1.4-3.2A7 7 0 0 1 12 3ZM5 19.8h14V22H5Z",
   "sea-ice": "M2 15 6 11h5l2 2h5l4 2v3H2Z",
+  // Polar types (drawn on the frontend branch; jopa-testing had left them out)
+  "ice-sheets": "M3 14 7 6h9l5 8ZM2 16h20v3H2Z",
+  permafrost: "M2 5h20v4H2ZM2 11h20v4H2ZM2 17h20v4H2Z",
+  "glacial-lakes": "M3 13 9 4l4 6 2-2 6 5ZM2 15h20v2H2ZM4 19h16v2H4Z",
   // Caused by humans
   "induced-seismicity": "M10 2h4l4.2 18H20v2H4v-2h1.8ZM11.2 6h1.6l1.4 6.5H9.8Z",
   "oil-spills":

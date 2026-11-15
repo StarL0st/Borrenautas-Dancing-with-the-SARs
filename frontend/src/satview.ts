@@ -1,6 +1,5 @@
 // Satellite pictures of a zone "now" and "before", from NASA GIBS (Global Imagery Browse
-// Services): public, no key, CORS-enabled WMS. SPHEREx observes the sky, not the Earth, so the
-// pictures come from Earth-observing satellites instead.
+// Services): public, no key, CORS-enabled WMS. Taken from the `jopa-testing` branch.
 //
 // A satellite does not see every place every day (HLS: every 2-3 days) and clouds hide many
 // passes, so `findClear` walks back day by day, checks a tiny thumbnail and keeps the first

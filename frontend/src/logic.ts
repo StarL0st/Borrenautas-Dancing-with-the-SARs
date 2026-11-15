@@ -169,7 +169,8 @@ export type LiveFeature = {
   properties: {
     id: string; source: string; source_name: string; credit: string; category: string;
     title: string; place?: string; date: string; detail: string; url: string; lon: number; lat: number;
-    severity?: number; // 0 minor .. 3 most dangerous (livefeeds.py); older files have none
+    severity?: number; // 0 minor .. 3 most dangerous
+    active?: boolean; // its source still lists it as going on (set by livefeeds.ts)
   };
 };
 
@@ -215,5 +216,21 @@ export function ago(date: string, now: number): [number, "minute" | "hour" | "da
 }
 
 export const SOURCE_SHORT: Record<string, string> = {
-  usgs: "USGS", eonet: "NASA EONET", gdacs: "GDACS", nhc: "NOAA NHC", firms: "NASA FIRMS",
+  usgs: "USGS", eonet: "NASA EONET", gdacs: "GDACS", nhc: "NOAA NHC", firms: "NASA FIRMS", nws: "NOAA NWS", volcano: "USGS Volcanoes",
 };
+
+// ---- Country filter ----
+
+const inRing = (x: number, y: number, ring: number[][]) => {
+  let hit = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+};
+// Is the point inside the country? `polys` is a list of polygons, each an outer ring and its holes.
+// shortcut: outlines are Natural Earth 1:110m, so a point just off the coast counts as outside
+// and the smallest countries are missing; switch to the 1:50m file if that matters.
+export const inside = (lon: number, lat: number, polys: number[][][][]) =>
+  polys.some(([outer, ...holes]) => inRing(lon, lat, outer) && !holes.some((h) => inRing(lon, lat, h)));
