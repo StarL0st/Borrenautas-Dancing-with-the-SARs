@@ -8,6 +8,10 @@ import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./
 import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
+import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
+import { topicsFor, TOPICS } from "./explain";
+import { explainer } from "./explain-view";
+import { DECISIONS, type Decision } from "./decisions";
 import {
   HISTORY, mostDestructive, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
 } from "./mexico";
@@ -16,7 +20,9 @@ import {
   ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
-import { findClear, isoDay, SAT_LAYERS, type Found } from "./satview";
+import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
+import { comparator, newCompareState, type CompareState } from "./compare";
+import { opticalDecode, radarDecode, subBox } from "./compare-core";
 import { collectLive, LIVE_MINUTES, recent } from "./livefeeds";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
@@ -333,6 +339,7 @@ function card(a: AreaView) {
       "li",
       {},
       el("time", { dateTime: e.date }, e.date),
+      originBadge("nisar", "", "", { compact: true, synthetic: a.synthetic }),
       el("strong", {}, e.title ?? t("timeline.pass")),
       el(
         "p",
@@ -355,8 +362,11 @@ function card(a: AreaView) {
       el("button", { type: "button", onclick: () => toggle(a.id) }, t("card.close")),
     ),
     tags,
+    originKey(a.layers.length ? ["nisar", "satellite", "record"] : ["satellite", "record"]),
     el("p", {}, a.summary),
     ...radarSection(a),
+    whySection(a),
+    ...radarCompare(a),
     satSection(a),
     simple() ? el("div") : chartSection(a),
     // "What changed": the zone's notes (including plants and animals), then the detected changes.
@@ -367,6 +377,7 @@ function card(a: AreaView) {
     ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
     ...historySection(a),
+    el("p", {}, el("button", { type: "button", className: "link", onclick: () => openSheet("decisions") }, t("card.decisions"))),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
   );
   box.ontoggle = () => (box.open ? collapsed.delete(a.id) : collapsed.add(a.id));
@@ -374,7 +385,7 @@ function card(a: AreaView) {
 }
 
 function radarSection(a: AreaView): Node[] {
-  if (!a.layers.length) return [el("h4", {}, t("card.radar")), el("p", { className: "muted" }, t("card.noradar"))];
+  if (!a.layers.length) return [el("h4", {}, t("card.radar")), el("p", { className: "note" }, originBadge("nisar"), " ", t("origin.nonisar"))];
 
   const pols = polarizations(a.layers);
   const v = views.get(a.id) ?? { pol: pols[0], date: "", opacity: 1 };
@@ -429,6 +440,162 @@ function radarSection(a: AreaView): Node[] {
   ];
 }
 
+// ---- Why the radar sees changes (explain.ts) and the decision log (decisions.ts) ----
+
+// In each card: the ideas behind this area's kind of change, folded until asked for.
+function whySection(a: AreaView): Node {
+  const box = el("details", { className: "why" }, el("summary", {}, t("why.here")));
+  // Built on first opening: the drawings are not needed until then.
+  box.ontoggle = () => {
+    if (!box.open || box.childElementCount > 1) return;
+    box.append(
+      el("p", { className: "muted" }, t("why.intro")),
+      explainer(topicsFor(a.types), lang()),
+      el("button", { type: "button", className: "link", onclick: () => openSheet("explain") }, t("why.all")),
+    );
+  };
+  return box;
+}
+
+const sheet = $<HTMLDialogElement>("sheet");
+let decisionKind: Decision["kind"] | "all" = "all";
+
+function decisionItem(d: Decision): HTMLElement {
+  const row = (key: Key, text: string) => [el("dt", {}, t(key)), el("dd", {}, text)];
+  return el(
+    "article",
+    { className: "decision", id: `decision-${d.id}` },
+    el("p", { className: "muted" }, el("time", { dateTime: d.date }, d.date), " · ", el("span", { className: `tag k-${d.kind}` }, t(`dec.kind.${d.kind}` as Key))),
+    el("h3", {}, tx(d.title, lang())),
+    el(
+      "dl",
+      {},
+      ...row("dec.chose", tx(d.chose, lang())),
+      ...row("dec.why", tx(d.why, lang())),
+      ...row("dec.instead", tx(d.instead, lang())),
+      ...row("dec.tradeoff", tx(d.tradeoff, lang())),
+    ),
+  );
+}
+
+function decisionsBody(): Node[] {
+  const list = el("div", { className: "decisions" });
+  const show = () =>
+    list.replaceChildren(
+      ...DECISIONS.filter((d) => decisionKind === "all" || d.kind === decisionKind)
+        .sort((x, y) => y.date.localeCompare(x.date))
+        .map(decisionItem),
+    );
+  const kinds = ["all", "data", "method", "design"] as const;
+  const chips = el("div", { className: "seg" });
+  chips.setAttribute("role", "radiogroup");
+  chips.setAttribute("aria-label", t("btn.decisions"));
+  for (const k of kinds) {
+    const input = el("input", { type: "radio", name: "dec-kind", value: k, id: `dec-${k}`, checked: k === decisionKind });
+    input.onchange = () => {
+      decisionKind = k;
+      show();
+    };
+    chips.append(el("label", {}, input, el("span", {}, k === "all" ? t("dec.all") : t(`dec.kind.${k}` as Key))));
+  }
+  show();
+  return [el("p", { className: "muted" }, t("dec.intro")), chips, list];
+}
+
+function openSheet(kind: "explain" | "decisions") {
+  const title = el("h2", { id: "sheet-title" }, t(kind === "explain" ? "why.title" : "btn.decisions"));
+  const close = el("button", { type: "button", onclick: () => sheet.close() }, t("dialog.close"));
+  const body = kind === "explain"
+    ? [el("p", { className: "muted" }, t("why.intro")), explainer(TOPICS.map((x) => x.id), lang())]
+    : decisionsBody();
+  sheet.replaceChildren(el("div", { className: "settings-head" }, title, close), el("div", { className: "sheet-body" }, ...body));
+  if (!sheet.open) sheet.showModal();
+  close.focus();
+}
+// A click on the backdrop closes it. (Braces: an onclick that returns false would cancel every
+// click inside the dialog.)
+sheet.onclick = (e) => {
+  if (e.target === sheet) sheet.close();
+};
+$("explain-btn").onclick = () => openSheet("explain");
+$("decisions-btn").onclick = () => openSheet("decisions");
+
+// ---- Before/after comparator on NISAR radar pictures (compare.ts) ----
+
+const radarCmp = new Map<string, { group: string; before: string; after: string; view: CompareState }>();
+const PLANT_TYPES = ["deforestation", "logging", "wildfires", "agriculture"];
+
+function radarCompare(a: AreaView): Node[] {
+  // Only the plain backscatter pictures: their gray levels map back to dB (value_range).
+  const isPicture = (l: Layer) => l.role === "backscatter" && l.colormap === "gray" && !!l.value_range;
+  const groups = polarizations(a.layers.filter(isPicture));
+  if (!groups.length) return [];
+  // HV answers to plants, HH to water and buildings: start with the one the area is about.
+  const first = groups.includes("HV backscatter") && a.types.some((x) => PLANT_TYPES.includes(x)) ? "HV backscatter" : groups[0];
+  const st = radarCmp.get(a.id) ?? { group: first, before: "", after: "", view: newCompareState("radar") };
+  radarCmp.set(a.id, st);
+  if (!groups.includes(st.group)) st.group = first;
+
+  const head = [el("h4", {}, t("cmp.title")), el("p", {}, originBadge("nisar", "", t("origin.taken", { date: when(radarSpan(a)) }), { synthetic: a.synthetic }))];
+  const holder = el("div");
+  const groupSel = el("select", { id: `cmp-group-${a.id}` }, ...groups.map((g) => el("option", { value: g, selected: g === st.group }, g)));
+  const beforeSel = el("select", { id: `cmp-before-${a.id}` });
+  const afterSel = el("select", { id: `cmp-after-${a.id}` });
+
+  const build = () => {
+    const dates = datesFor(a.layers.filter(isPicture), st.group);
+    if (dates.length < 2) {
+      holder.replaceChildren(el("p", { className: "muted" }, t("cmp.nodates")));
+      return;
+    }
+    if (!dates.includes(st.before)) st.before = dates[0];
+    if (!dates.includes(st.after) || st.after <= st.before) st.after = dates.at(-1)!;
+    beforeSel.replaceChildren(...dates.slice(0, -1).map((d) => el("option", { value: d, selected: d === st.before }, d)));
+    afterSel.replaceChildren(...dates.filter((d) => d > st.before).map((d) => el("option", { value: d, selected: d === st.after }, d)));
+    const lb = layerAt(a.layers, st.group, st.before)!, la = layerAt(a.layers, st.group, st.after)!;
+    const what = (l: Layer) => `${l.product} ${l.polarization ?? ""} · ${l.maturity}`;
+    holder.replaceChildren(
+      ...(lb.maturity !== la.maturity ? [el("p", { className: "note" }, t("cmp.maturity", { a: lb.maturity, b: la.maturity }))] : []),
+      comparator({
+        id: `radar-${a.id}`, kind: "radar", state: st.view, technical: !simple(),
+        before: { url: new URL(lb.url, BASE).href, date: st.before, decode: radarDecode(...lb.value_range!) },
+        after: { url: new URL(la.url, BASE).href, date: st.after, decode: radarDecode(...la.value_range!) },
+        origin: [
+          originBadge("nisar", what(lb), `${t("cmp.before")}: ${t("origin.taken", { date: st.before })}`, { synthetic: lb.synthetic }),
+          " ",
+          originBadge("nisar", what(la), `${t("cmp.after")}: ${t("origin.taken", { date: st.after })}`, { synthetic: la.synthetic }),
+        ],
+      }),
+    );
+  };
+  groupSel.onchange = () => {
+    st.group = groupSel.value;
+    build();
+  };
+  beforeSel.onchange = () => {
+    st.before = beforeSel.value;
+    build();
+  };
+  afterSel.onchange = () => {
+    st.after = afterSel.value;
+    build();
+  };
+  build();
+  // Simple mode compares the first and the latest pass of the most telling picture.
+  if (simple()) return [...head, holder];
+  return [
+    ...head,
+    el(
+      "div",
+      { className: "cmp-pick" },
+      el("label", { htmlFor: groupSel.id }, t("cmp.layer"), groupSel),
+      el("label", { htmlFor: beforeSel.id }, t("cmp.before"), beforeSel),
+      el("label", { htmlFor: afterSel.id }, t("cmp.after"), afterSel),
+    ),
+    holder,
+  ];
+}
+
 // The colors the back end paints into its images (backend/src/sars_pipeline/site.py and
 // categorize.py). Keep in step with the back end.
 // Color bars run from the low end of `value_range` to the high end.
@@ -451,7 +618,11 @@ const CLASSES: Record<string, [string, Key][]> = {
 };
 
 function layerInfo(l: Layer): Node[] {
-  const out: Node[] = [el("p", {}, l.description)];
+  const what = [l.product === "derived" ? l.group : `${l.product} ${l.group ?? l.polarization ?? ""}`, l.maturity].filter(Boolean).join(" · ");
+  const out: Node[] = [
+    el("p", {}, originBadge("nisar", what, t("origin.taken", { date: when(l.date_range ?? l.date) }), { synthetic: l.synthetic })),
+    el("p", {}, l.description),
+  ];
   const classes = l.colormap === "classes" && CLASSES[l.group ?? ""];
   if (classes) {
     out.push(
@@ -528,6 +699,12 @@ function loadSeries(a: AreaView) {
   return pending;
 }
 
+// First and last date over every line of every chart.
+function seriesSpan(groups: [string, Series[]][]): [string, string] | undefined {
+  const dates = groups.flatMap(([, ss]) => ss.flatMap((x) => x.points.map((p) => p.date))).sort();
+  return dates.length ? [dates[0], dates.at(-1)!] : undefined;
+}
+
 function chartSection(a: AreaView): Node {
   const box = el("div");
   if (a.series.length) {
@@ -535,6 +712,7 @@ function chartSection(a: AreaView): Node {
       if (!groups.length) return;
       box.replaceChildren(
         el("h4", {}, t("chart.title")),
+        el("p", {}, originBadge("nisar", "", t("origin.taken", { date: when(seriesSpan(groups)) }), { synthetic: a.synthetic })),
         ...groups.map(([units, series]) => chart(series, { caption: t("chart.caption", { units }), table: t("chart.table"), date: t("chart.date"), units })),
       );
     });
@@ -558,12 +736,21 @@ function simpleArea(a: AreaView): Node {
     el("strong", {}, a.title),
     el("p", {}, ...a.types.map((id) => el("span", { className: "tag" }, shortLabel(id)))),
     el("p", {}, a.summary),
+    a.layers.length
+      ? el("p", {}, originBadge("nisar", "", t("origin.taken", { date: when(radarSpan(a)) }), { synthetic: a.synthetic }))
+      : el("p", { className: "muted" }, t("origin.nonisar")),
     ...(note ? [el("p", { className: "muted" }, tx(note.changes, lang()))] : []),
     el("p", {}, more),
   );
 }
 
 const lang = () => settings.lang;
+
+// First and last date of the area's radar pictures.
+function radarSpan(a: AreaView): [string, string] | undefined {
+  const dates = a.layers.flatMap((l) => l.date_range ?? (l.date ? [l.date] : [])).sort();
+  return dates.length ? [dates[0], dates.at(-1)!] : undefined;
+}
 
 // Source names, linked when there is a link. Built as nodes, never HTML.
 function sourceList(sources: Source[]): Node {
@@ -590,6 +777,7 @@ function changesSection(a: AreaView, heading: boolean): Node[] {
   if (!note) return [];
   return [
     ...(heading ? [el("h4", {}, t("zone.changes"))] : []),
+    el("p", {}, originBadge("record", "", t("origin.checked", { date: RECORDS_CHECKED }))),
     el("p", {}, tx(note.changes, lang())),
     el("h5", {}, t("zone.nature")),
     el("p", {}, tx(note.nature, lang())),
@@ -604,7 +792,8 @@ function historyPopup(e: HistoryEvent): Node {
     "div",
     { className: "event-popup" },
     el("strong", {}, tx(e.title, lang())),
-    el("p", { className: "muted" }, `${e.date} · ${shortLabel(e.type)} · ${sevLabel(e.severity)}`),
+    el("p", {}, originBadge("record", shortLabel(e.type), e.date)),
+    el("p", { className: "muted" }, sevLabel(e.severity)),
     el("p", {}, tx(e.impact, lang())),
     sourceList(e.sources),
   );
@@ -645,15 +834,26 @@ function historySection(a: AreaView): Node[] {
     strip.append(mark);
   });
   const axis = el("div", { className: "years-axis" }, el("span", {}, String(first)), el("span", {}, String(last)));
-  return [head, strip, axis, el("ol", { className: "timeline history" }, ...items.map((d) => el("li", {}, d)))];
+  const origin = el("p", {}, originBadge("record", "", t("origin.checked", { date: RECORDS_CHECKED })));
+  return [head, origin, strip, axis, el("ol", { className: "timeline history" }, ...items.map((d) => el("li", {}, d)))];
 }
 
-// Satellite view: "now" and "before" pictures from NASA GIBS with a swipe to compare. Searches are
-// Satellite view (from the `jopa-testing` branch): "now" and "before" pictures from NASA GIBS with a swipe to compare. Searches are
+// Satellite view (from the `jopa-testing` branch): "now" and "before" pictures from NASA GIBS in the
+// before/after comparator (compare.ts). Searches are
 // cached, because the cards are rebuilt on every filter change.
 const MONTHS = [1, 3, 6, 12, 24, 60, 120];
 const satViews = new Map<string, { layer: string; ago: number; swipe: number }>();
 const satCache = new Map<string, Promise<Found | undefined>>();
+const satCompare = new Map<string, CompareState>(); // zoom, divider and threshold per area
+
+// Which satellite a GIBS layer is, in a few words.
+const gibsName = (layer: string) =>
+  layer.startsWith("HLS_S30") ? "HLS · Sentinel-2 · 30 m"
+  : layer.startsWith("HLS_L30") ? "HLS · Landsat 8/9 · 30 m"
+  : layer.startsWith("VIIRS_NOAA20") ? "VIIRS · NOAA-20 · 375 m"
+  : layer.includes("NDVI") ? "MODIS Terra · NDVI · 250 m"
+  : layer.startsWith("MODIS") ? "MODIS Terra · 7-2-1 · 250 m"
+  : layer;
 
 function satFind(layerId: string, bbox: AreaView["bbox"], from: Date): Promise<Found | undefined> {
   const layer = SAT_LAYERS.find((l) => l.id === layerId) ?? SAT_LAYERS[0];
@@ -673,17 +873,7 @@ function satSection(a: AreaView): Node {
   const layerId = () => (simple() ? (wide ? "viirs" : "hls") : v.layer);
 
   const status = el("p", { className: "muted" });
-  const after = el("img", { className: "sat-now", alt: "" });
-  const before = el("img", { className: "sat-before", alt: "" });
-  const swipe = el("input", { type: "range", min: "0", max: "100", step: "1", value: String(v.swipe), className: "swipe" });
-  swipe.setAttribute("aria-label", t("sat.swipe"));
-  const frame = el("div", { className: "compare" }, after, before, el("span", { className: "tag-now" }, t("sat.now")), el("span", { className: "tag-before" }, t("sat.before")), swipe);
-  frame.hidden = true;
-  const setSwipe = () => frame.style.setProperty("--x", `${(v.swipe = +swipe.value)}%`);
-  swipe.oninput = setSwipe;
-  setSwipe();
-  const credit = el("p", { className: "muted sources" });
-
+  const holder = el("div"); // the comparator, once both pictures are found
   const agoOut = el("output");
   const ago = el("input", { type: "range", id: `sat-ago-${a.id}`, min: "0", max: String(MONTHS.length - 1), step: "1", value: String(v.ago) });
   const select = el("select", { id: `sat-layer-${a.id}` }, ...SAT_LAYERS.map((l) => el("option", { value: l.id, selected: l.id === v.layer }, t(`sat.layer.${l.id}` as Key))));
@@ -696,8 +886,7 @@ function satSection(a: AreaView): Node {
   const load = () => {
     const mine = ++run;
     label();
-    frame.hidden = true;
-    credit.textContent = "";
+    holder.replaceChildren();
     status.textContent = t("sat.finding");
     const today = new Date(Date.now() - 86400000); // GIBS publishes about a day late
     const then = new Date(today.getTime() - MONTHS[+ago.value] * 30.44 * 86400000);
@@ -710,13 +899,24 @@ function satSection(a: AreaView): Node {
         status.textContent = t("sat.none", { n: id === "hls" ? 60 : 12 });
         return;
       }
-      after.src = now.url;
-      before.src = old.url;
-      after.alt = `${t("sat.now")}: ${now.date}`;
-      before.alt = `${t("sat.before")}: ${old.date}`;
-      status.textContent = t("sat.swipe");
-      frame.hidden = false;
-      credit.textContent = `${t("sat.credit", { layer: now.layer, date: now.date })} ${t("sat.credit", { layer: old.layer, date: old.date })}`;
+      status.textContent = "";
+      const layer = SAT_LAYERS.find((l) => l.layers.includes(now.layer)) ?? SAT_LAYERS[0];
+      const box = viewBox(a.bbox, layer);
+      const state = satCompare.get(a.id) ?? newCompareState("optical");
+      satCompare.set(a.id, state);
+      holder.replaceChildren(
+        comparator({
+          id: `sat-${a.id}`, kind: "optical", state, technical: !simple(),
+          before: { url: old.url, date: old.date, decode: opticalDecode },
+          after: { url: now.url, date: now.date, decode: opticalDecode },
+          sharper: (rect) => ({ before: gibsUrl(old.layer, subBox(box, rect), old.date, 640), after: gibsUrl(now.layer, subBox(box, rect), now.date, 640) }),
+          origin: [
+            originBadge("satellite", `NASA GIBS · ${gibsName(old.layer)}`, `${t("cmp.before")}: ${t("origin.taken", { date: old.date })}`),
+            " ",
+            originBadge("satellite", `NASA GIBS · ${gibsName(now.layer)}`, `${t("cmp.after")}: ${t("origin.taken", { date: now.date })}`),
+          ],
+        }),
+      );
     });
   };
   ago.oninput = label; // the label follows the thumb; the search waits for the release
@@ -737,8 +937,7 @@ function satSection(a: AreaView): Node {
     el("label", { htmlFor: ago.id }, t("sat.ago"), " ", agoOut),
     ago,
     status,
-    frame,
-    credit,
+    holder,
     el("p", { className: "muted small" }, t("sat.note")),
   );
 }
@@ -749,7 +948,7 @@ const recentList = $("recent-list");
 const RECENT_SINCE = 2015;
 
 function renderRecent() {
-  $("recent-note").textContent = t("recent.since", { year: RECENT_SINCE });
+  $("recent-note").replaceChildren(originBadge("record", "", t("origin.checked", { date: RECORDS_CHECKED })), " ", t("recent.since", { year: RECENT_SINCE }));
   // The type filters apply here too, so ticking off "Earthquakes" hides quakes everywhere.
   const shown = mostDestructive(HISTORY.filter((e) => !isType(e.type) || ticked.has(e.type)), RECENT_SINCE, simple() ? 5 : 8);
   recentList.replaceChildren(
@@ -854,6 +1053,7 @@ function renderLiveList() {
 }
 
 function showLiveStatus() {
+  $("live-origin").replaceChildren(originBadge("feed", "USGS · NASA EONET · GDACS · NOAA"), " ", t("live.notnisar"));
   liveStatus.textContent = liveUpdated
     ? [
         t("live.status", { n: liveEvents.length, time: new Date(liveUpdated).toLocaleString(settings.lang, { dateStyle: "short", timeStyle: "short" }) }),

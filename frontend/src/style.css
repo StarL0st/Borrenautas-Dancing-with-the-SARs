@@ -511,3 +511,111 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
   .settings-body { grid-template-columns: 1fr; }
   .settings-help { border-left: 0; border-top: 1px solid var(--line); }
 }
+
+/* ---- jopa-testing: data origins, comparator, radar explainer, decision log ---- */
+
+/* Origin badges: shape + name, never color alone. NISAR is a diamond, other satellites a circle,
+   live reports a triangle, published records a square. */
+.origin {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 0 6px 4px 0; padding: 1px 8px 1px 6px;
+  border: 1px solid var(--line); border-left: 3px solid var(--c); border-radius: 4px;
+  font-size: 0.82rem; line-height: 1.5; color: var(--muted); background: var(--raised);
+}
+.origin b { color: var(--text); font-weight: 600; }
+.origin em { font-style: normal; color: var(--ink); background: var(--accent); padding: 0 5px; border-radius: 3px; }
+.origin .shape { display: inline-block; width: 9px; height: 9px; background: var(--c); flex: none; }
+.o-nisar { --c: #56b4e9; }
+.o-nisar .shape { transform: rotate(45deg) scale(0.85); }
+.o-satellite { --c: #009e73; }
+.o-satellite .shape { border-radius: 50%; }
+.o-feed { --c: #e69f00; }
+.o-feed .shape { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.o-record { --c: #cc79a7; }
+.origin.compact { padding: 0 6px 0 4px; font-size: 0.76rem; }
+.origin-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; margin: 4px 0 8px; }
+.origin-key > .muted { margin-right: 8px; font-size: 0.82rem; }
+.origin-line { margin-top: 6px; }
+.timeline .origin.compact { margin-left: 6px; vertical-align: 1px; }
+.note { padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--raised); font-size: 0.9rem; }
+
+/* Comparator */
+.cmp { margin-top: 6px; }
+.cmp-frame {
+  position: relative; display: grid; overflow: hidden; margin-top: 6px;
+  border: 1px solid var(--line); border-radius: 4px; background: #000;
+  cursor: ew-resize; touch-action: none; user-select: none;
+}
+.cmp-frame.zoomed { cursor: grab; }
+.cmp-frame.zoomed:active { cursor: grabbing; }
+.cmp-frame[hidden] { display: none; }
+.cmp-frame canvas { grid-area: 1 / 1; display: block; width: 100%; height: auto; }
+.cmp-frame .cmp-before { clip-path: inset(0 calc(100% - var(--x, 50%)) 0 0); }
+.cmp-frame .cmp-marks { pointer-events: none; }
+.cmp-line { position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: var(--text); box-shadow: 0 0 4px #000; pointer-events: none; }
+.cmp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.cmp-row .icon-btn { width: 30px; padding: 2px 0; font-size: 1.1rem; line-height: 1; }
+.cmp-zoom { min-width: 3ch; font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+.cmp-swipe { display: flex; align-items: center; gap: 6px; flex: 1 1 160px; margin: 0; }
+.cmp-swipe input { flex: 1; }
+.cmp-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; font-size: 0.85rem; }
+.cmp-legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.cmp-legend .sw.up { background: rgb(86 180 233); }
+.cmp-legend .sw.down { background: rgb(213 94 0); margin-left: 8px; }
+.cmp-legend[hidden] { display: none; }
+.cmp-stats { margin: 4px 0; font-weight: 600; }
+.cmp-stats:empty { display: none; }
+.cmp-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.cmp-pick label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--muted); }
+
+/* Radar explainer */
+details.why { margin: 10px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; }
+details.why > summary { font-weight: 600; }
+.why-list { display: grid; gap: 10px; margin-top: 8px; }
+.sheet .why-list { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.why-card { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: start; margin: 0; }
+.why-card p { margin: 4px 0 0; }
+.why-looks { color: var(--muted); font-size: 0.88rem; }
+.why-art { width: 120px; height: auto; border-radius: 4px; background: #02101c; }
+.why-art .sat { fill: var(--muted); }
+.why-art .panel { fill: #56b4e9; }
+.why-art .ground { fill: #6b5a3e; }
+.why-art .ground.wet { fill: #3e4a3a; }
+.why-art .water { fill: #1f5f8b; }
+.why-art .building { fill: #8a8f98; }
+.why-art .trunk { stroke: #6b5a3e; stroke-width: 4; fill: none; }
+.why-art .canopy { fill: #2e7d4f; }
+.why-art .drop { fill: #56b4e9; }
+.why-art .beam { stroke: #e69f00; stroke-width: 2; fill: none; stroke-dasharray: 4 3; }
+.why-art .echo { stroke: #fefdff; stroke-width: 2; fill: none; }
+.why-art .echo.faint { stroke-opacity: 0.4; stroke-width: 1.2; }
+.why-art .echo.away { stroke-opacity: 0.6; stroke-dasharray: 2 3; }
+.why-art .echo.thick { stroke-width: 4; }
+.why-art .ground-line { stroke: #6b5a3e; stroke-width: 3; }
+.why-art .ground-line.later { stroke-dasharray: 5 3; stroke: #a08660; }
+.why-art .wave { stroke: #56b4e9; stroke-width: 1.5; fill: none; }
+.why-art .wave.later { stroke: #cc79a7; }
+.why-art .rain { stroke: #56b4e9; stroke-width: 1.5; }
+
+/* Explainer and decision log dialog (same frame as the accessibility menu) */
+.sheet {
+  width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 16px 50px #000c;
+}
+.sheet[open] { transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out); @starting-style { opacity: 0; scale: var(--press); } }
+.sheet::backdrop { background: #000000b3; }
+.sheet-body { padding: 12px 16px 16px; }
+.sheet .seg { margin: 8px 0 12px; max-width: 420px; }
+.decisions { display: grid; gap: 10px; }
+.decision { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--raised); }
+.decision h3 { margin: 2px 0 6px; color: var(--text); font-size: 1.05rem; }
+.decision p { margin: 0; }
+.decision dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+.decision dt { color: var(--muted); font-size: 0.88rem; }
+.decision dd { margin: 0; }
+.decision .tag { margin: 0; }
+@media (max-width: 600px) {
+  .why-card { grid-template-columns: 1fr; }
+  .decision dl { grid-template-columns: 1fr; }
+  .cmp-pick { grid-template-columns: 1fr; }
+}

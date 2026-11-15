@@ -238,3 +238,58 @@ test("live feeds: more than earthquakes (other USGS kinds, weather alerts, volca
   const v = parseVolcanoes({ features: [volcano("Great Sitkin", "WATCH"), volcano("Adagdak", "UNASSIGNED"), volcano("Spurr", "NORMAL")] });
   assert.deepEqual(v.map((f) => [f.properties.title, f.properties.date, f.properties.severity, f.properties.detail]), [["Great Sitkin volcano: alert level WATCH", "2026-11-13", 2, "Lava continues to erupt."]]);
 });
+
+// ---- jopa-testing: comparator, radar explainer, decision log ----
+
+import { changeMap, opticalDecode, pctToDb, radarDecode, relChange, subBox, viewRect } from "../src/compare-core.ts";
+import { TOPICS, topicsFor } from "../src/explain.ts";
+import { DECISIONS } from "../src/decisions.ts";
+
+test("comparator: change is relative, the same both ways, and 50% is 3 dB", () => {
+  assert.equal(relChange(100, 50), -0.5);
+  assert.equal(relChange(50, 100), 0.5);
+  assert.equal(relChange(0, 0), 0);
+  assert.ok(Math.abs(pctToDb(0.5) - 3.01) < 0.01);
+  // A radar gray PNG stretched over -20..0 dB: 255 is 0 dB (power 1), 0 is -20 dB (power 0.01).
+  const dec = radarDecode(-20, 0);
+  assert.ok(Math.abs(dec(255) - 1) < 1e-9 && Math.abs(dec(0) - 0.01) < 1e-9);
+});
+
+test("comparator: marks brighter and darker pixels past the threshold, skips missing ones", () => {
+  const w = 6, h = 1;
+  const px = (vals: number[], alpha = 255) => new Uint8ClampedArray(vals.flatMap((v) => [v, v, v, alpha]));
+  const before = px([100, 100, 100, 100, 100, 100]);
+  const after = px([100, 100, 100, 200, 200, 200]);
+  const { codes, stats } = changeMap(before, after, w, h, opticalDecode, opticalDecode, 0.3);
+  // The 3x3 average blurs the edge: the last unchanged pixel averages to 133 against 100, a 25%
+  // change, under the 30% threshold; the first changed one averages to 167, 40%.
+  assert.deepEqual([...codes], [0, 0, 0, 1, 1, 1]);
+  assert.deepEqual(stats, { valid: 6, brighter: 3, darker: 0 });
+  const half = changeMap(before, px([100, 100, 100, 200, 200, 200], 0), w, h, opticalDecode, opticalDecode, 0.3);
+  assert.equal(half.stats.valid, 0, "transparent pixels are no data");
+  // Two radar pictures with different stretches: the same gray can be a different echo.
+  const same = changeMap(px([128]), px([128]), 1, 1, radarDecode(-20, 0), radarDecode(-14, 6), 0.5);
+  assert.deepEqual(same.stats, { valid: 1, brighter: 1, darker: 0 });
+});
+
+test("comparator: the zoomed view stays inside the picture and maps back to lon/lat", () => {
+  assert.deepEqual(viewRect(1, 0.9, 0.1), [0, 0, 1, 1]);
+  assert.deepEqual(viewRect(2, 0.9, 0.1), [0.5, 0, 1, 0.5]);
+  assert.deepEqual(subBox([-100, 10, -90, 20], [0.5, 0, 1, 0.5]), [-95, 15, -90, 20]);
+});
+
+test("radar explainer: every area gets the basics, its own ideas and the caveats", () => {
+  assert.deepEqual(topicsFor(["floods"]), ["basics", "water", "structure", "fooled"]);
+  assert.deepEqual(topicsFor(["subsidence", "groundwater"]), ["basics", "motion", "fooled"]);
+  assert.deepEqual(topicsFor([]), ["basics", "water", "plants", "fooled"]);
+  for (const id of topicsFor(["floods", "deforestation", "drought", "subsidence"])) assert.ok(TOPICS.some((x) => x.id === id), id);
+  for (const x of TOPICS) assert.ok(x.title.es && x.text.es && x.looks.es && x.text.en, x.id);
+});
+
+test("decision log: unique ids, real dates, every field in English and Spanish", () => {
+  assert.equal(new Set(DECISIONS.map((d) => d.id)).size, DECISIONS.length);
+  for (const d of DECISIONS) {
+    assert.match(d.date, /^\d{4}-\d{2}-\d{2}$/);
+    for (const f of [d.title, d.chose, d.why, d.instead, d.tradeoff]) assert.ok(f.en && f.es, d.id);
+  }
+});

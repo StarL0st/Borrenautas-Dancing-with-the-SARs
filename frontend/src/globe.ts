@@ -7,6 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
 import { typeLabel } from "./filters";
 import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
+import { originBadge, when } from "./origin";
 import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
@@ -205,6 +206,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
+          el("p", {}, originBadge("nisar", p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
           el(
             "p",
             { className: "muted" },
@@ -219,6 +221,12 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       .addTo(map);
   }
 
+  // "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.
+  const exact = (date: string) => {
+    const ms = Date.parse(date);
+    return /T/.test(date) && Number.isFinite(ms) ? `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : date;
+  };
+
   // Live events name their source and link to it; text is set as text, never as HTML.
   function showLive(p: LiveFeature["properties"], at: { lng: number; lat: number }) {
     const link = /^https?:\/\//.test(p.url)
@@ -232,7 +240,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           { className: "event-popup" },
           el("strong", {}, p.title),
           el("p", {}, liveWhere(p)),
-          el("p", { className: "muted" }, `${p.date} · ${typeLabel(p.category)}`),
+          el("p", {}, originBadge("feed", p.source_name || p.source, t("origin.reported", { date: exact(p.date) }))),
+          el("p", { className: "muted" }, typeLabel(p.category)),
           p.detail ? el("p", {}, p.detail) : "",
           el("p", { className: "muted" }, t("live.source", { source: p.credit })),
           link ?? "",

@@ -14,6 +14,8 @@
     <header>
       <h1>G.I.G.A.S</h1>
       <button type="button" id="tour-btn" data-i18n="btn.tutorial"></button>
+      <button type="button" id="explain-btn" data-i18n="btn.explain"></button>
+      <button type="button" id="decisions-btn" data-i18n="btn.decisions"></button>
       <div id="mode" class="mode" role="radiogroup" aria-labelledby="mode-label">
         <span id="mode-label" class="muted" data-i18n="mode.label"></span>
         <div id="mode-seg" class="seg"></div>
@@ -34,6 +36,7 @@
         <div id="filters"></div>
         <h3 data-i18n="h.live"></h3>
         <p class="muted" data-i18n="live.scope"></p>
+        <p id="live-origin" class="muted"></p>
         <label class="check"><input type="checkbox" id="live-toggle" checked /> <span data-i18n="live.toggle"></span></label>
         <p id="live-status" class="muted" role="status"></p>
         <ul id="live-list" data-i18n-label="live.list"></ul>
@@ -82,6 +85,7 @@
       </aside>
     </main>
     <dialog id="settings" aria-labelledby="settings-title"></dialog>
+    <dialog id="sheet" class="sheet" aria-labelledby="sheet-title"></dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
