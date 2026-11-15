@@ -1,4 +1,4 @@
-<img width="1600" height="1200" alt="image" src="https://github.com/user-attachments/assets/5a40a220-48a4-4d7d-8340-e935ea13dc38" /># G.I.G.A.S: Global Interactive Geographical Analytics System
+# G.I.G.A.S: Global Interactive Geographical Analytics System
 
 <p align="center">
   <img src="images/welcome-screen.png" alt="The G.I.G.A.S welcome screen: 'Welcome to G.I.G.A.S' in raised letters and a Start button over the Earth's horizon, with Mexico and its event markers below" width="800">
@@ -880,3 +880,5 @@ G.I.G.A.S is open source under the [GNU Affero General Public License v3.0](LICE
 
 
 <!-- TODO (team): GitHub profile links, and a team photo if you want one. -->
+
+<img width="1600" height="1200" alt="image" src="https://github.com/user-attachments/assets/5a40a220-48a4-4d7d-8340-e935ea13dc38" />
