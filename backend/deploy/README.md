@@ -1,6 +1,6 @@
 # Deploy
 
-One scripted target: **Azure** (`azure.sh`). Run on 2026-11-14 (`vm`, `deploy`, `seed`, `status`); `site` (Cloudflare Pages since 2026-11-14) and `dns` are not run yet. The earlier Google Cloud scripts were removed on 2026-11-14 (git history has them).
+One scripted target: **Azure** (`azure.sh`). Run on 2026-11-14 (`vm`, `deploy`, `seed`, `status`); `site` and `dns` are not run: the site was published from the Cloudflare dashboard instead (https://gigas-project.starl0stgaming.workers.dev). The earlier Google Cloud scripts were removed on 2026-11-14 (git history has them).
 
 ## Design
 
@@ -15,7 +15,7 @@ browser --files (manifest, layers, events, cards, history, live)--> Blob Storage
 | Results | Storage account `<prefix>sars`, container `data` (Blob, locally redundant) | Every file under `data/processed`. Anyone may read a file; nobody may list or write. CORS open for GET. Browsers load the map from here, so visitor load never reaches the VM |
 | Backend | Virtual machine `sars-vm` (Ubuntu 24.04, 2 vCPU / 8 GB, 64 GB disk, 4 GB swap), Docker Compose (`compose.yaml`) | `api`: `serve --jobs --public --watch-hours 12 --live-minutes 5` (place lookup, `/query`, `/history`, `/events`, refresh timers). `sync`: copies results to storage. `caddy`: HTTPS (`Caddyfile`) |
 | Working data | The VM disk, `/opt/sars/data` mounted at `/data` | `selected/`, `interim/` (cached radar windows), `processed/`, `sites.json`; survive rebuilds |
-| Site | Cloudflare Pages project `<prefix>` (free), not Azure: it stays up when the VM or the Azure credit is gone | The frontend, built with `VITE_DATA_BASE=<storage url>` and `VITE_API_BASE=<api url>` |
+| Site | Cloudflare Worker `gigas-project` (static files, free plan; `frontend/wrangler.jsonc`), not Azure: it stays up when the VM or the Azure credit is gone | The frontend, built with `VITE_DATA_BASE=<storage url>` and `VITE_API_BASE=<api url>` |
 
 Why two places: if the VM stops or crashes, the site still shows every map, event, card and history from storage. Only looking up a new place and live push need the VM.
 
@@ -71,18 +71,31 @@ Once:
    backend/deploy/azure.sh deploy   # committed code + backend/.env -> VM, build, start
    backend/deploy/azure.sh seed     # local data/selected, data/interim, data/processed -> VM; sync then fills storage
    backend/deploy/azure.sh status   # health, containers, disk, last copies
-   backend/deploy/azure.sh site     # build the frontend, publish to Cloudflare Pages (first: npx wrangler login)
+   backend/deploy/azure.sh site     # by hand: build the frontend and replace the live site (first: npx wrangler login)
    ```
-4. Own domain (any time later; the domain's DNS must be at Cloudflare): `SARS_DOMAIN=<domain> backend/deploy/azure.sh dns` prints the `api` record and the commands that follow. The `api` record stays **DNS only** (proxy off): with the proxy on, every visitor would reach the VM from Cloudflare's addresses, so the per-address lookup limit would treat all visitors as one, and Caddy could not get its certificate the simple way. The site's own domain is added in the Pages project (Custom domains).
+4. Own domain (any time later; the domain's DNS must be at Cloudflare): `SARS_DOMAIN=<domain> backend/deploy/azure.sh dns` prints the `api` record and the commands that follow. The `api` record stays **DNS only** (proxy off): with the proxy on, every visitor would reach the VM from Cloudflare's addresses, so the per-address lookup limit would treat all visitors as one, and Caddy could not get its certificate the simple way. The site's own domain is added on the Worker (Settings > Domains & Routes).
 
-### Site: two ways, one per Pages project
+### Site (Cloudflare Worker `gigas-project`)
+
+Live at https://gigas-project.starl0stgaming.workers.dev since 2026-11-14, built with the storage and API addresses above. It is a Worker that serves static files, not a Pages project: `wrangler pages ...` commands do not apply.
 
 | Way | How | When it publishes |
 |---|---|---|
-| Direct upload | `azure.sh site` | When someone runs it |
-| Connected to GitHub | Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git. Production branch `frontend`, root directory `frontend`, build command `npm run build`, output `dist`. Variables: `VITE_DATA_BASE=https://<storage>.blob.core.windows.net/data/`, `VITE_API_BASE=https://<api host>/`, `NODE_VERSION=24`. Branch control: preview deployments "None" | On every push to `frontend` |
+| Cloudflare builds it (Workers Builds) | Dashboard > Workers & Pages > `gigas-project` > Settings > Build. Root directory `frontend`, build command `npm ci && npm run build`, deploy command `npx wrangler deploy`. Build variables: `VITE_DATA_BASE=https://<storage>.blob.core.windows.net/data/`, `VITE_API_BASE=https://<api host>/`, `NODE_VERSION=24` | On push to the production branch set there |
+| By hand | `azure.sh site` | When someone runs it; replaces the live site |
 
-A project made one way cannot be switched to the other; use two project names if both are wanted.
+The first attempt on 2026-11-14 published the source folder without building it (the page loaded with no map): the build command and the variables were missing.
+
+### Updating what runs on Azure
+
+| Change | Do | Downtime |
+|---|---|---|
+| Backend code | Commit, then `azure.sh deploy` (SSH: at a venue that blocks port 22, use a VPN and allow its address, see Notes) | API about 1 minute; the site keeps working from storage |
+| Data processed locally | `azure.sh seed`; the copier sends it to storage within a minute | None |
+| Remove an area | Remove it on the VM disk, then the mirror command under "How results reach storage" | None |
+| Site | Push to the branch Cloudflare builds, or `azure.sh site` | None |
+
+Not built: the VM updating itself from the `backend` branch (a timer that pulls and rebuilds). It would make "push to `backend`" the whole deployment; it needs the repository to be public or a read-only key on the VM.
 
 Each change: commit, then `deploy` again. `seed` again only to push locally processed data.
 
@@ -106,7 +119,7 @@ Crash test: `azure.sh ssh`, `sudo docker stop sars-api-1`, reload the site (maps
 | 64 GB disk | 5 |
 | Public address | 4 |
 | Storage, under 1 GB, and data out | under 2 |
-| Site on Cloudflare Pages (free plan) | 0 |
+| Site on Cloudflare (Worker with static files, free plan) | 0 |
 
 Stop the VM without losing anything (the site keeps working from storage, without lookups): `az vm deallocate -g sars -n sars-vm`; start: `az vm start -g sars -n sars-vm`. Remove everything: `az group delete -n sars`.
 
