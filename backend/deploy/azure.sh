@@ -18,7 +18,8 @@ STORAGE="${PREFIX//-/}sars"  # storage account: 3 to 24 lowercase letters and di
 DATA_URL="https://${STORAGE}.blob.core.windows.net/data/"  # browsers read results here
 VM_HOST="${PREFIX}-sars.${LOC}.cloudapp.azure.com"  # the VM's own name: always there, used for SSH
 # Public name of the API. With SARS_DOMAIN=<your domain>: api.<domain> (create the DNS record
-# first: azure.sh dns). Caddy gets the certificate for this name.
+# first: azure.sh dns). Caddy gets the certificate for this name. The VM's own name keeps
+# answering too, so a site built against it works until it is rebuilt.
 HOST="${SARS_DOMAIN:+api.${SARS_DOMAIN}}"
 HOST="${HOST:-$VM_HOST}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"  # repo root (uv workspace)
@@ -83,7 +84,7 @@ deploy)
     umask 077; cd /opt/sars
     tok="$(grep -s "^SARS_ADMIN_TOKEN=" .env || echo "SARS_ADMIN_TOKEN=$(openssl rand -hex 24)")"
     { cat; echo "$tok"; } > .env.new && mv .env.new .env'
-  "${SSH[@]}" "cd /opt/sars/src && sudo SARS_HOST=${HOST} SARS_STORAGE=${STORAGE} \
+  "${SSH[@]}" "cd /opt/sars/src && sudo SARS_HOST=${HOST} SARS_ALSO=${SARS_DOMAIN:+$VM_HOST} SARS_STORAGE=${STORAGE} \
     GIT_COMMIT=$(git -C "$ROOT" rev-parse HEAD) \
     docker compose -p sars -f backend/deploy/compose.yaml --project-directory . up -d --build --remove-orphans"
   echo "API: https://${HOST}  (the certificate takes about a minute on the first deploy)"

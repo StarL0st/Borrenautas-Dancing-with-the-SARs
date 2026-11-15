@@ -60,6 +60,7 @@ services:
     image: caddy:2
     environment:
       SARS_HOST: ${SARS_HOST:?public host name}
+      SARS_ALSO: ${SARS_ALSO:-}
     ports:
       - "80:80"
       - "443:443"

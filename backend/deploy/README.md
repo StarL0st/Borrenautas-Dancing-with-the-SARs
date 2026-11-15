@@ -86,6 +86,10 @@ Live at https://gigas-project.starl0stgaming.workers.dev since 2026-11-14, built
 
 The first attempt on 2026-11-14 published the source folder without building it (the page loaded with no map): the build command and the variables were missing.
 
+### Domain `gigas.earth` (2026-11-14)
+
+The site answers at https://gigas.earth (set on the Worker). The API was redeployed with `SARS_DOMAIN=gigas.earth`: it answers at `api.gigas.earth` once that DNS record exists (`A api <VM address>`, proxy off) and still at the VM's own name (`SARS_ALSO` in `compose.yaml`), which the published site uses until its `VITE_API_BASE` build variable is changed to `https://api.gigas.earth/`. From now on every `azure.sh deploy` needs `SARS_DOMAIN=gigas.earth`, or the API drops the new name.
+
 ### Updating what runs on Azure
 
 | Change | Do | Downtime |

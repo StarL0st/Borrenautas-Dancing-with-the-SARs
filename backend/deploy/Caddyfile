@@ -1,5 +1,6 @@
 # HTTPS front door of the API (compose.yaml). SARS_HOST is the public host name.
-{$SARS_HOST} {
+# SARS_ALSO (may be empty): a second name that keeps working, each with its own certificate.
+{$SARS_HOST} {$SARS_ALSO} {
 	# The only request with a body is POST /sites, a few dozen bytes.
 	request_body {
 		max_size 16KB
