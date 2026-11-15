@@ -320,6 +320,20 @@ def test_query_finds_event_at_point_and_by_category(flood_site):
         assert client.get("/query", params={"bbox": "1,2"}).status_code == 400
         assert client.get("/events.geojson").status_code == 200
         assert client.get("/sites").status_code == 404  # read-only without --jobs
+        [area] = client.get("/api/areas").json()["areas"]
+        assert (area["id"], area["events"]) == ("synth", 1) and "bbox" in area
+        api = lambda **q: client.get("/api/events", params=q).json()
+        assert api(area="synth", category="floods")["total"] == 1
+        assert api(area="other")["events"] == []
+        assert api(min_confidence=event["confidence"])["total"] == 1
+        assert client.get("/api/events", params={"min_confidence": 2}).status_code == 422
+        assert api(offset=1) == {**api(), "events": []}
+        assert client.get("/api/live").status_code == 404
+        live = [{"properties": {"category": c, "source": "usgs"}} for c in ("floods", "storms")]
+        (out / "live.geojson").write_text(json.dumps({"sources": [], "features": live}))
+        got = client.get("/api/live", params={"category": "floods"}).json()
+        assert got["features"] == live[:1] and got["sources"] == []
+        assert client.get("/api/live", params={"source": "nhc"}).json()["features"] == []
 
 
 def test_sites_api_queues_and_processes(tmp_path):
@@ -664,3 +678,11 @@ def test_push_waits_for_the_copy_to_storage(tmp_path):
         marker.write_text(str(int(manifest.stat().st_mtime) + 5))
         client.portal.call(asyncio.sleep, 0.1)
         assert q.get_nowait()["type"] == "manifest"
+
+
+def test_events_under_the_confidence_floor_are_not_published(flood_site, monkeypatch):
+    out, first, run = flood_site
+    assert first["events"] == 1
+    monkeypatch.setitem(classify.DEFAULTS, "min_confidence", 1.01)
+    assert run()["events"] == 0
+    assert json.loads((out / "events.json").read_text())["events"] == []

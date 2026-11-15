@@ -95,7 +95,7 @@ The first attempt on 2026-11-14 published the source folder without building it 
 | Remove an area | Remove it on the VM disk, then the mirror command under "How results reach storage" | None |
 | Site | Push to the branch Cloudflare builds, or `azure.sh site` | None |
 
-Not built: the VM updating itself from the `backend` branch (a timer that pulls and rebuilds). It would make "push to `backend`" the whole deployment; it needs the repository to be public or a read-only key on the VM.
+Pending (decided 2026-11-14: not now): the VM updating itself from the `backend` branch (a timer that pulls and rebuilds). It would make "push to `backend`" the whole deployment; it needs the repository to be public or a read-only key on the VM.
 
 Each change: commit, then `deploy` again. `seed` again only to push locally processed data.
 
