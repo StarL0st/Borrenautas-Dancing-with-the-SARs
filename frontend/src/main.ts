@@ -661,10 +661,9 @@ function kidLook(a: AreaView, satLine: HTMLElement): HTMLElement {
 
 const TOP_N = 5; // timelines in the card keep this many rows; the PDF has them all
 
-// One PDF per area, kept up to date (round 6). Each is made from a snapshot of everything it
-// shows; whenever new data arrives (radar results, detected changes, live reports, a newer
-// satellite photo) the snapshot is taken again, and if its content changed the old PDF is thrown
-// away and a new version is made that lists what is new. Downloads always get the newest version.
+// One PDF per area, made only when someone presses "Make report": building it blocks the page for a
+// while (seconds on a phone) and fetches pictures, so it never runs in the background. Each is made
+// from a snapshot of everything it shows; made again, it becomes a new version listing what is new.
 // `url` points at the file in this page (a blob URL), so the links can open or save it at once.
 type Pdf = { snap: ReportSnapshot; key: string; version: number; made: string; blob: Blob; url: string; changes: string[] };
 const pdfs = new Map<string, Pdf>();
@@ -724,26 +723,6 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
   return job;
 }
 
-// After new data: bring every kept PDF up to date, one at a time. PDFs of areas that left the
-// data are thrown away.
-let refreshing = false;
-async function refreshPdfs() {
-  if (refreshing) return;
-  refreshing = true;
-  try {
-    for (const id of [...pdfs.keys()]) {
-      const a = areas().find((x) => x.id === id);
-      if (!a) {
-        URL.revokeObjectURL(pdfs.get(id)!.url);
-        pdfs.delete(id);
-      }
-      else await updatePdf(a);
-    }
-  } finally {
-    refreshing = false;
-  }
-}
-
 const hhmm = (iso: string) => new Date(iso).toLocaleString(lang(), { dateStyle: "short", timeStyle: "short" });
 
 // The line under the report button: which version, when, and what changed last time.
@@ -765,10 +744,10 @@ const pdfStatus = (a: AreaView) => {
   return p;
 };
 
-// The report's two controls. "Read" opens it in a reader inside the page (reader.ts), which works
-// in every browser, even those that block new tabs or have no PDF viewer. "Download" is a plain link
-// to the finished file: browsers (Safari above all) refuse a download that does not start at the
-// click itself, so the file is made beforehand and kept up to date (updatePdf), never on the click.
+// The report's controls. First one button, "Make report"; once the file is made it becomes "Read",
+// which opens a reader inside the page (reader.ts) that works in every browser, even those that block
+// new tabs or have no PDF viewer, and "Download" appears next to it. Download is a plain link to the
+// finished file: browsers (Safari above all) refuse a download that does not start at the click itself.
 type LinkLabels = { open: Key; save?: Key };
 function pdfLinks(a: AreaView, labels: LinkLabels = { open: "report.open", save: "report.download" }): HTMLElement {
   const box = el("span", { className: "report-links" });
@@ -780,8 +759,6 @@ function pdfLinks(a: AreaView, labels: LinkLabels = { open: "report.open", save:
   box.append(read);
   if (labels.save) box.append(el("a", { className: "btn" }));
   fillPdfLinks(box, a.id, pdfJobs.has(a.id));
-  // Made in the background the first time a place is shown, then kept up to date.
-  if (!pdfs.has(a.id) && !pdfJobs.has(a.id)) setTimeout(() => updatePdf(a), 800);
   return box;
 }
 
@@ -792,7 +769,7 @@ async function readPdf(id: string) {
   const pdf = pdfs.get(id);
   if (!a) return;
   if (!pdf) {
-    updatePdf(a); // failed before: try again; the button says when it is ready
+    updatePdf(a); // not made yet, or failed: make it; the button turns into "Read" when it is ready
     return;
   }
   const { openReader } = await import("./reader");
@@ -804,8 +781,8 @@ function fillPdfLinks(box: HTMLElement, id: string, busy: boolean) {
   const ready = !!pdf && !busy; // while a newer version is being made, the old one is not offered
   const read = box.querySelector("button")!;
   const save = box.querySelector("a");
-  read.disabled = !ready && !(pdfFailed.has(id) && !busy);
-  read.textContent = ready ? t(box.dataset.open as Key) : pdfFailed.has(id) && !busy ? t("report.failed") : t("report.preparing");
+  read.disabled = busy;
+  read.textContent = busy ? t("report.preparing") : ready ? t(box.dataset.open as Key) : pdfFailed.has(id) ? t("report.failed") : t("report.make");
   if (save) {
     save.hidden = !ready;
     save.textContent = t(box.dataset.save as Key);
@@ -1280,7 +1257,6 @@ async function loadLive() {
   }
   render();
   stagger = false;
-  refreshPdfs(); // new radar results can change kept reports
 }
 
 // The radar results can change at any time (a new pass processed). A back end pushes "manifest";
@@ -1296,8 +1272,6 @@ async function checkManifest() {
   }
 }
 setInterval(checkManifest, 5 * 60 * 1000);
-// Satellite photos are published daily: once an hour, look again for kept reports.
-setInterval(refreshPdfs, 60 * 60 * 1000);
 
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
@@ -1388,7 +1362,6 @@ async function loadLiveFeeds() {
   liveEvents = recent(liveEvents, Date.now()); // events past 24 hours leave the globe and the list
   showLiveStatus();
   render();
-  refreshPdfs(); // live reports nearby are part of each report
 }
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.
