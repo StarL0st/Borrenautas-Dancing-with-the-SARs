@@ -422,6 +422,10 @@ def test_refresh_skips_when_nothing_new(tmp_path, monkeypatch):
     (tmp_path / "processed" / "manifest.json").write_text(json.dumps({"areas": [{"id": "x"}]}))
     monkeypatch.setattr(live, "select_site", lambda *a: sel)
     assert live.refresh_site("x", {}, tmp_path)["status"] == "unchanged"
+    # The site's box changed: the same granules must be read again over the new box.
+    monkeypatch.setattr(live, "select_site", lambda *a: {**sel, "bbox": [0, 0, 1, 1]})
+    monkeypatch.setattr("sars_pipeline.site.run_site", lambda *a: {"events": 0})
+    assert live.refresh_site("x", {}, tmp_path)["status"] == "updated"
 
 
 def test_add_site_validates_and_writes(tmp_path):

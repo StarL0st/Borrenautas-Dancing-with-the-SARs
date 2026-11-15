@@ -95,7 +95,8 @@ The site answers at https://gigas.earth (set on the Worker). The API was redeplo
 | Change | Do | Downtime |
 |---|---|---|
 | Backend code | Commit, then `azure.sh deploy` (SSH: at a venue that blocks port 22, use a VPN and allow its address, see Notes) | API about 1 minute; the site keeps working from storage |
-| Data processed locally | `azure.sh seed`; the copier sends it to storage within a minute | None |
+| New or changed site | Edit `backend/sites.json`, commit, `azure.sh deploy`: the VM processes it by itself (queue order = file order; progress at `/sites`) | API about 1 minute |
+| Data processed locally | `azure.sh seed`. **Not since 2026-11-14 without care**: the VM holds areas the local `data/` does not (city sites, larger boxes), and seeding replaces the VM's `manifest.json` and `events.json` with the local ones | None |
 | Remove an area | Remove it on the VM disk, then the mirror command under "How results reach storage" | None |
 | Site | Push to the branch Cloudflare builds, or `azure.sh site` | None |
 
