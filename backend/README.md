@@ -234,3 +234,16 @@ Known limits:
 ## Cloud
 
 `backend/deploy/README.md`: results in Azure Blob Storage (browsers read them there), an Azure VM (Docker, HTTPS) for lookups, queries and refreshes, a Static Web App for the frontend. Guards against load and crashes, steps, cost.
+
+
+## Live disaster feeds: history of the `jopa-testing` work
+
+Early rounds of `jopa-testing` extended `src/sars_pipeline/livefeeds.py` (ported from `testing-live-events`); `main` has since taken this further (same rules as the app's own collector, NWS alerts, USGS volcano levels, `active`, 5-minute refresh), and that newer version is the one on this branch. What the early rounds added: it writes `live.geojson`: public events from NASA EONET, USGS, GDACS, NOAA NHC and NASA FIRMS. On this branch:
+
+- **Weather types:** `hurricanes` (NHC, GDACS TC, EONET tropical names), `storms`, `heat`, `cold`, `dust`, and `industrial` for human-made events.
+- **Earthquakes:** USGS past-day feed, from M2.5.
+- **Danger score:** every event has a `severity` from 0 to 3.
+- **Worldwide, last day:** events are kept if updated in the last `LIVE_HOURS` (default 24). Region filter `LIVE_REGION` is off by default; set `LIVE_REGION=mexico` or `w,s,e,n` to narrow it.
+- **Refresh rate in the file:** `serve --live-minutes N` refreshes every N minutes and records it as `refresh_minutes`.
+
+Run once with `uv run sars-pipeline live-events`, or keep it fresh with `serve --live-minutes 15`. See `frontend/JOPA_TESTING.md`.

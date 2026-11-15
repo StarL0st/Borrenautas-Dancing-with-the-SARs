@@ -726,3 +726,13 @@ button.bubble:active:not(:disabled) { scale: none; filter: brightness(1.3); }
 .cluster h3 span { flex: 1; }
 .cluster-item { padding: 8px 0; border-top: 1px solid var(--line); }
 .cluster-item p { margin: 4px 0; }
+
+/* A group is selected: the other markers step back so the dots of its events show through.
+   (A filter, not `opacity`: MapLibre sets that one itself to hide markers behind the globe.) */
+.has-ghosts .bubble { filter: opacity(0.4); }
+.has-ghosts .bubble:hover, .has-ghosts .bubble:focus-visible { filter: none; }
+/* Fingers: the marker keeps its size, the area that takes the tap grows to 44 px. */
+@media (pointer: coarse) {
+  /* The marker is positioned by MapLibre (absolute), so it already holds this. */
+  .bubble::before { content: ""; position: absolute; inset: -8px; }
+}
