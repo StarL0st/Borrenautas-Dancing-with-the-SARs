@@ -1,6 +1,6 @@
 # 10. Status, to-do and time log
 
-Updated: 2026-11-14 19:15 (local time, UTC-7). Judging starts 2026-11-16.
+Updated: 2026-11-14 20:00 (local time, UTC-7). Judging starts 2026-11-16.
 
 This file records what is built, what is left, and the time spent, for the project submission. Add a row to the time log at the end of each work session.
 
@@ -33,7 +33,7 @@ The backend writes `contract_version` 0.6.0. The frontend accepts any `0.x`.
 |---|---|
 | API (HTTPS) | `https://gigas-sars.westus2.cloudapp.azure.com` (will move to `api.gigas.earth`) |
 | Results | `https://gigassars.blob.core.windows.net/data/` (for example `manifest.json`) |
-| Site | Not published yet. Goes to Cloudflare Pages, not Azure (decided 2026-11-14): `azure.sh site`, or a Pages project connected to the `frontend` branch (`backend/deploy/README.md`) |
+| Site | https://gigas-project.starl0stgaming.workers.dev (Cloudflare Worker `gigas-project`, static files; built with the two addresses above). Checked 2026-11-14 19:55: serves the built app. `gigas.earth` not connected yet |
 | Resources | Resource group `sars`, region `westus2`: virtual machine `sars-vm` (`Standard_B2s_v2`, 2 vCPU, 8 GB), storage account `gigassars` |
 
 Checked on Azure on 2026-11-14:
@@ -94,8 +94,8 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 
 | # | Task | Owner |
 |---|---|---|
-| 1 | Open the frontend against Azure in a browser and try it: map, Mexico, a case study, looking up a place | Humans |
-| 2 | Publish the site on Cloudflare Pages: `npx wrangler login`, then `AZ_PREFIX=gigas backend/deploy/azure.sh site`; or connect a Pages project to the `frontend` branch | Human with backend |
+| 1 | Try the published site end to end: map, Mexico, a case study, looking up a place, live events | Humans |
+| 2 | Cloudflare: set the production branch and build settings of the Worker so it rebuilds on push (`backend/deploy/README.md`, "Site") | Human |
 | 3 | Domain `gigas.earth` (DNS is at Porkbun today): move the nameservers to Cloudflare, record `A api 20.112.74.42` (proxy off), then `SARS_DOMAIN=gigas.earth backend/deploy/azure.sh dns` for the rest (`backend/deploy/README.md`) | Human |
 | 4 | Azure account is a Free Trial: credit ends 30 days after sign-up (to be confirmed in the portal). Check that date against the judging period; upgrade to pay-as-you-go if needed. Add a budget alert | Human |
 | 5 | Frontend: show history (`areas/<id>/history.json`, C10) in the bottom timeline; friendly cards (C8); a "processing" state from `GET /sites/<id>`; the server's sentence on a 429 answer | Frontend |
@@ -106,6 +106,15 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
+
+### Open decisions (asked, not answered, at the end of the 2026-11-14 session)
+
+| Decision | Recommendation |
+|---|---|
+| Lowest confidence for published events | 0.3: Chapala 224 to 127 events, Yucatán 443 to 227, Villahermosa 64 to 47, keeping 80 to 85% of the changed area. One setting and a rerun from cache |
+| REST calls for the processed data beyond `/query` and `/history` | Add `GET /api/areas`, `GET /api/events?area=&category=&from=&to=&min_confidence=`, `GET /api/live?category=&source=`, shown on the server's `/docs` page. About 40 lines plus tests |
+| The VM updating itself from the `backend` branch | Yes if only tested commits reach `backend`; needs a public repository or a read-only key |
+| `frontend` into `main` (8 commits newer than `main`: phone layout, satellite model, Worker config) | Frontend lane decides when it is ready |
 
 ### If time allows
 
@@ -134,5 +143,7 @@ Times come from git commit timestamps (local time, UTC-7), rounded to the quarte
 | 2026-11-14 | 13:30 | 16:45 | 3.25 | Frontend | Welcome screen, country search, live events fetched by the page, more live sources, 3D title, two-address build for Azure |
 | 2026-11-14 | 15:50 | 17:30 | 1.75 | Backend, docs | First Azure run (machine, storage, deploy, seed), fixes, checks and load test on Azure, merge of both lanes into `main`, branch clean-up |
 | 2026-11-14 | 17:30 | 19:15 | 1.75 | Backend, docs | Cloudflare Pages for the site, data reduced to four areas (local, VM, storage), live fire fix, live events aligned with the app, new granule search |
+| 2026-11-14 | 18:15 | 20:00 | 1.75 | Frontend | Phone layout, satellite model from NASA's NISAR illustration, Cloudflare Worker config, README draft, handoff notes |
+| 2026-11-14 | 19:15 | 20:00 | 0.75 | Backend, docs | Session close: deploy notes match the real site host, open decisions written down |
 
-Total so far: backend and docs 17.0 h, frontend 9.5 h (frontend after 16:45 not counted yet), 26.5 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
+Total so far: backend and docs 17.75 h, frontend 11.25 h (16:45 to 18:15 had no frontend commits), 29.0 h in all. Work on `jopa-testing` (13:57 to 15:20, not merged) is not counted.
