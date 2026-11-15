@@ -1,7 +1,23 @@
 // Drawings and cards for the radar explainer (data in explain.ts).
 import { TOPICS, type Topic } from "./explain";
 import { tx } from "./mexico";
+import { t } from "./i18n";
+import { REFS, type RefId } from "./sources";
 import { el } from "./ui";
+
+/** "Sources: NASA Earthdata, NASA" with each name linked to the page it comes from. */
+export function sourceLinks(refs: RefId[]): HTMLElement {
+  return el(
+    "p",
+    { className: "muted sources" },
+    t("src.label"), " ",
+    ...refs.flatMap((id, i) => {
+      const r = REFS[id];
+      const link = el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer", title: r.title }, r.who === "G.I.G.A.S project" ? r.title.split(":")[0] : `${r.who}: ${r.title}`);
+      return i ? ["; ", link] : [link];
+    }),
+  );
+}
 
 // ---- Drawings: a satellite top left, its beam, the ground and what comes back ----
 
@@ -89,6 +105,7 @@ export function explainer(ids: string[], lang: string): HTMLElement {
           el("strong", {}, tx(x.title, lang)),
           el("p", {}, tx(x.text, lang)),
           el("p", { className: "why-looks" }, tx(x.looks, lang)),
+          sourceLinks(x.refs),
         ),
       ),
     ),

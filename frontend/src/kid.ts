@@ -1,7 +1,7 @@
 // Words for Simple mode's side panel, written so a 10-year-old can follow them (jopa-testing).
-// Short sentences, everyday words, one idea at a time. Facts match the rest of the app (explain.ts,
-// mexico.ts). Text is { en, es }; German falls back to English, as in mexico.ts.
+// Short sentences, everyday words, one idea at a time. Every fact cites its source (sources.ts). Text is { en, es }; German falls back to English, as in mexico.ts.
 import type { Text } from "./mexico";
+import type { RefId } from "./sources";
 
 /** What each kind of change is, in one sentence. */
 export const KID_TYPES: Record<string, Text> = {
@@ -41,22 +41,23 @@ export const KID_FOUND: Record<string, { one: Text; many: Text }> = {
   other: { one: { en: "1 other change the radar could not name", es: "1 cambio más que el radar no supo nombrar" }, many: { en: "{n} other changes the radar could not name", es: "{n} cambios más que el radar no supo nombrar" } },
 };
 
-/** One fun, true fact per kind of change. */
-export const KID_FACTS: Record<string, Text> = {
-  subsidence: { en: "Some parts of Mexico City sink 30 to 50 cm every year. That is as much as a school ruler, or more!", es: "Algunas partes de la Ciudad de México se hunden de 30 a 50 cm cada año. ¡Eso es lo que mide una regla escolar, o más!" },
-  groundwater: { en: "Under many cities there is water stored in the ground. Pump out too much and the ground sinks, like a sponge that dries and shrinks.", es: "Debajo de muchas ciudades hay agua guardada en el suelo. Si se saca demasiada, el suelo se hunde, como una esponja que se seca y se encoge." },
-  floods: { en: "Calm water looks black to the radar, because it bounces the waves away like a mirror.", es: "El agua tranquila se ve negra para el radar, porque desvía las ondas como un espejo." },
-  deforestation: { en: "The radar can tell trees from bare ground, because leaves bounce its waves around many times.", es: "El radar distingue árboles de suelo pelón, porque las hojas rebotan sus ondas muchas veces." },
-  logging: { en: "The radar can tell trees from bare ground, because leaves bounce its waves around many times.", es: "El radar distingue árboles de suelo pelón, porque las hojas rebotan sus ondas muchas veces." },
-  wildfires: { en: "After a fire, plants can grow back. The radar can watch them return, month after month.", es: "Después de un incendio, las plantas pueden volver a crecer. El radar puede verlas regresar, mes tras mes." },
-  agriculture: { en: "Fields look different to the radar when they are planted, growing or harvested.", es: "Los campos se ven distintos para el radar cuando están sembrados, creciendo o cosechados." },
-  drought: { en: "Wet soil sends back a stronger echo than dry soil, so the radar can tell when the ground is drying.", es: "El suelo mojado regresa un eco más fuerte que el seco, así el radar sabe cuando el suelo se está secando." },
-  urban: { en: "Buildings are the brightest things in radar pictures: walls and streets bounce the waves straight back.", es: "Los edificios son lo más brillante en las imágenes de radar: paredes y calles regresan las ondas directo." },
-  volcanoes: { en: "Before some eruptions, the ground of a volcano swells a few centimeters, and radar can measure it.", es: "Antes de algunas erupciones, el suelo de un volcán se infla unos centímetros, y el radar lo puede medir." },
-  earthquakes: { en: "Radar can measure how much the ground moved in an earthquake, even just a few centimeters.", es: "El radar puede medir cuánto se movió el suelo en un sismo, aunque sean pocos centímetros." },
-  hurricanes: { en: "Radar sees through the clouds of a hurricane, down to the flooded land below.", es: "El radar ve a través de las nubes de un huracán, hasta la tierra inundada de abajo." },
-  default: { en: "NISAR goes around the whole Earth and looks at almost all of its land and ice every 12 days.", es: "NISAR le da la vuelta a toda la Tierra y mira casi toda su tierra y su hielo cada 12 días." },
+/** One fun, true fact per kind of change, each with the source that says it (sources.ts). */
+export type KidFact = Text & { refs: RefId[] };
+export const KID_FACTS: Record<string, KidFact> = {
+  subsidence: { en: "In the 1990s and 2000s, parts of Mexico City sank about 35 cm every year. That is longer than a 30 cm school ruler!", es: "En los años 1990 y 2000, partes de la Ciudad de México se hundían unos 35 cm cada año. ¡Más que una regla escolar de 30 cm!", refs: ["cdmx"] },
+  groundwater: { en: "Mexico City is built on an old lakebed. Pumping lots of water out from under the ground has squeezed that ground down, so the city sinks.", es: "La Ciudad de México está construida sobre un antiguo lago. Sacar mucha agua de debajo del suelo lo ha apretado, y por eso la ciudad se hunde.", refs: ["cdmx"] },
+  floods: { en: "Calm water looks black to the radar, because the water reflects the waves away from the satellite, like a mirror.", es: "El agua tranquila se ve negra para el radar, porque refleja las ondas lejos del satélite, como un espejo.", refs: ["sarImage"] },
+  deforestation: { en: "NISAR's radar waves are 24 cm long. Waves that long go deep into a forest and bounce off big branches and tree trunks.", es: "Las ondas del radar de NISAR miden 24 cm. Ondas tan largas entran hondo en un bosque y rebotan en ramas grandes y troncos.", refs: ["nisarFacts", "sar"] },
+  logging: { en: "NISAR's radar waves are 24 cm long. Waves that long go deep into a forest and bounce off big branches and tree trunks.", es: "Las ondas del radar de NISAR miden 24 cm. Ondas tan largas entran hondo en un bosque y rebotan en ramas grandes y troncos.", refs: ["nisarFacts", "sar"] },
+  wildfires: { en: "NASA's FIRMS system spots fires from space and shares them within about 3 hours.", es: "El sistema FIRMS de la NASA detecta incendios desde el espacio y los comparte en unas 3 horas.", refs: ["firms"] },
+  agriculture: { en: "NISAR was made to follow changes like crops growing, even through clouds.", es: "NISAR fue hecho para seguir cambios como el crecimiento de los cultivos, incluso a través de las nubes.", refs: ["cdmx"] },
+  drought: { en: "Wet ground sends back more radar energy than dry ground, so it looks brighter in radar pictures.", es: "El suelo mojado regresa más energía de radar que el seco, por eso se ve más claro en las imágenes de radar.", refs: ["sarImage"] },
+  urban: { en: "Buildings and bridges work like corner mirrors for radar, so they show up as bright spots.", es: "Los edificios y puentes funcionan como espejos de esquina para el radar, por eso aparecen como puntos brillantes.", refs: ["sarImage"] },
+  volcanoes: { en: "Radar can measure how much the ground moved after a volcano erupts, down to about a centimeter.", es: "El radar puede medir cuánto se movió el suelo después de que un volcán hace erupción, con precisión de un centímetro.", refs: ["sar"] },
+  earthquakes: { en: "Radar can measure how much the ground moved in an earthquake, down to about a centimeter.", es: "El radar puede medir cuánto se movió el suelo en un sismo, con precisión de un centímetro.", refs: ["sar"] },
+  hurricanes: { en: "NISAR's radar works day and night, rain or shine, so clouds do not stop it.", es: "El radar de NISAR funciona de día y de noche, con lluvia o con sol, así que las nubes no lo detienen.", refs: ["cdmx"] },
+  default: { en: "NISAR looks at almost all of Earth's land and ice every 12 days.", es: "NISAR observa casi toda la tierra y el hielo de la Tierra cada 12 días.", refs: ["nisarFacts"] },
 };
 
 /** The fact for the first kind of change the area is about. */
-export const kidFact = (types: string[]): Text => KID_FACTS[types.find((x) => KID_FACTS[x]) ?? "default"];
+export const kidFact = (types: string[]): KidFact => KID_FACTS[types.find((x) => KID_FACTS[x]) ?? "default"];

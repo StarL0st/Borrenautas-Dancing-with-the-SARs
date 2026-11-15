@@ -340,3 +340,45 @@ test("Simple-mode guide: every sentence in English and Spanish, every kind has w
   assert.equal(kidFact(["nothing", "floods"]), KID_FACTS.floods);
   assert.equal(kidFact([]), KID_FACTS.default);
 });
+
+// ---- jopa-testing round 6: sourced text, report versions ----
+
+import { REFS } from "../src/sources.ts";
+import { contentKey, diffSnapshots, type ReportSnapshot } from "../src/report-core.ts";
+
+test("every explanation, decision and kids' fact cites at least one known source", () => {
+  const known = new Set(Object.keys(REFS));
+  for (const x of TOPICS) assert.ok(x.refs.length && x.refs.every((r) => known.has(r)), x.id);
+  for (const d of DECISIONS) assert.ok(d.refs.length && d.refs.every((r) => known.has(r)), d.id);
+  for (const [k, f] of Object.entries(KID_FACTS)) assert.ok(f.refs.length && f.refs.every((r) => known.has(r)), k);
+  for (const r of Object.values(REFS)) assert.match(r.url, /^https:\/\//);
+  // Outside facts lean on NASA: most cited sources are NASA pages.
+  const nasa = Object.values(REFS).filter((r) => /NASA/.test(r.who)).length;
+  assert.ok(nasa >= 8, `${nasa} NASA sources`);
+});
+
+test("report versions: same data, same key; new data, a new key and a list of what changed", () => {
+  const layer = (date: string) => ({ id: date, url: `hh-${date}.png`, date, maturity: "PROVISIONAL", kind: "image_overlay" }) as unknown as Layer;
+  const ev = (id: string) => ({ id, from: "2026-08-14", to: "2026-08-26", category: "floods", title: "Flood", summary: "s", confidence: 0.8, area_km2: 1 });
+  const base: ReportSnapshot = {
+    area: { id: "v", title: "V", summary: "", types: ["floods"], center: [0, 0], bbox: [0, 0, 1, 1], synthetic: false, events: [], layers: [layer("2026-08-14")], series: [], credits: [] },
+    events: [ev("a")] as ReportSnapshot["events"], live: [], lang: "en",
+    sat: [{ url: "u1", date: "2025-11-01", layer: "HLS" }, { url: "u2", date: "2026-11-01", layer: "HLS" }],
+    series: [], asOf: { radar: "2026-11-14T00:00:00Z", live: "" },
+  };
+  // A source republishing the same content is not a new version.
+  assert.equal(contentKey(base), contentKey({ ...base, asOf: { radar: "2026-11-15T00:00:00Z", live: "x" } }));
+  const next: ReportSnapshot = {
+    ...base,
+    area: { ...base.area, layers: [layer("2026-08-14"), layer("2026-08-26")] },
+    events: [ev("a"), ev("b")] as ReportSnapshot["events"],
+    sat: [base.sat[0], { url: "u3", date: "2026-11-13", layer: "HLS" }],
+  };
+  assert.notEqual(contentKey(base), contentKey(next));
+  assert.deepEqual(diffSnapshots(base, next), [
+    { kind: "radar", added: 1, removed: 0, latest: "2026-08-26" },
+    { kind: "changes", from: 1, to: 2 },
+    { kind: "satellite", date: "2026-11-13" },
+  ]);
+  assert.deepEqual(diffSnapshots(base, { ...base, lang: "es" }), [{ kind: "lang" }]);
+});

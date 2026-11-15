@@ -340,6 +340,19 @@ const en = {
   "kid.close": "Back to the guide",
   "cmp.clouds": "Clouds left out: {pct}% of the view.",
   "cmp.kidclouds": "Clouds are in the way in these photos, so we can't count the changes fairly. That is why NISAR uses radar: it sees right through clouds!",
+  // Report versions and sources (jopa-testing, round 6)
+  "pdf.making": "Making report version {v}…",
+  "pdf.updating": "New data arrived: making report version {v}…",
+  "pdf.ready": "Report version {v}, made {time}, matches the latest data.",
+  "pdf.new": "It replaced version {old}: {list}.",
+  "pdf.ch.lang": "language changed",
+  "pdf.ch.radar": "NISAR radar pictures: {added} new, {removed} removed (latest {latest})",
+  "pdf.ch.changes": "detected changes: {from} → {to}",
+  "pdf.ch.live": "live reports nearby changed ({n} now)",
+  "pdf.ch.satellite": "newer satellite photo ({date})",
+  "pdf.ch.series": "time series updated",
+  "pdf.ch.area": "area details changed",
+  "src.label": "Sources:",
 };
 
 export type Key = keyof typeof en;
@@ -679,6 +692,19 @@ const es: Record<Key, string> = {
   "kid.close": "Volver a la guía",
   "cmp.clouds": "Nubes excluidas: {pct}% de la vista.",
   "cmp.kidclouds": "Hay nubes en estas fotos, así que no podemos contar bien los cambios. Por eso NISAR usa radar: ¡ve a través de las nubes!",
+  // Report versions and sources (jopa-testing, round 6)
+  "pdf.making": "Creando la versión {v} del informe…",
+  "pdf.updating": "Llegaron datos nuevos: creando la versión {v} del informe…",
+  "pdf.ready": "Versión {v} del informe, creada {time}, al día con los datos más recientes.",
+  "pdf.new": "Reemplazó la versión {old}: {list}.",
+  "pdf.ch.lang": "cambió el idioma",
+  "pdf.ch.radar": "imágenes de radar NISAR: {added} nuevas, {removed} quitadas (la última del {latest})",
+  "pdf.ch.changes": "cambios detectados: {from} → {to}",
+  "pdf.ch.live": "cambiaron los reportes en vivo cercanos ({n} ahora)",
+  "pdf.ch.satellite": "foto de satélite más reciente ({date})",
+  "pdf.ch.series": "series de tiempo actualizadas",
+  "pdf.ch.area": "cambiaron los datos de la zona",
+  "src.label": "Fuentes:",
 };
 
 const de: Record<Key, string> = {
@@ -1016,6 +1042,19 @@ const de: Record<Key, string> = {
   "kid.close": "Zurück zum Begleiter",
   "cmp.clouds": "Wolken ausgelassen: {pct} % der Ansicht.",
   "cmp.kidclouds": "Auf diesen Fotos sind Wolken im Weg, darum können wir die Veränderungen nicht fair zählen. Deshalb benutzt NISAR Radar: Es sieht durch Wolken hindurch!",
+  // Report versions and sources (jopa-testing, round 6)
+  "pdf.making": "Berichtsversion {v} wird erstellt…",
+  "pdf.updating": "Neue Daten: Berichtsversion {v} wird erstellt…",
+  "pdf.ready": "Berichtsversion {v}, erstellt {time}, entspricht den neuesten Daten.",
+  "pdf.new": "Sie ersetzt Version {old}: {list}.",
+  "pdf.ch.lang": "Sprache geändert",
+  "pdf.ch.radar": "NISAR-Radarbilder: {added} neu, {removed} entfernt (neuestes {latest})",
+  "pdf.ch.changes": "erkannte Veränderungen: {from} → {to}",
+  "pdf.ch.live": "Live-Meldungen in der Nähe geändert (jetzt {n})",
+  "pdf.ch.satellite": "neueres Satellitenfoto ({date})",
+  "pdf.ch.series": "Zeitreihen aktualisiert",
+  "pdf.ch.area": "Gebietsangaben geändert",
+  "src.label": "Quellen:",
 };
 
 export const STRINGS: Record<Lang, Record<Key, string>> = { en, es, de };

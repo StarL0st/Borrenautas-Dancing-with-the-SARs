@@ -2,8 +2,10 @@
 //
 // Dates are when the choice shows up in the repository (git log, docs/03, docs/10). Numbers are
 // the back end's own (backend/src/sars_pipeline/classify.py, site.py) so the log matches the app.
+// Facts about the world cite outside sources (sources.ts); the project's own choices cite its files.
 // Text is { en, es }; German falls back to English, as in mexico.ts.
 import type { Text } from "./mexico";
+import type { RefId } from "./sources";
 
 export type Decision = {
   id: string;
@@ -14,6 +16,7 @@ export type Decision = {
   why: Text;
   instead: Text;
   tradeoff: Text;
+  refs: RefId[]; // where each statement comes from (sources.ts)
 };
 
 export const DECISIONS: Decision[] = [
@@ -27,17 +30,18 @@ export const DECISIONS: Decision[] = [
       es: "Retrodispersión en banda L, calibrada y georreferenciada (GCOV), con dos canales: HH y HV.",
     },
     why: {
-      en: "It is the usual product for change detection: ready on a map grid, comparable between dates. L-band sees through clouds and into plant cover, by day and night.",
-      es: "Es el producto habitual para detectar cambios: ya está sobre una cuadrícula de mapa y es comparable entre fechas. La banda L ve a través de nubes y dentro de la vegetación, de día y de noche.",
+      en: "GCOV is radiometrically terrain-corrected backscatter made for uses such as disturbance detection, inundation mapping and crop mapping. NISAR's L-band (24 cm) goes deeper into tree canopy than shorter waves, and works day and night, through clouds.",
+      es: "GCOV es retrodispersión con corrección radiométrica del terreno, hecha para usos como detección de disturbios, mapeo de inundaciones y de cultivos. La banda L de NISAR (24 cm) entra más en el dosel que las ondas cortas y funciona de día y de noche, a través de las nubes.",
     },
     instead: {
-      en: "Raw radar files (RSLC), which need heavy processing; or Sentinel-1 C-band, whose shorter wave mostly sees the top of the canopy.",
-      es: "Archivos de radar crudos (RSLC), que requieren mucho procesamiento; o Sentinel-1 en banda C, cuya onda más corta ve sobre todo la copa de los árboles.",
+      en: "Raw radar files (RSLC), which need heavy processing; or a shorter C-band radar, which penetrates only the top layers of a forest canopy.",
+      es: "Archivos de radar crudos (RSLC), que requieren mucho procesamiento; o un radar de banda C más corta, que solo penetra las capas superiores del dosel.",
     },
     tradeoff: {
       en: "Objects smaller than a pixel (about 40 m after averaging) are not seen.",
       es: "No se ven objetos más pequeños que un píxel (unos 40 m después de promediar).",
     },
+    refs: ["asfProducts", "nisarFacts", "sar", "cdmx", "rules"],
   },
   {
     id: "maturity",
@@ -49,11 +53,12 @@ export const DECISIONS: Decision[] = [
       es: "Cada comparación usa una sola madurez (BETA, PROVISIONAL o VALIDATED) y cada capa dice cuál.",
     },
     why: {
-      en: "Calibration changes between maturities. Mixing them could create a change that is only in the processing, not on the ground.",
-      es: "La calibración cambia entre niveles de madurez. Mezclarlos podría crear un cambio que solo está en el procesamiento, no en el terreno.",
+      en: "BETA products are not fully calibrated and PROVISIONAL ones are. Mixing them could create a change that is only in the processing, not on the ground.",
+      es: "Los productos BETA no están totalmente calibrados y los PROVISIONAL sí. Mezclarlos podría crear un cambio que solo está en el procesamiento, no en el terreno.",
     },
     instead: { en: "Using every date available, whatever its maturity.", es: "Usar todas las fechas disponibles, sin importar su madurez." },
     tradeoff: { en: "Fewer dates to compare in some places.", es: "Menos fechas para comparar en algunos lugares." },
+    refs: ["asfProducts", "docs"],
   },
   {
     id: "mexico",
@@ -70,6 +75,7 @@ export const DECISIONS: Decision[] = [
     },
     instead: { en: "Random places around the world.", es: "Lugares al azar en el mundo." },
     tradeoff: { en: "Other regions get live reports, but no radar analysis yet.", es: "Otras regiones tienen reportes en vivo, pero aún no análisis de radar." },
+    refs: ["docs", "cdmx"],
   },
   {
     id: "db-difference",
@@ -81,11 +87,12 @@ export const DECISIONS: Decision[] = [
       es: "Promediar 4 × 4 píxeles en potencia lineal, pasar a dB, restar las dos fechas y quitar el cambio que comparte toda la escena.",
     },
     why: {
-      en: "Radar speckle is multiplicative, so a ratio (a difference in dB) is steadier than a plain difference. A change over the whole scene (rain everywhere, calibration) is not a local event.",
-      es: "El moteado del radar es multiplicativo, así que una razón (diferencia en dB) es más estable que una resta simple. Un cambio en toda la escena (lluvia general, calibración) no es un evento local.",
+      en: "Averaging neighboring pixels (multi-looking) removes radar speckle. A change over the whole scene, such as rain everywhere, is not a local event.",
+      es: "Promediar píxeles vecinos (multilook) quita el moteado del radar. Un cambio en toda la escena, como lluvia general, no es un evento local.",
     },
     instead: { en: "Subtracting raw pixel values.", es: "Restar los valores crudos de los píxeles." },
     tradeoff: { en: "Detail below about 40 m is averaged away.", es: "Se pierde el detalle menor a unos 40 m." },
+    refs: ["sar", "rules"],
   },
   {
     id: "rules",
@@ -97,14 +104,15 @@ export const DECISIONS: Decision[] = [
       es: "Una tabla de decisiones: inundación si HH y HV bajan 3 dB y HH queda bajo −18 dB; pérdida de bosque si HV baja 3 dB y 1.5 dB más que HH; construcción si HH sube 4 dB. Se descartan manchas menores a 25 píxeles (0.04 km²) y el cambio debe seguir con la mitad de su tamaño en la siguiente pasada.",
     },
     why: {
-      en: "Every result can be explained in one sentence and checked by hand. There is no labeled training data for NISAR over Mexico yet.",
-      es: "Cada resultado se puede explicar en una frase y revisar a mano. Aún no hay datos de entrenamiento etiquetados de NISAR sobre México.",
+      en: "Every result can be explained in one sentence and checked by hand against the numbers behind it.",
+      es: "Cada resultado se puede explicar en una frase y revisar a mano contra los números que lo respaldan.",
     },
     instead: { en: "A trained classifier.", es: "Un clasificador entrenado." },
     tradeoff: {
       en: "Subtle changes are missed, so results are labeled hypotheses with a confidence.",
       es: "Se pierden cambios sutiles, por eso los resultados se presentan como hipótesis con un nivel de confianza.",
     },
+    refs: ["rules"],
   },
   {
     id: "gunw-sme2",
@@ -116,14 +124,15 @@ export const DECISIONS: Decision[] = [
       es: "Los interferogramas (GUNW) marcan hundimientos de 5 cm al año o más; la humedad del suelo (SME2) marca secado de 0.05 m³/m³ o más en al menos 4 fechas.",
     },
     why: {
-      en: "Backscatter cannot see centimeters of sinking or measure water in soil; these NISAR products are made for exactly that.",
-      es: "La retrodispersión no puede ver centímetros de hundimiento ni medir agua en el suelo; estos productos de NISAR están hechos justo para eso.",
+      en: "These NISAR products are made for exactly that: GUNW for measuring ground displacement, SME2 for soil moisture.",
+      es: "Estos productos de NISAR están hechos justo para eso: GUNW para medir desplazamientos del suelo, SME2 para la humedad del suelo.",
     },
     instead: { en: "Guessing drought or sinking from backscatter alone.", es: "Adivinar sequía o hundimiento solo con la retrodispersión." },
     tradeoff: {
       en: "Motion is along the radar's line of sight, not straight down, and soil moisture is coarse (about 2 km nationally).",
       es: "El movimiento es en la línea de vista del radar, no vertical, y la humedad es gruesa (unos 2 km a escala nacional).",
     },
+    refs: ["asfProducts", "rules", "docs"],
   },
   {
     id: "firms",
@@ -139,7 +148,8 @@ export const DECISIONS: Decision[] = [
       es: "El radar ve que los árboles ya no están, no por qué. Un incendio en el mismo lugar y momento es una prueba fuerte.",
     },
     instead: { en: "Calling every forest loss deforestation.", es: "Llamar deforestación a toda pérdida de bosque." },
-    tradeoff: { en: "Small or cloud-hidden fires are missed.", es: "Se pierden incendios pequeños o tapados por nubes." },
+    tradeoff: { en: "A clearing with no fire detection is called forest loss, never fire.", es: "Un desmonte sin detección de fuego se llama pérdida de bosque, nunca incendio." },
+    refs: ["firms", "rules"],
   },
   {
     id: "gibs",
@@ -151,14 +161,15 @@ export const DECISIONS: Decision[] = [
       es: "Imágenes de NASA GIBS (HLS 30 m, VIIRS diario, MODIS) junto al radar, siempre marcadas como \"otro satélite\" con su fecha. Nunca alimentan la detección.",
     },
     why: {
-      en: "People understand photos at once. GIBS is free, needs no key and lets the page read its pixels. SPHEREx looks at the sky, not at the Earth, so it cannot be used.",
-      es: "Las fotos se entienden de inmediato. GIBS es gratuito, no necesita clave y permite leer sus píxeles. SPHEREx observa el cielo, no la Tierra, así que no sirve aquí.",
+      en: "People understand photos at once. GIBS gives full-resolution satellite imagery, most of it updated daily, and this page can load it directly. HLS harmonizes Landsat 8/9 and Sentinel-2 at 30 m. SPHEREx makes an all-sky survey, not pictures of the Earth, so it cannot be used.",
+      es: "Las fotos se entienden de inmediato. GIBS ofrece imágenes de satélite a resolución completa, casi todas actualizadas a diario, y esta página puede cargarlas directamente. HLS armoniza Landsat 8/9 y Sentinel-2 a 30 m. SPHEREx hace un mapeo de todo el cielo, no imágenes de la Tierra, así que no sirve aquí.",
     },
     instead: { en: "Radar only.", es: "Solo radar." },
     tradeoff: {
       en: "Clouds hide many days, so the picture is the nearest clear day, which can differ from the radar dates.",
       es: "Las nubes tapan muchos días, así que la imagen es el día despejado más cercano, que puede no coincidir con las fechas del radar.",
     },
+    refs: ["gibs", "hls", "spherex", "app"],
   },
   {
     id: "live",
@@ -166,18 +177,19 @@ export const DECISIONS: Decision[] = [
     kind: "data",
     title: { en: "Live reports from official alert services", es: "Reportes en vivo de servicios oficiales de alerta" },
     chose: {
-      en: "USGS, NASA EONET, GDACS and NOAA (hurricanes, weather alerts), worldwide, last 24 hours, checked every 15 minutes.",
-      es: "USGS, NASA EONET, GDACS y NOAA (huracanes, alertas del clima), en todo el mundo, últimas 24 horas, revisados cada 15 minutos.",
+      en: "USGS (earthquakes, volcanoes), NASA EONET, GDACS and NOAA (weather alerts), worldwide, last 24 hours, checked every 15 minutes.",
+      es: "USGS (sismos, volcanes), NASA EONET, GDACS y NOAA (alertas del clima), en todo el mundo, últimas 24 horas, revisados cada 15 minutos.",
     },
     why: {
-      en: "They are public, official and free. NISAR passes every 12 days, so it cannot say what is happening today.",
-      es: "Son públicos, oficiales y gratuitos. NISAR pasa cada 12 días, así que no puede decir qué pasa hoy.",
+      en: "They are public services run by official agencies. NISAR repeats its orbit every 12 days, so it cannot say what is happening today.",
+      es: "Son servicios públicos de agencias oficiales. NISAR repite su órbita cada 12 días, así que no puede decir qué pasa hoy.",
     },
     instead: { en: "News sites or social media.", es: "Sitios de noticias o redes sociales." },
     tradeoff: {
       en: "GDACS states no data license; it is shown with credit, a link and its disclaimer.",
       es: "GDACS no declara licencia de datos; se muestra con crédito, enlace y su aviso.",
     },
+    refs: ["usgs", "usgsVolcano", "eonet", "gdacs", "noaa", "nisarFacts", "docs", "app"],
   },
   {
     id: "records",
@@ -194,6 +206,7 @@ export const DECISIONS: Decision[] = [
     },
     instead: { en: "Popular figures repeated without a source.", es: "Cifras populares repetidas sin fuente." },
     tradeoff: { en: "Some well-known stories are shorter or missing.", es: "Algunas historias conocidas quedan más cortas o fuera." },
+    refs: ["app"],
   },
   {
     id: "no-risk-score",
@@ -210,6 +223,7 @@ export const DECISIONS: Decision[] = [
     },
     instead: { en: "Our own risk scale.", es: "Una escala de riesgo propia." },
     tradeoff: { en: "Users read the official alert levels instead.", es: "Los usuarios leen los niveles de alerta oficiales." },
+    refs: ["app"],
   },
   {
     id: "compare-pct",
@@ -229,6 +243,7 @@ export const DECISIONS: Decision[] = [
       en: "On photos it is a visual guide: clouds, shadows and seasons change colors too.",
       es: "En fotos es una guía visual: nubes, sombras y estaciones también cambian los colores.",
     },
+    refs: ["app", "rules"],
   },
   {
     id: "colors",
@@ -239,8 +254,9 @@ export const DECISIONS: Decision[] = [
       en: "The Okabe-Ito palette, and every color also named in text or shown with a shape.",
       es: "La paleta Okabe-Ito, y cada color también nombrado en texto o con una forma.",
     },
-    why: { en: "About 1 in 12 men cannot tell some colors apart.", es: "Cerca de 1 de cada 12 hombres no distingue algunos colores." },
+    why: { en: "About 1 in 12 men have color vision deficiency.", es: "Cerca de 1 de cada 12 hombres tiene deficiencia en la visión del color." },
     instead: { en: "Red and green for bad and good.", es: "Rojo y verde para malo y bueno." },
     tradeoff: { en: "Fewer distinct colors to use.", es: "Menos colores distintos disponibles." },
+    refs: ["nei", "okabe"],
   },
 ];

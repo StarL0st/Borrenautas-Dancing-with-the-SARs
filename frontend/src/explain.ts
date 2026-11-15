@@ -1,75 +1,84 @@
 // "Why the radar sees changes", explained simply, each idea with a small drawing (jopa-testing).
 //
-// Drawings are in explain-view.ts. The numbers are the back end's own rules (backend/src/sars_pipeline/classify.py, site.py), so the
-// explanation matches what the app does. Text is { en, es }; German falls back to English, as in
-// mexico.ts.
+// Every sentence says only what its sources say (`refs`, see sources.ts): NASA Earthdata's SAR
+// pages, NISAR's quick facts and NASA/JPL's Mexico City report. Numbers that are the app's own
+// rules (3 dB, 4 dB, 5 cm a year, 0.04 km²) are called rules and cite the back-end code.
+// Drawings are in explain-view.ts. Text is { en, es }; German falls back to English, as in mexico.ts.
 import type { Text } from "./mexico";
+import type { RefId } from "./sources";
 
-export type Topic = { id: string; title: Text; text: Text; looks: Text };
+export type Topic = { id: string; title: Text; text: Text; looks: Text; refs: RefId[] };
 
 export const TOPICS: Topic[] = [
   {
     id: "basics",
     title: { en: "An echo, not a photo", es: "Un eco, no una foto" },
     text: {
-      en: "NISAR sends microwaves 24 cm long (L-band) to the ground and listens to the echo. A strong echo is drawn bright, a weak one dark. Microwaves pass through clouds and need no sunlight, so the same place is seen every 12 days, by night or day.",
-      es: "NISAR envía microondas de 24 cm (banda L) al suelo y escucha el eco. Un eco fuerte se dibuja claro y uno débil, oscuro. Las microondas atraviesan las nubes y no necesitan luz del sol, así que ve el mismo lugar cada 12 días, de noche o de día.",
+      en: "NISAR sends out pulses of microwaves 24 cm long (L-band) and records how much energy comes back after it hits the ground. It works by day and by night, and through clouds. It looks at the world's land and ice every 12 days. Rough surfaces send more energy back and look brighter.",
+      es: "NISAR envía pulsos de microondas de 24 cm (banda L) y registra cuánta energía regresa después de chocar con el suelo. Funciona de día y de noche, y a través de las nubes. Observa la tierra y el hielo del mundo cada 12 días. Las superficies rugosas regresan más energía y se ven más claras.",
     },
     looks: { en: "Bright = strong echo. Dark = weak echo.", es: "Claro = eco fuerte. Oscuro = eco débil." },
+    refs: ["nisarFacts", "sar", "sarImage", "cdmx"],
   },
   {
     id: "water",
-    title: { en: "Water is a mirror", es: "El agua es un espejo" },
+    title: { en: "Calm water looks black", es: "El agua tranquila se ve negra" },
     text: {
-      en: "Calm water bounces the wave away, like a mirror, so almost nothing comes back and water looks black. When land floods, both channels (HH and HV) lose half their echo or more (3 dB): that is how a flood shows up.",
-      es: "El agua tranquila desvía la onda como un espejo, casi nada regresa y el agua se ve negra. Cuando un terreno se inunda, los dos canales (HH y HV) pierden la mitad del eco o más (3 dB): así aparece una inundación.",
+      en: "Calm water and other smooth surfaces reflect the radar away from the satellite, so they look black. The app's flood rule: both channels (HH and HV) lose half their echo or more (3 dB) and HH ends very dark.",
+      es: "El agua tranquila y otras superficies lisas reflejan el radar lejos del satélite, por eso se ven negras. La regla de inundación de la app: los dos canales (HH y HV) pierden la mitad del eco o más (3 dB) y HH queda muy oscuro.",
     },
     looks: { en: "Flood: darker after.", es: "Inundación: más oscuro después." },
+    refs: ["sarImage", "rules"],
   },
   {
     id: "structure",
     title: { en: "Corners shine", es: "Las esquinas brillan" },
     text: {
-      en: "A wall and the ground make a corner that throws the wave straight back. That is why cities are the brightest thing in a radar picture. New buildings make a place brighter (HH up 4 dB or more). Water under trees does the same: a flooded forest gets brighter, not darker.",
-      es: "Una pared y el suelo forman una esquina que devuelve la onda directo al satélite. Por eso las ciudades son lo más brillante en una imagen de radar. Las construcciones nuevas hacen un lugar más brillante (HH sube 4 dB o más). El agua bajo los árboles hace lo mismo: un bosque inundado se ve más claro, no más oscuro.",
+      en: "Buildings, bridges and other human-made objects act as corner reflectors and show up as bright spots. This \"double bounce\" also happens with tree trunks and flooded vegetation, and shows most in the HH channel. The app's rule for new buildings: HH rises 4 dB or more.",
+      es: "Edificios, puentes y otras construcciones funcionan como reflectores de esquina y aparecen como puntos brillantes. Este \"doble rebote\" también ocurre con troncos y vegetación inundada, y se nota más en el canal HH. La regla de la app para construcciones nuevas: HH sube 4 dB o más.",
     },
-    looks: { en: "New buildings: brighter after.", es: "Construcciones nuevas: más claro después." },
+    looks: { en: "New buildings or flooded trees: brighter after.", es: "Construcciones nuevas o árboles inundados: más claro después." },
+    refs: ["sarImage", "sar", "rules"],
   },
   {
     id: "plants",
-    title: { en: "Leaves scramble the wave", es: "Las hojas revuelven la onda" },
+    title: { en: "Leaves scatter the wave", es: "Las hojas dispersan la onda" },
     text: {
-      en: "Leaves and branches bounce the wave many times and turn part of it sideways. That sideways part is the HV channel. When a forest is cut or burned, HV drops by half or more (3 dB) and more than HH does.",
-      es: "Hojas y ramas rebotan la onda muchas veces y giran parte de ella de lado. Esa parte girada es el canal HV. Cuando se tala o quema un bosque, HV cae a la mitad o menos (3 dB) y más que HH.",
+      en: "Leaves and branches scatter the wave in many directions (volume scattering), which shows most in the cross-polarized channel, HV. L-band's long wave goes deeper into the canopy and also meets large branches and trunks. The app's forest-loss rule: HV drops 3 dB or more, and 1.5 dB more than HH.",
+      es: "Hojas y ramas dispersan la onda en muchas direcciones (dispersión de volumen), lo que se nota más en el canal de polarización cruzada, HV. La onda larga de la banda L entra más en el dosel y también toca ramas grandes y troncos. La regla de pérdida de bosque de la app: HV baja 3 dB o más, y 1.5 dB más que HH.",
     },
     looks: { en: "Forest loss: HV darker after.", es: "Pérdida de bosque: HV más oscuro después." },
+    refs: ["sar", "rules"],
   },
   {
     id: "moisture",
-    title: { en: "Wet ground echoes more", es: "El suelo húmedo hace más eco" },
+    title: { en: "Wet ground is brighter", es: "El suelo mojado se ve más claro" },
     text: {
-      en: "Water in the soil makes it reflect more, so the same field is brighter after rain and darker in a drought. NISAR's soil moisture product turns this into cubic meters of water per cubic meter of soil.",
-      es: "El agua en el suelo hace que refleje más, así que el mismo campo se ve más claro después de llover y más oscuro en una sequía. El producto de humedad de NISAR lo convierte en metros cúbicos de agua por metro cúbico de suelo.",
+      en: "A rough surface backscatters even more brightly when it is wet, so the same field can look brighter after rain. NISAR also has a soil moisture product (SME2).",
+      es: "Una superficie rugosa refleja con aún más brillo cuando está mojada, así que el mismo campo puede verse más claro después de llover. NISAR también tiene un producto de humedad del suelo (SME2).",
     },
-    looks: { en: "Wetter: brighter. Drier: darker.", es: "Más húmedo: más claro. Más seco: más oscuro." },
+    looks: { en: "Wetter: brighter.", es: "Más húmedo: más claro." },
+    refs: ["sarImage", "nisarFacts", "asfProducts"],
   },
   {
     id: "motion",
     title: { en: "Measuring centimeters", es: "Medir centímetros" },
     text: {
-      en: "The radar also records at which point of its wave the echo returns (the phase). If the ground sinks between two passes, the echo travels a little further and the phase shifts. Comparing passes measures movements of millimeters to centimeters. The app flags ground sinking 5 cm a year or more; parts of Mexico City sink 30 to 50 cm a year.",
-      es: "El radar también registra en qué punto de su onda regresa el eco (la fase). Si el suelo se hunde entre dos pasadas, el eco recorre un poco más y la fase cambia. Comparar pasadas mide movimientos de milímetros a centímetros. La app marca hundimientos de 5 cm al año o más; partes de la Ciudad de México se hunden de 30 a 50 cm al año.",
+      en: "Interferometry (InSAR) uses the phase of the echo to measure the distance to the ground. Comparing two passes measures how the ground moved, up to the centimeter level. The app flags ground sinking 5 cm a year or more. NASA reports that parts of Mexico City sank about 35 cm a year in the 1990s and 2000s, and NISAR measured more than 2 cm a month in places between October 2025 and January 2026.",
+      es: "La interferometría (InSAR) usa la fase del eco para medir la distancia al suelo. Comparar dos pasadas mide cómo se movió el suelo, con precisión de centímetros. La app marca hundimientos de 5 cm al año o más. La NASA informa que partes de la Ciudad de México se hundían unos 35 cm al año en los años 1990 y 2000, y NISAR midió más de 2 cm al mes en algunos lugares entre octubre de 2025 y enero de 2026.",
     },
     looks: { en: "Ground motion map: red away from the satellite, blue toward it.", es: "Mapa de movimiento: rojo se aleja del satélite, azul se acerca." },
+    refs: ["sar", "cdmx", "rules"],
   },
   {
     id: "fooled",
     title: { en: "What can fool it", es: "Qué lo puede engañar" },
     text: {
-      en: "Wind roughens lakes and makes them brighter, rain wets the soil for a day, crops grow and get harvested, and a different viewing angle changes the echo. So a change must still show on the next pass, patches under 0.04 km² are dropped, and every result is called a hypothesis, not a fact.",
-      es: "El viento agita los lagos y los aclara, la lluvia moja el suelo por un día, los cultivos crecen y se cosechan, y otro ángulo de vista cambia el eco. Por eso un cambio debe seguir en la siguiente pasada, se descartan manchas menores a 0.04 km² y cada resultado se presenta como hipótesis, no como hecho.",
+      en: "Wind-roughened water can look bright, wet ground looks brighter, the viewing angle changes the echo, and crops grow. So the app's rules need a change to still show on the next pass, drop patches under 0.04 km², and call every result a hypothesis, not a fact.",
+      es: "El agua agitada por el viento puede verse brillante, el suelo mojado se ve más claro, el ángulo de vista cambia el eco y los cultivos crecen. Por eso las reglas de la app exigen que el cambio siga en la siguiente pasada, descartan manchas menores a 0.04 km² y presentan cada resultado como hipótesis, no como hecho.",
     },
     looks: { en: "One pass alone is never enough.", es: "Una sola pasada nunca basta." },
+    refs: ["sarImage", "sar", "cdmx", "rules"],
   },
 ];
 

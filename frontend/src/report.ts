@@ -15,27 +15,51 @@ import { CLASSES } from "./legend";
 import { datesFor, importance, layerAt, liveWhere, SOURCE_SHORT, ticks, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
 import { tx, zoneHistory, zoneNote, HISTORY, type Source } from "./mexico";
 import { RECORDS_CHECKED } from "./origin";
+import type { ReportMeta, ReportSnapshot } from "./report-core";
 import type { Found } from "./satview";
+import { REFS, SOURCES_CHECKED, type RefId } from "./sources";
 import { clean, fill } from "./pdf-text";
 
+// What the page hands over: the data, and how to fetch the parts that take time.
 export type ReportInput = {
   area: AreaView;
   events: EventFeature["properties"][]; // this area's detected changes
   live: LiveFeature["properties"][]; // live reports near the area
   lang: string;
-  base: URL; // where the radar pictures are
+  asOf: ReportSnapshot["asOf"];
   series: () => Promise<[string, Series[]][]>;
   satellite: () => Promise<[Found | undefined, Found | undefined]>; // before, now
+};
+
+// How to word and find things; not part of the content.
+export type ReportEnv = {
+  base: URL; // where the radar pictures are
   typeName: (type: string) => string; // filter type names in the page's language
   satName: (layer: string) => string; // "HLS · Landsat 8/9 · 30 m"
 };
+
+/** Everything the report shows, fetched now. Compare snapshots with report-core.ts. */
+export async function snapshotReport(input: ReportInput): Promise<ReportSnapshot> {
+  const [sat, series] = await Promise.all([
+    input.satellite().catch(() => [undefined, undefined] as [undefined, undefined]),
+    input.series().catch(() => [] as [string, Series[]][]),
+  ]);
+  return { area: input.area, events: input.events, live: input.live, lang: input.lang, asOf: input.asOf, sat, series };
+}
 
 // ---- Words ----
 
 type Words = Record<keyof typeof EN, string>;
 const EN = {
   title: "Area report",
-  made: "Made on {date} with G.I.G.A.S",
+  made: "Version {v} · made {date} with G.I.G.A.S",
+  asOf: "Data as of: NISAR results published {radar}; live reports {live}; satellite photos {sat}.",
+  whatsNew: "What is new since version {n}",
+  summaryFrom: "Area description from the project's list of study areas.",
+  rulesText: "Each description below is written by the app's detection rules from the radar measurements.",
+  sRefs: "References",
+  refsIntro: "Every explanation in this report cites one of these. Each page was opened and read on {date}. Numbers that are the app's own rules cite the project's code.",
+  dataCredits: "Data citations",
   subtitle: "What the NISAR radar saw from space, with context from other satellites, alert services and published records.",
   glance: "At a glance",
   passes: "Radar dates",
@@ -76,7 +100,7 @@ const EN = {
   picPair: "NISAR radar, {group}: first pass ({before}) and latest pass ({after}). Bright = strong echo, dark = weak echo.",
   picChange: "Detected change between {from} and {to}, over the radar picture of {base}.",
   picSurface: "Surface type from the average of all radar dates ({from} to {to}).",
-  picMotion: "Ground motion from {from} to {to}, over the radar picture of {base}. Red: moving away from the satellite (often sinking). Blue: toward it.",
+  picMotion: "Ground motion from {from} to {to}, over the radar picture of {base}. Red: moving away from the satellite. Blue: toward it.",
   picSat: "{name}: before ({before}) and now ({now}). Nearest clear days; they can differ from the radar dates.",
   picNone: "No pictures could be loaded.",
   before: "Before", after: "After", now: "Now",
@@ -109,7 +133,14 @@ const EN = {
 };
 const ES: Words = {
   title: "Informe de zona",
-  made: "Generado el {date} con G.I.G.A.S",
+  made: "Versión {v} · generada el {date} con G.I.G.A.S",
+  asOf: "Datos al: resultados NISAR publicados {radar}; reportes en vivo {live}; fotos de satélite {sat}.",
+  whatsNew: "Qué hay de nuevo desde la versión {n}",
+  summaryFrom: "Descripción de la zona tomada de la lista de zonas de estudio del proyecto.",
+  rulesText: "Cada descripción de abajo la escriben las reglas de detección de la app a partir de las mediciones del radar.",
+  sRefs: "Referencias",
+  refsIntro: "Cada explicación de este informe cita una de estas fuentes. Cada página se abrió y leyó el {date}. Los números que son reglas propias de la app citan el código del proyecto.",
+  dataCredits: "Citas de los datos",
   subtitle: "Lo que vio el radar NISAR desde el espacio, con contexto de otros satélites, servicios de alerta y registros publicados.",
   glance: "De un vistazo",
   passes: "Fechas de radar",
@@ -150,7 +181,7 @@ const ES: Words = {
   picPair: "Radar NISAR, {group}: primera pasada ({before}) y última pasada ({after}). Claro = eco fuerte, oscuro = eco débil.",
   picChange: "Cambio detectado entre {from} y {to}, sobre la imagen de radar del {base}.",
   picSurface: "Tipo de superficie según el promedio de todas las fechas de radar ({from} a {to}).",
-  picMotion: "Movimiento del suelo de {from} a {to}, sobre la imagen de radar del {base}. Rojo: se aleja del satélite (a menudo hundimiento). Azul: se acerca.",
+  picMotion: "Movimiento del suelo de {from} a {to}, sobre la imagen de radar del {base}. Rojo: se aleja del satélite. Azul: se acerca.",
   picSat: "{name}: antes ({before}) y ahora ({now}). Días despejados más cercanos; pueden no coincidir con las fechas del radar.",
   picNone: "No se pudieron cargar imágenes.",
   before: "Antes", after: "Después", now: "Ahora",
@@ -182,18 +213,19 @@ const ES: Words = {
   legend: "Leyenda",
 };
 
-const GLOSSARY: { term: string; en: string; es: string }[] = [
-  { term: "NISAR", en: "NASA-ISRO Synthetic Aperture Radar, a satellite launched in 2025 that maps the ground with radar every 12 days.", es: "Radar de Apertura Sintética NASA-ISRO, un satélite lanzado en 2025 que mapea el suelo con radar cada 12 días." },
-  { term: "L-band", en: "Microwaves about 24 cm long. They pass through clouds and into plant cover.", es: "Microondas de unos 24 cm. Atraviesan las nubes y entran en la vegetación." },
-  { term: "Backscatter", en: "The part of the radar wave that comes back to the satellite: the echo.", es: "La parte de la onda del radar que regresa al satélite: el eco." },
-  { term: "HH / HV", en: "Two channels. HH: sent and received flat; strong for buildings and water. HV: received turned sideways; strong for leaves and branches.", es: "Dos canales. HH: enviada y recibida horizontal; fuerte en edificios y agua. HV: recibida girada; fuerte en hojas y ramas." },
-  { term: "dB (decibel)", en: "A scale for echo strength. 3 dB less is half the echo; 3 dB more is double.", es: "Una escala para la fuerza del eco. 3 dB menos es la mitad del eco; 3 dB más es el doble." },
-  { term: "GCOV", en: "NISAR's calibrated echo product on a map grid, used for change detection.", es: "El producto de eco calibrado de NISAR sobre una cuadrícula de mapa, usado para detectar cambios." },
-  { term: "GUNW", en: "NISAR's interferogram product: compares the timing of echoes to measure ground motion in centimeters.", es: "El producto de interferograma de NISAR: compara el tiempo de los ecos para medir movimiento del suelo en centímetros." },
-  { term: "SME2", en: "NISAR's soil moisture product, in cubic meters of water per cubic meter of soil.", es: "El producto de humedad del suelo de NISAR, en metros cúbicos de agua por metro cúbico de suelo." },
-  { term: "Maturity", en: "How well calibrated the data are: BETA, then PROVISIONAL, then VALIDATED.", es: "Qué tan calibrados están los datos: BETA, luego PROVISIONAL, luego VALIDATED." },
-  { term: "Confidence", en: "How sure the detection rules are about a change, from 0 to 100%.", es: "Qué tan seguras están las reglas de detección sobre un cambio, de 0 a 100%." },
-  { term: "Hypothesis", en: "A likely explanation that still needs checking on the ground.", es: "Una explicación probable que aún hay que comprobar en el terreno." },
+// Each definition says only what its sources say (sources.ts).
+const GLOSSARY: { term: string; en: string; es: string; refs: RefId[] }[] = [
+  { term: "NISAR", en: "NASA-ISRO Synthetic Aperture Radar: a satellite launched on July 30, 2025 that observes Earth's land and ice every 12 days.", es: "Radar de Apertura Sintética NASA-ISRO: un satélite lanzado el 30 de julio de 2025 que observa la tierra y el hielo de la Tierra cada 12 días.", refs: ["nisarFacts"] },
+  { term: "L-band", en: "NISAR's main radar: wavelength 24 cm. Longer waves go deeper into tree canopy than shorter ones.", es: "El radar principal de NISAR: longitud de onda de 24 cm. Las ondas largas entran más en el dosel que las cortas.", refs: ["nisarFacts", "sar"] },
+  { term: "Backscatter", en: "The energy of a radar pulse that comes back to the instrument after it interacts with the Earth.", es: "La energía de un pulso de radar que regresa al instrumento después de interactuar con la Tierra.", refs: ["sar"] },
+  { term: "HH / HV", en: "Polarizations: HH is sent and received horizontally; HV is sent horizontally and received vertically. Double bounce (buildings, tree trunks, flooded vegetation) shows most in HH; volume scattering by leaves and branches shows most in HV.", es: "Polarizaciones: HH se envía y recibe en horizontal; HV se envía en horizontal y se recibe en vertical. El doble rebote (edificios, troncos, vegetación inundada) se nota más en HH; la dispersión de volumen de hojas y ramas, en HV.", refs: ["sar"] },
+  { term: "dB (decibel)", en: "A ratio scale: dB = 10 × log10(ratio). Half the echo is 10 × log10(0.5) ≈ -3 dB; double is about +3 dB.", es: "Una escala de razones: dB = 10 × log10(razón). La mitad del eco es 10 × log10(0.5) ≈ -3 dB; el doble, unos +3 dB.", refs: [] },
+  { term: "GCOV", en: "NISAR Level 2 product: radiometrically terrain-corrected backscatter, for uses such as disturbance detection, inundation mapping and crop mapping.", es: "Producto NISAR de nivel 2: retrodispersión con corrección radiométrica del terreno, para usos como detección de disturbios, mapeo de inundaciones y de cultivos.", refs: ["asfProducts"] },
+  { term: "GUNW", en: "NISAR Level 2 product: an unwrapped, multi-looked differential interferogram from two radar images, for measuring ground displacement.", es: "Producto NISAR de nivel 2: un interferograma diferencial desenvuelto y multilook de dos imágenes de radar, para medir desplazamientos del suelo.", refs: ["asfProducts"] },
+  { term: "SME2", en: "NISAR Level 3 soil moisture product.", es: "Producto NISAR de nivel 3 de humedad del suelo.", refs: ["nisarFacts", "asfProducts"] },
+  { term: "Maturity", en: "BETA products are not fully calibrated; PROVISIONAL products are fully calibrated and partially validated; VALIDATED products were first released on November 6, 2026.", es: "Los productos BETA no están totalmente calibrados; los PROVISIONAL están calibrados y parcialmente validados; los VALIDATED se publicaron por primera vez el 6 de noviembre de 2026.", refs: ["asfProducts"] },
+  { term: "Confidence", en: "How strongly the app's detection rules support a change, from 0 to 100%.", es: "Qué tan fuerte es el apoyo de las reglas de detección de la app a un cambio, de 0 a 100%.", refs: ["rules"] },
+  { term: "Hypothesis", en: "How the app labels every radar result: likely, but not confirmed on the ground.", es: "Cómo etiqueta la app cada resultado del radar: probable, pero no confirmado en el terreno.", refs: ["rules"] },
 ];
 
 // ---- Look ----
@@ -245,11 +277,18 @@ function flatten(imgs: (HTMLImageElement | undefined)[], width = 900): { url: st
 
 // ---- The document ----
 
-export async function downloadReport(input: ReportInput): Promise<void> {
-  const { area: a } = input;
-  const L: Words = input.lang === "es" ? ES : EN;
-  const lang = input.lang;
-  const today = new Date().toISOString().slice(0, 10);
+/** The PDF of one snapshot, as a file. `meta` says which version it is and what is new in it. */
+export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: ReportMeta): Promise<Blob> {
+  const a = snap.area;
+  const L: Words = snap.lang === "es" ? ES : EN;
+  const lang = snap.lang;
+  const made = new Date(meta.made);
+  const today = made.toISOString().slice(0, 10);
+  const utc = (iso: string) => (iso && Number.isFinite(Date.parse(iso)) ? `${new Date(iso).toISOString().slice(0, 16).replace("T", " ")} UTC` : "-");
+  // Numbered citations, in order of first use; listed in the References section.
+  const cited: RefId[] = [];
+  const num = (r: RefId) => (cited.includes(r) ? cited.indexOf(r) : cited.push(r) - 1) + 1;
+  const cite = (refs: RefId[]) => (refs.length ? ` [${refs.map(num).join(", ")}]` : "");
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   doc.setProperties({ title: `${L.title}: ${clean(a.title)}`, subject: "NISAR change report", creator: "G.I.G.A.S" });
   const toc: { title: string; page: number }[] = [];
@@ -411,7 +450,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
 
   // -- data --
   const layers = a.layers;
-  const events = [...input.events].sort((x, y2) => x.from.localeCompare(y2.from));
+  const events = [...snap.events].sort((x, y2) => x.from.localeCompare(y2.from));
   const radarDates = [...new Set(layers.flatMap((l) => l.date_range ?? (l.date ? [l.date] : [])))].sort();
   const maturities = [...new Set(layers.map((l) => l.maturity))];
   const kindCounts = new Map<string, number>();
@@ -437,15 +476,15 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   doc.text(doc.splitTextToSize(clean(L.subtitle), CW) as string[], M, 42 + titleLines.slice(0, 2).length * 10 + 2);
   font(9);
   doc.setTextColor(142, 177, 199);
-  doc.text(clean(fill(L.made, { date: today })), M, 86);
-  if (a.types.length) doc.text(clean(a.types.map(input.typeName).join(" · ")), PAGE_W - M, 86, { align: "right", maxWidth: CW / 2 });
+  doc.text(clean(fill(L.made, { v: meta.version, date: utc(meta.made) })), M, 86);
+  if (a.types.length) doc.text(clean(a.types.map(env.typeName).join(" · ")), PAGE_W - M, 86, { align: "right", maxWidth: CW / 2 });
   y = 102;
 
   // At a glance: four tiles.
   const tiles: [string, string][] = [
     [L.passes, radarDates.length ? `${radarDates[0]} - ${radarDates.at(-1)}` : L.none],
     [L.changes, String(events.length)],
-    [L.kinds, kinds.length ? kinds.slice(0, 2).map(([k]) => input.typeName(k)).join(", ") : L.none],
+    [L.kinds, kinds.length ? kinds.slice(0, 2).map(([k]) => env.typeName(k)).join(", ") : L.none],
     [L.maturity, maturities.join(", ") || L.none],
   ];
   font(12, "bold");
@@ -465,8 +504,26 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     doc.text(doc.splitTextToSize(clean(value), tileW - 6).slice(0, 2) as string[], x + 3, y + (value.length > 14 ? 12.5 : 15));
   });
   y += 28;
-  if (a.summary) para(a.summary, { size: 10, gap: 3 });
+  if (a.summary) {
+    para(a.summary, { size: 10, gap: 0.5 });
+    para(L.summaryFrom + cite(["sites"]), { size: 8, c: MUTED, gap: 3 });
+  }
   if (!layers.length) para(L.noRadar, { size: 10, style: "bold", c: KIND.nisar });
+  para(fill(L.asOf, { radar: utc(snap.asOf.radar), live: utc(snap.asOf.live), sat: snap.sat[1]?.date ?? "-" }), { size: 8.5, c: MUTED, gap: 3 });
+  if (meta.replaces && meta.changes.length) {
+    const lines = meta.changes.map((c) => `·  ${c}`);
+    font(9);
+    const h = 9 + lines.reduce((n, l) => n + (doc.splitTextToSize(clean(l), CW - 10).length as number) * 4, 0);
+    doc.setFillColor(255, 244, 236);
+    doc.setDrawColor(...ACCENT);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(M, y, CW, h, 2, 2, "FD");
+    const top = y;
+    y += 2;
+    para(fill(L.whatsNew, { n: meta.replaces }), { size: 9.5, style: "bold", x: M + 4, w: CW - 8, gap: 0.5 });
+    for (const l of lines) para(l, { size: 9, x: M + 4, w: CW - 8, gap: 0 });
+    y = top + h + 3;
+  }
   const tocY = y + 4; // contents are written here once the page numbers are known
 
   // ===== 1. Where the data come from =====
@@ -480,7 +537,8 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     color(INK);
     doc.text(clean({ nisar: L.kNisar, satellite: L.kSatellite, feed: L.kFeed, record: L.kRecord }[k]), M + 6, y + 3.4);
     y += 4.5;
-    para({ nisar: L.dNisar, satellite: L.dSatellite, feed: L.dFeed, record: L.dRecord }[k], { size: 9, c: MUTED, x: M + 6, w: CW - 6, gap: 2 });
+    const refs: Record<typeof k, RefId[]> = { nisar: ["nisarFacts", "cdmx"], satellite: ["gibs", "hls"], feed: ["usgs", "usgsVolcano", "eonet", "gdacs", "noaa"], record: [] };
+    para({ nisar: L.dNisar, satellite: L.dSatellite, feed: L.dFeed, record: L.dRecord }[k] + cite(refs[k]), { size: 9, c: MUTED, x: M + 6, w: CW - 6, gap: 2 });
     y = Math.max(y, top + 10);
   }
   y += 2;
@@ -494,19 +552,19 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   const motion = of((l) => l.role === "motion");
   const soil = of((l) => l.role === "soil_moisture");
   const derived = of((l) => l.product === "derived" && l.role !== "motion" && l.role !== "soil_moisture");
-  if (gcov.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC", L.gcovWhat, span(gcov), [...new Set(gcov.map((l) => l.maturity))].join(", ")]);
-  if (motion.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC", L.gunwWhat, span(motion), motion[0].units]);
-  if (soil.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC", L.sme2What, span(soil), soil[0].units]);
-  if (derived.length) rows.push([L.kNisar, "G.I.G.A.S", L.derivedWhat, span(derived), [...new Set(derived.map((l) => l.group ?? ""))].join(", ")]);
-  const [satBefore, satNow] = await input.satellite().catch(() => [undefined, undefined] as [undefined, undefined]);
-  if (satBefore && satNow) rows.push([L.kSatellite, "NASA GIBS", `${L.gibsWhat}: ${input.satName(satNow.layer)}`, `${satBefore.date}, ${satNow.date}`, ""]);
-  rows.push([L.kFeed, "USGS · NASA EONET · GDACS · NOAA", L.liveWhat, today, String(input.live.length)]);
+  if (gcov.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC" + cite(["asfProducts"]), L.gcovWhat, span(gcov), [...new Set(gcov.map((l) => l.maturity))].join(", ")]);
+  if (motion.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC" + cite(["asfProducts"]), L.gunwWhat, span(motion), motion[0].units]);
+  if (soil.length) rows.push([L.kNisar, "NASA/JPL/ISRO · ASF DAAC" + cite(["asfProducts"]), L.sme2What, span(soil), soil[0].units]);
+  if (derived.length) rows.push([L.kNisar, "G.I.G.A.S" + cite(["rules"]), L.derivedWhat, span(derived), [...new Set(derived.map((l) => l.group ?? ""))].join(", ")]);
+  const [satBefore, satNow] = snap.sat;
+  if (satBefore && satNow) rows.push([L.kSatellite, "NASA GIBS" + cite(["gibs", "hls"]), `${L.gibsWhat}: ${env.satName(satNow.layer)}`, `${satBefore.date}, ${satNow.date}`, ""]);
+  rows.push([L.kFeed, "USGS · NASA EONET · GDACS · NOAA" + cite(["usgs", "eonet", "gdacs", "noaa"]), L.liveWhat, utc(snap.asOf.live), String(snap.live.length)]);
   rows.push([L.kRecord, L.sources, L.recordWhat, "-", fill(L.checked, { date: RECORDS_CHECKED })]);
   table([L.hKind, L.hSource, L.hWhat, L.hDates, L.hNotes], rows, { widths: [26, 38, 50, 34, 30] });
 
   // ===== 2. Pictures =====
   section(L.sPictures, true);
-  const url = (l?: Layer) => (l ? new URL(l.url, input.base).href : "");
+  const url = (l?: Layer) => (l ? new URL(l.url, env.base).href : "");
   const load = (l?: Layer) => (l ? loadImage(url(l)) : Promise.resolve(undefined));
   const isPicture = (l: Layer) => l.role === "backscatter" && l.colormap === "gray";
   const groups = [...new Set(layers.filter(isPicture).map((l) => l.group ?? l.polarization ?? ""))];
@@ -540,7 +598,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     if (dates.length >= 2) {
       const [first, last] = [layerAt(layers, pairGroup, dates[0]), layerAt(layers, pairGroup, dates.at(-1)!)];
       if (await sideBySide(await load(first), await load(last), [`${L.before} ${dates[0]}`, `${L.after} ${dates.at(-1)}`], "nisar")) {
-        caption(fill(L.picPair, { group: pairGroup, before: dates[0], after: dates.at(-1)! }));
+        caption(fill(L.picPair, { group: pairGroup, before: dates[0], after: dates.at(-1)! }) + cite(["sarImage"]));
         drew = true;
       }
     }
@@ -570,7 +628,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   }
   if (satBefore && satNow) {
     if (await sideBySide(await loadImage(satBefore.url), await loadImage(satNow.url), [`${L.before} ${satBefore.date}`, `${L.now} ${satNow.date}`], "satellite")) {
-      caption(fill(L.picSat, { name: `NASA GIBS · ${input.satName(satNow.layer)}`, before: satBefore.date, now: satNow.date }));
+      caption(fill(L.picSat, { name: `NASA GIBS · ${env.satName(satNow.layer)}`, before: satBefore.date, now: satNow.date }));
       drew = true;
     }
   }
@@ -581,7 +639,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   chip("nisar", maturities.join(", "));
   if (!events.length) para(L.noChanges, { c: MUTED });
   else {
-    para(fill(L.changesIntro, { n: events.length, from: events[0].from, to: events.reduce((m, e) => (e.to > m ? e.to : m), "") }));
+    para(fill(L.changesIntro, { n: events.length, from: events[0].from, to: events.reduce((m, e) => (e.to > m ? e.to : m), "") }) + " " + L.rulesText + cite(["rules"]));
     // Bars: changes by kind.
     heading(L.byKind);
     const most = kinds[0][1];
@@ -589,7 +647,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
       ensure(7);
       font(9);
       color(INK);
-      doc.text(clean(input.typeName(k)), M, y + 3.6, { maxWidth: 52 });
+      doc.text(clean(env.typeName(k)), M, y + 3.6, { maxWidth: 52 });
       const w = ((CW - 72) * n) / most;
       doc.setFillColor(...KIND.nisar);
       doc.roundedRect(M + 56, y, Math.max(w, 0.8), 4.6, 0.8, 0.8, "F");
@@ -630,7 +688,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
       doc.text(clean(`${i + 1}. ${e.title}`), M, y + 3.5);
       font(8.5);
       color(MUTED);
-      doc.text(clean(`${e.from} - ${e.to} · ${input.typeName(e.category)} · ${e.area_km2.toFixed(2)} km² · ${Math.round(e.confidence * 100)}%`), M, y + 8);
+      doc.text(clean(`${e.from} - ${e.to} · ${env.typeName(e.category)} · ${e.area_km2.toFixed(2)} km² · ${Math.round(e.confidence * 100)}%`), M, y + 8);
       y += 10;
       para(e.summary, { size: 9, gap: 3 });
     });
@@ -638,13 +696,13 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     heading(`${L.all} (${events.length})`);
     table(
       ["#", L.hDate, L.hType, L.hSaw, L.hArea, L.hConf],
-      events.map((e, i) => [i + 1, `${e.from}\n${e.to}`, input.typeName(e.category), e.title, e.area_km2.toFixed(2), `${Math.round(e.confidence * 100)}%`]),
+      events.map((e, i) => [i + 1, `${e.from}\n${e.to}`, env.typeName(e.category), e.title, e.area_km2.toFixed(2), `${Math.round(e.confidence * 100)}%`]),
       { widths: [10, 24, 38, 66, 20, 20], size: 8 },
     );
   }
 
   // ===== 4. Change over time =====
-  const series = await input.series().catch(() => [] as [string, Series[]][]);
+  const series = snap.series;
   section(L.sTrends, true);
   if (!series.length) para(L.noTrends, { c: MUTED });
   else {
@@ -727,7 +785,7 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     chip("record", fill(L.checked, { date: RECORDS_CHECKED }));
     table(
       [L.hYear, L.hEvent, L.hImpact, L.sources],
-      history.map((e) => [e.date, `${tx(e.title, lang)}\n${input.typeName(e.type)}`, tx(e.impact, lang), e.sources.map((s) => s.name).join("; ")]),
+      history.map((e) => [e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang), e.sources.map((s) => s.name).join("; ")]),
       { widths: [20, 42, 76, 40], size: 8 },
     );
   }
@@ -735,20 +793,20 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   // ===== 7. Live reports nearby =====
   section(L.sLive);
   chip("feed", "USGS · NASA EONET · GDACS · NOAA");
-  if (!input.live.length) para(L.noLive, { c: MUTED });
+  if (!snap.live.length) para(L.noLive, { c: MUTED });
   else {
     para(fill(L.liveIntro, { date: `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC` }), { size: 9, c: MUTED });
     // Satellite fire hot spots come by the dozen: one line for all of them, the rest as a table.
-    const fires = input.live.filter((p) => p.source === "firms");
-    const others = input.live.filter((p) => p.source !== "firms").sort((p, q) => q.date.localeCompare(p.date));
+    const fires = snap.live.filter((p) => p.source === "firms");
+    const others = snap.live.filter((p) => p.source !== "firms").sort((p, q) => q.date.localeCompare(p.date));
     if (fires.length) {
       const latest = fires.map((p) => p.date).sort().at(-1)!.replace("T", " ").replace("Z", "");
-      para(fill(L.fires, { n: fires.length, date: latest }), { size: 9.5, style: "bold", gap: 4 });
+      para(fill(L.fires, { n: fires.length, date: latest }) + cite(["firms"]), { size: 9.5, style: "bold", gap: 4 });
     }
     if (others.length) {
       table(
         [L.hWhen, L.hType, L.hEvent, L.hWhere, L.hSource],
-        others.map((p) => [p.date.replace("T", " ").replace("Z", ""), input.typeName(p.category), p.title, liveWhere(p), SOURCE_SHORT[p.source] ?? p.source_name]),
+        others.map((p) => [p.date.replace("T", " ").replace("Z", ""), env.typeName(p.category), p.title, liveWhere(p), SOURCE_SHORT[p.source] ?? p.source_name]),
         { widths: [28, 30, 56, 40, 24], size: 8, accent: [120, 80, 0] },
       );
     }
@@ -756,11 +814,11 @@ export async function downloadReport(input: ReportInput): Promise<void> {
 
   // ===== 8. How the radar sees =====
   section(L.sWhy);
-  para(L.whyIntro, { gap: 4 });
+  para(L.whyIntro + cite(["sar"]), { gap: 4 });
   for (const id of topicsFor(a.types)) {
     const topic = TOPICS.find((x) => x.id === id)!;
     heading(tx(topic.title, lang), 10.5);
-    para(tx(topic.text, lang), { size: 9.5, gap: 1 });
+    para(tx(topic.text, lang) + cite(topic.refs), { size: 9.5, gap: 1 });
     para(tx(topic.looks, lang), { size: 9, style: "italic", c: MUTED, gap: 4 });
   }
 
@@ -768,9 +826,9 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   section(L.sMethods);
   para(L.methodsIntro, { c: MUTED, size: 9 });
   table(
-    [L.hDate, L.hDecision, L.hChose, L.hWhy, L.hGiveUp],
-    [...DECISIONS].sort((p, q) => q.date.localeCompare(p.date)).map((d) => [d.date, tx(d.title, lang), tx(d.chose, lang), tx(d.why, lang), tx(d.tradeoff, lang)]),
-    { widths: [18, 36, 46, 44, 34], size: 7.6, bold: 1 },
+    [L.hDate, L.hDecision, L.hChose, L.hWhy, L.hGiveUp, "[ ]"],
+    [...DECISIONS].sort((p, q) => q.date.localeCompare(p.date)).map((d) => [d.date, tx(d.title, lang), tx(d.chose, lang), tx(d.why, lang), tx(d.tradeoff, lang), cite(d.refs).trim()]),
+    { widths: [17, 32, 42, 41, 32, 14], size: 7.4, bold: 1 },
   );
 
   // ===== 10. Radar pictures =====
@@ -788,12 +846,27 @@ export async function downloadReport(input: ReportInput): Promise<void> {
 
   // ===== 11. Glossary =====
   section(L.sGlossary);
-  table([L.hWord, L.hMeaning], GLOSSARY.map((g) => [g.term, lang === "es" ? g.es : g.en]), { widths: [36, CW - 36], size: 9, bold: 0 });
+  table([L.hWord, L.hMeaning, "[ ]"], GLOSSARY.map((g) => [g.term, lang === "es" ? g.es : g.en, cite(g.refs).trim()]), { widths: [32, CW - 50, 18], size: 9, bold: 0 });
 
-  // ===== 12. Credits =====
-  section(L.sCredits);
+  // ===== 12. References and data citations =====
+  section(L.sRefs, true);
+  para(fill(L.refsIntro, { date: SOURCES_CHECKED }), { size: 9, c: MUTED, gap: 4 });
+  cited.forEach((id, i) => {
+    const r = REFS[id];
+    ensure(11);
+    font(9, "bold");
+    color(INK);
+    doc.text(`[${i + 1}]`, M, y + 3.4);
+    para(`${r.who}. ${r.title}.`, { size: 9, x: M + 10, w: CW - 10, gap: 0 });
+    font(8);
+    color(KIND.nisar);
+    doc.textWithLink(doc.splitTextToSize(clean(r.url), CW - 10)[0] as string, M + 10, y + 3, { url: r.url });
+    y += 6;
+  });
+  heading(L.dataCredits);
   for (const c of a.credits) para(c, { size: 9, gap: 3 });
-  if (!a.credits.length) para("-", { c: MUTED });
+  for (const c of [...new Set(snap.live.map((p) => p.credit))]) para(c, { size: 9, gap: 3 });
+  if (snap.sat[1]) para(`NASA Global Imagery Browse Services (GIBS), ${snap.sat[1].layer}. ${REFS.gibs.url}`, { size: 9, gap: 3 });
   y += 4;
   ensure(20);
   doc.setFillColor(...SOFT);
@@ -810,8 +883,9 @@ export async function downloadReport(input: ReportInput): Promise<void> {
   color(NAVY);
   doc.text(clean(L.contents), M, y);
   y += 3;
+  const step = meta.replaces ? 5.4 : 6.4; // a "what is new" box takes room on the cover
   toc.forEach((entry, i) => {
-    y += 6.4;
+    y += step;
     font(10);
     color(INK);
     const label = clean(`${i + 1}.  ${entry.title}`);
@@ -832,12 +906,12 @@ export async function downloadReport(input: ReportInput): Promise<void> {
     doc.line(M, PAGE_H - 13, PAGE_W - M, PAGE_H - 13);
     font(7.5);
     color(MUTED);
-    doc.text(clean(`G.I.G.A.S · ${a.title} · ${today}`), M, PAGE_H - 8.5, { maxWidth: CW - 30 });
+    doc.text(clean(`G.I.G.A.S · ${a.title} · v${meta.version} · ${today}`), M, PAGE_H - 8.5, { maxWidth: CW - 30 });
     doc.text(clean(fill(L.page, { n: p, total })), PAGE_W - M, PAGE_H - 8.5, { align: "right" });
     if (p > 1) {
       doc.text(clean(`${L.title} · ${a.title}`), M, 12);
       doc.line(M, 14.5, PAGE_W - M, 14.5);
     }
   }
-  doc.save(`gigas-${a.id}-${today}.pdf`);
+  return doc.output("blob");
 }

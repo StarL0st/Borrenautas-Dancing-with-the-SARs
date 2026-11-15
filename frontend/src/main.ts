@@ -9,10 +9,11 @@ import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
 import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
-import type { ReportInput } from "./report";
+import type { ReportEnv, ReportInput } from "./report";
+import { contentKey, diffSnapshots, type Change, type ReportSnapshot } from "./report-core";
 import { CLASSES, RAMPS } from "./legend";
 import { topicsFor, TOPICS } from "./explain";
-import { explainer } from "./explain-view";
+import { explainer, sourceLinks } from "./explain-view";
 import { DECISIONS, type Decision } from "./decisions";
 import { KID_FOUND, KID_TYPES, kidFact } from "./kid";
 import {
@@ -55,6 +56,7 @@ let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
 let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
 let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
+let manifestAt = ""; // the radar results' generated_at (manifest.json)
 let liveEvery = 0; // how often the back end refreshes live.geojson, in minutes (0: unknown)
 const ticked = new Set(GROUPS.flatMap((g) => g.items)); // filter types switched on
 let stagger = true; // the area list cascades in while the page loads, not on later updates
@@ -339,6 +341,8 @@ function toggle(id: string) {
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
     globe.focus(a);
+    // Its report is made now and then kept up to date (after the card's pictures load).
+    setTimeout(() => opened.includes(id) && updatePdf(a), 2500);
   }
   render();
   if (opening) cards.querySelector<HTMLElement>("summary")?.focus();
@@ -381,6 +385,7 @@ function card(a: AreaView) {
       reportButton(a),
       el("button", { type: "button", onclick: () => toggle(a.id) }, t("card.close")),
     ),
+    pdfStatus(a),
     tags,
     originKey(a.layers.length ? ["nisar", "satellite", "record"] : ["satellite", "record"]),
     el("p", {}, a.summary),
@@ -481,7 +486,7 @@ function kidWelcome(): HTMLElement {
     el("p", { className: "kid-big" }, t("kid.intro")),
     kidQ(1, "kid.how", el("ol", { className: "kid-steps" }, el("li", {}, t("kid.step1")), el("li", {}, t("kid.step2")), el("li", {}, t("kid.step3")))),
     kidQ(2, "kid.colors", el("ul", { className: "kid-list" }, ...colors.map(([g, k]) => el("li", {}, dot(GROUPS.find((x) => x.id === g)!.color), t(k))))),
-    kidQ(3, "kid.nisar.title", el("p", {}, originBadge("nisar")), el("p", {}, t("kid.nisar"))),
+    kidQ(3, "kid.nisar.title", el("p", {}, originBadge("nisar")), el("p", {}, t("kid.nisar")), sourceLinks(["nisarFacts", "cdmx"])),
     kidQ(4, "kid.q.words", kidWords()),
   );
 }
@@ -557,7 +562,7 @@ function kidCard(a: AreaView): HTMLElement {
     kidQ(1, "kid.q.what", el("p", {}, t("kid.watch")), el("ul", { className: "kid-list" }, ...a.types.map((k) => el("li", {}, typeIcon(k), KID_TYPES[k] ? tx(KID_TYPES[k], L) : shortLabel(k))))),
     kidQ(2, "kid.q.saw", ...saw),
     kidQ(3, "kid.q.look", look),
-    kidQ(4, "kid.q.fact", el("p", { className: "kid-fact" }, tx(kidFact(a.types), L))),
+    kidQ(4, "kid.q.fact", el("p", { className: "kid-fact" }, tx(kidFact(a.types), L)), sourceLinks(kidFact(a.types).refs)),
     kidQ(
       5,
       "kid.q.where",
@@ -580,21 +585,115 @@ const kidCompare = new Map<string, CompareState>();
 
 const TOP_N = 5; // timelines in the card keep this many rows; the PDF has them all
 
+// One PDF per area, kept up to date (round 6). Each is made from a snapshot of everything it
+// shows; whenever new data arrives (radar results, detected changes, live reports, a newer
+// satellite photo) the snapshot is taken again, and if its content changed the old PDF is thrown
+// away and a new version is made that lists what is new. Downloads always get the newest version.
+type Pdf = { snap: ReportSnapshot; key: string; version: number; made: string; blob: Blob; changes: string[] };
+const pdfs = new Map<string, Pdf>();
+const pdfJobs = new Map<string, Promise<Pdf | undefined>>();
+let pdfEnv: ReportEnv | undefined;
+
+// "radar", "changes"... in words, for the card and the PDF's "what is new" box.
+function changeText(c: Change): string {
+  switch (c.kind) {
+    case "lang": return t("pdf.ch.lang");
+    case "radar": return t("pdf.ch.radar", { added: c.added, removed: c.removed, latest: c.latest || "-" });
+    case "changes": return t("pdf.ch.changes", { from: c.from, to: c.to });
+    case "live": return t("pdf.ch.live", { n: c.n });
+    case "satellite": return t("pdf.ch.satellite", { date: c.date || "-" });
+    case "series": return t("pdf.ch.series");
+    case "area": return t("pdf.ch.area");
+  }
+}
+
+/** The newest PDF of an area: the kept one if its data has not changed, else a new version. */
+function updatePdf(a: AreaView): Promise<Pdf | undefined> {
+  const running = pdfJobs.get(a.id);
+  if (running) return running;
+  const job = (async () => {
+    const mod = await import("./report");
+    pdfEnv ??= { base: BASE, typeName: shortLabel, satName: gibsName };
+    const snap = await mod.snapshotReport(reportInput(a));
+    const key = contentKey(snap);
+    const old = pdfs.get(a.id);
+    if (old && old.key === key) return old;
+    showPdfStatus(a.id, old ? "pdf.updating" : "pdf.making", old);
+    const changes = old ? diffSnapshots(old.snap, snap).map(changeText) : [];
+    const made = new Date().toISOString();
+    const version = (old?.version ?? 0) + 1;
+    const blob = await mod.renderReport(snap, pdfEnv, { version, made, replaces: old?.version, changes });
+    const pdf: Pdf = { snap, key, version, made, blob, changes };
+    pdfs.set(a.id, pdf); // the old version's file is dropped here
+    showPdfStatus(a.id);
+    return pdf;
+  })()
+    .catch((err) => {
+      console.error(err);
+      showPdfStatus(a.id, "report.failed");
+      return pdfs.get(a.id);
+    })
+    .finally(() => pdfJobs.delete(a.id));
+  pdfJobs.set(a.id, job);
+  return job;
+}
+
+// After new data: bring every kept PDF up to date, one at a time. PDFs of areas that left the
+// data are thrown away.
+let refreshing = false;
+async function refreshPdfs() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    for (const id of [...pdfs.keys()]) {
+      const a = areas().find((x) => x.id === id);
+      if (!a) pdfs.delete(id);
+      else await updatePdf(a);
+    }
+  } finally {
+    refreshing = false;
+  }
+}
+
+const hhmm = (iso: string) => new Date(iso).toLocaleString(lang(), { dateStyle: "short", timeStyle: "short" });
+
+// The line under the report button: which version, when, and what changed last time.
+function pdfStatusText(id: string, busy?: Key): string {
+  const pdf = pdfs.get(id);
+  if (busy) return t(busy, { v: (pdf?.version ?? 0) + 1 });
+  if (!pdf) return "";
+  const head = t("pdf.ready", { v: pdf.version, time: hhmm(pdf.made) });
+  return pdf.version > 1 && pdf.changes.length ? `${head} ${t("pdf.new", { old: pdf.version - 1, list: pdf.changes.join("; ") })}` : head;
+}
+function showPdfStatus(id: string, busy?: Key, _old?: Pdf) {
+  for (const node of document.querySelectorAll<HTMLElement>(`[data-pdf-status="${CSS.escape(id)}"]`)) node.textContent = pdfStatusText(id, busy);
+}
+const pdfStatus = (a: AreaView) => {
+  const p = el("p", { className: "muted pdf-status" }, pdfStatusText(a.id, pdfJobs.has(a.id) ? "pdf.making" : undefined));
+  p.dataset.pdfStatus = a.id;
+  p.setAttribute("role", "status");
+  return p;
+};
+
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const link = el("a", { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 function reportButton(a: AreaView, label: Key = "report.download"): HTMLButtonElement {
   const button = el("button", { type: "button", className: "primary" }, t(label));
   button.onclick = async () => {
     button.disabled = true;
     button.textContent = t("report.making");
-    try {
-      const { downloadReport } = await import("./report");
-      await downloadReport(reportInput(a));
-      button.textContent = t(label);
-    } catch (err) {
-      console.error(err);
-      button.textContent = t("report.failed");
-    } finally {
-      button.disabled = false;
-    }
+    // Always the newest version: the data is checked again first.
+    const pdf = await updatePdf(a);
+    if (pdf) saveBlob(pdf.blob, `gigas-${a.id}-v${pdf.version}-${pdf.made.slice(0, 10)}.pdf`);
+    button.textContent = pdf ? t(label) : t("report.failed");
+    button.disabled = false;
   };
   return button;
 }
@@ -609,11 +708,9 @@ function reportInput(a: AreaView): ReportInput {
     events: reports.filter((e) => e.properties.area_id === a.id).map((e) => e.properties),
     live: liveEvents.map((f) => f.properties).filter((p) => distanceKm([p.lon, p.lat], a.center) <= 300),
     lang: lang(),
-    base: BASE,
+    asOf: { radar: manifestAt, live: liveUpdated },
     series: () => loadSeries(a),
     satellite: () => satPair(a, v?.layer ?? (wide ? "viirs" : "hls"), MONTHS[v?.ago ?? 3]).then(([now, old]) => [old, now]),
-    typeName: shortLabel,
-    satName: gibsName,
   };
 }
 
@@ -656,6 +753,7 @@ function decisionItem(d: Decision): HTMLElement {
       ...row("dec.instead", tx(d.instead, lang())),
       ...row("dec.tradeoff", tx(d.tradeoff, lang())),
     ),
+    sourceLinks(d.refs),
   );
 }
 
@@ -989,13 +1087,14 @@ const satViews = new Map<string, { layer: string; ago: number; swipe: number }>(
 const satCache = new Map<string, Promise<Found | undefined>>();
 const satCompare = new Map<string, CompareState>(); // zoom, divider and threshold per area
 
-// Which satellite a GIBS layer is, in a few words.
+// Which satellite a GIBS layer is, in a few words. Only HLS states its pixel size (30 m, NASA
+// Earthdata); the others are named without one.
 const gibsName = (layer: string) =>
   layer.startsWith("HLS_S30") ? "HLS · Sentinel-2 · 30 m"
   : layer.startsWith("HLS_L30") ? "HLS · Landsat 8/9 · 30 m"
-  : layer.startsWith("VIIRS_NOAA20") ? "VIIRS · NOAA-20 · 375 m"
-  : layer.includes("NDVI") ? "MODIS Terra · NDVI · 250 m"
-  : layer.startsWith("MODIS") ? "MODIS Terra · 7-2-1 · 250 m"
+  : layer.startsWith("VIIRS_NOAA20") ? "VIIRS · NOAA-20"
+  : layer.includes("NDVI") ? "MODIS Terra · NDVI"
+  : layer.startsWith("MODIS") ? "MODIS Terra · 7-2-1"
   : layer;
 
 // `clear`: look longer for a day with almost no clouds (Simple mode's guide).
@@ -1130,12 +1229,13 @@ function renderRecent() {
 async function loadLive() {
   seriesCache.clear();
   try {
-    const res = await fetch(new URL("manifest.json", BASE));
+    const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" }); // never an old copy
     if (!res.ok) throw new Error(String(res.status));
-    const manifest: Manifest = await res.json();
+    const manifest: Manifest & { generated_at?: string } = await res.json();
+    manifestAt = manifest.generated_at ?? res.headers.get("last-modified") ?? "";
     if (supportedVersion(manifest.contract_version)) {
       // events.geojson is optional (older back ends have none); the areas still load without it.
-      reports = await fetch(new URL("events.geojson", BASE))
+      reports = await fetch(new URL("events.geojson", BASE), { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : { features: [] }))
         .then((g) => g.features ?? [])
         .catch(() => []);
@@ -1153,7 +1253,24 @@ async function loadLive() {
   }
   render();
   stagger = false;
+  refreshPdfs(); // new radar results can change kept reports
 }
+
+// The radar results can change at any time (a new pass processed). A back end pushes "manifest";
+// without one (files on storage), look every 5 minutes and reload only when they changed.
+async function checkManifest() {
+  try {
+    const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" });
+    const m = res.ok ? ((await res.json()) as { generated_at?: string }) : undefined;
+    const at = m?.generated_at ?? res.headers.get("last-modified") ?? "";
+    if (at && at !== manifestAt) loadLive();
+  } catch {
+    // offline: try again next time
+  }
+}
+setInterval(checkManifest, 5 * 60 * 1000);
+// Satellite photos are published daily: once an hour, look again for kept reports.
+setInterval(refreshPdfs, 60 * 60 * 1000);
 
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 
@@ -1244,6 +1361,7 @@ async function loadLiveFeeds() {
   liveEvents = recent(liveEvents, Date.now()); // events past 24 hours leave the globe and the list
   showLiveStatus();
   render();
+  refreshPdfs(); // live reports nearby are part of each report
 }
 
 // Live updates exist only on the back-end server, not on the static build: give up quietly there.

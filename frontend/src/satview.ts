@@ -1,7 +1,7 @@
 // Satellite pictures of a zone "now" and "before", from NASA GIBS (Global Imagery Browse
 // Services): public, no key, CORS-enabled WMS. Taken from the `jopa-testing` branch.
 //
-// A satellite does not see every place every day (HLS: every 2-3 days) and clouds hide many
+// A satellite does not see every place every day (HLS does not pass every day) and clouds hide many
 // passes, so `findClear` walks back day by day, checks a tiny thumbnail and keeps the first
 // picture with data and few clouds.
 
@@ -11,7 +11,7 @@ export type SatLayer = { id: string; layers: string[]; maxSpanDeg: number; daily
 export const SAT_LAYERS: SatLayer[] = [
   // Harmonized Landsat 8/9 + Sentinel-2, 30 m: streets and fields are visible.
   { id: "hls", layers: ["HLS_S30_Nadir_BRDF_Adjusted_Reflectance", "HLS_L30_Nadir_BRDF_Adjusted_Reflectance"], maxSpanDeg: 1.5, daily: false },
-  // VIIRS on NOAA-20, 375 m, every day: whole regions, storms and smoke.
+  // VIIRS on NOAA-20, every day: whole regions, storms and smoke.
   { id: "viirs", layers: ["VIIRS_NOAA20_CorrectedReflectance_TrueColor"], maxSpanDeg: 40, daily: true },
   // MODIS bands 7-2-1: burn scars red-brown, water dark blue, plants green.
   { id: "fire", layers: ["MODIS_Terra_CorrectedReflectance_Bands721"], maxSpanDeg: 40, daily: true },
