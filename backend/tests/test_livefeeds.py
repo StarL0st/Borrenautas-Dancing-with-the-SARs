@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 from sars_pipeline import livefeeds as lf
 
@@ -104,7 +105,8 @@ def test_eonet_latest_position_and_skips_gdacs_only():
     )
     assert fire["place"] == "Perry, Mississippi"
     storm = out[1]
-    assert storm["properties"]["category"] == "storms"
+    assert storm["properties"]["category"] == "hurricanes"  # told apart by its title
+    assert storm["properties"]["active"] and storm["properties"]["severity"] == 2
     assert storm["geometry"]["coordinates"] == [1.0, 1.0]  # polygon -> its mean point
 
 
@@ -120,7 +122,7 @@ def test_usgs():
 def test_gdacs_leaves_earthquakes_to_usgs():
     (f,) = lf.parse_gdacs(GDACS)
     p = f["properties"]
-    assert (p["category"], p["date"]) == ("storms", "2026-11-13")
+    assert (p["category"], p["date"]) == ("hurricanes", "2026-11-13")
     assert p["detail"] == "Orange alert · Category 2"
 
 
@@ -186,7 +188,9 @@ def test_collect_keeps_going_when_a_feed_fails(tmp_path, monkeypatch):
             raise OSError("offline")
         return payloads[url]
 
-    doc = lf.write(tmp_path, lf.fetchers(get))
+    # An hour after the test earthquake: it is recent; the open EONET events stay as active.
+    now = datetime.fromtimestamp(USGS["features"][0]["properties"]["time"] / 1000 + 3600, UTC)
+    doc = lf.write(tmp_path, lf.fetchers(get), now=now)
     status = {s["id"]: s for s in doc["sources"]}
     assert status["usgs"]["ok"] and status["usgs"]["count"] == 1
     assert not status["gdacs"]["ok"] and "offline" in status["gdacs"]["error"]
@@ -222,7 +226,7 @@ def test_gdacs_fires_get_their_own_pages():
 
     out = lf.fetchers(get)["gdacs"]()
     cats = [f["properties"]["category"] for f in out]
-    assert cats.count("storms") == 5 and cats.count("floods") == 31
+    assert cats.count("hurricanes") == 5 and cats.count("floods") == 31
     assert cats.count("wildfires") == 207
     assert sum("eventlist=WF" in u for u in asked) == 3
 
@@ -253,8 +257,6 @@ def test_every_event_says_where():
 
 
 def test_firms_keeps_the_last_24_hours_across_the_utc_day_change(monkeypatch):
-    from datetime import UTC, datetime, timedelta
-
     now = datetime.now(UTC)
     rows = "latitude,longitude,acq_date,acq_time,confidence\n" + "".join(
         f"20.{i},-103.{i},{t:%Y-%m-%d},{t:%H%M},n\n"
@@ -271,3 +273,67 @@ def test_firms_keeps_the_last_24_hours_across_the_utc_day_change(monkeypatch):
     assert len(got) == 2  # the 2-hour-old fire from each satellite; the 30-hour-old ones dropped
     assert all(u.endswith("/2") for u in asked)  # 2 UTC days, never only "today"
     assert lf.collect({}, minutes=5)["refresh_minutes"] == 5
+
+
+def test_usgs_keeps_felt_quakes_and_other_kinds():
+    def row(i, kind, mag, tsunami=0):
+        props = {"type": kind, "mag": mag, "time": 1_794_000_000_000, "tsunami": tsunami}
+        return {"id": f"u{i}", "properties": props, "geometry": {"coordinates": [0, 0, 10]}}
+
+    rows = [
+        row(1, "earthquake", 1.9),  # too small: left out
+        row(2, "earthquake", 6.1, tsunami=1),
+        row(3, "quarry blast", 1.5),
+        row(4, "sonic boom", 2.0),  # a kind with no filter type: left out
+    ]
+    quake, blast = (f["properties"] for f in lf.parse_usgs({"features": rows}))
+    assert (quake["category"], quake["severity"]) == ("earthquakes", 2)
+    assert "Tsunami possible" in quake["detail"]
+    assert (blast["category"], blast["severity"]) == ("induced-seismicity", 0)
+    assert lf.quake_severity(7.2) == 3 and lf.quake_severity(5.0, 1) == 2
+
+
+def test_nws_alerts_get_a_type_a_place_and_stay_while_in_force():
+    def alert(i, event, zone, sent="2026-11-14T10:00:00-06:00"):
+        props = {"id": f"a{i}", "event": event, "sent": sent, "severity": "Severe"}
+        props |= {"affectedZones": [zone], "areaDesc": "A; B; C; D", "headline": "h"}
+        return {"properties": props}
+
+    land = "https://api.weather.gov/zones/forecast/TXZ001"
+    data = {
+        "features": [
+            alert(1, "Freeze Warning", land),
+            alert(2, "Dense Fog Advisory", land),  # routine: no type
+            alert(3, "Gale Warning", "https://api.weather.gov/zones/forecast/GMZ001"),  # at sea
+            alert(4, "Tornado Watch", land, "2026-11-14T11:00:00-06:00"),
+        ]
+    }
+    watch, freeze = (f["properties"] for f in lf.parse_nws(data, lambda zone: (-100.0, 30.0)))
+    assert (watch["category"], freeze["category"]) == ("forecast", "cold")  # newest first
+    assert freeze["date"] == "2026-11-14T16:00Z" and freeze["place"] == "A, B, C"
+    assert freeze["severity"] == 2 and freeze["active"]
+    assert lf.parse_nws(data, lambda zone: None) == []  # zone not found: no point, no event
+
+
+def test_volcanoes_only_with_a_raised_level():
+    def volcano(name, level, notice=""):
+        props = {"vnum": name, "volcanoName": name, "alertLevel": level, "noticeId": notice}
+        props |= {"noticeSynopsis": "<p>Lava</p>", "region": "Hawaii"}
+        return {"properties": props, "geometry": {"coordinates": [-155.3, 19.4]}}
+
+    data = {
+        "features": [volcano("Kilauea", "WATCH", "DOI-2026-11-13T10"), volcano("Baker", "NORMAL")]
+    }
+    (v,) = lf.parse_volcanoes(data, "2026-11-15")
+    p = v["properties"]
+    assert (p["severity"], p["date"], p["detail"], p["active"]) == (2, "2026-11-13", "Lava", True)
+
+
+def test_recent_keeps_a_day_and_what_is_still_going_on():
+    now = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
+    old = lf.feature("usgs", 1, "earthquakes", "t", "2026-11-14T11:00Z", 0, 0)
+    new = lf.feature("usgs", 2, "earthquakes", "t", "2026-11-14T13:00Z", 0, 0)
+    day = lf.feature("gdacs", 3, "wildfires", "t", "2026-11-14", 0, 0)  # no time: end of that day
+    going = lf.feature("gdacs", 4, "floods", "t", "2026-10-01", 0, 0, active=True)
+    ids = [f["properties"]["id"] for f in lf.recent([old, new, day, going], now)]
+    assert ids == ["usgs-2", "gdacs-3", "gdacs-4"]
