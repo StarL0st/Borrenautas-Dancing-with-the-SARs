@@ -485,7 +485,7 @@ Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direc
 | Name | Role |
 |---|---|
 | Diego de Silva Hernandez | Front-end development |
-| Adrian Madrid Castro | Front-end development |
+| Adrián Madrid Castro | Front-end development |
 | Hector Lerma Scott | Back-end development |
 | Jose Pablo Mendez Espino | Back-end development |
 | Samuel André Rivera Dominguez | Documentation |
