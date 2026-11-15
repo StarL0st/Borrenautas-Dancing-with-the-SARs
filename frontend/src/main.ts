@@ -340,8 +340,6 @@ function toggle(id: string) {
     entering = id;
     setSpin(false); // or the globe would drift away from the area just opened
     globe.focus(a);
-    // Its report is made now and then kept up to date (after the card's pictures load).
-    setTimeout(() => opened.includes(id) && updatePdf(a), 2500);
   }
   render();
   if (opening) cards.querySelector<HTMLElement>("summary")?.focus();
@@ -381,9 +379,9 @@ function card(a: AreaView) {
       "p",
       { className: "actions" },
       el("button", { type: "button", onclick: () => globe.focus(a) }, t("card.show")),
-      reportButton(a),
       el("button", { type: "button", onclick: () => toggle(a.id) }, t("card.close")),
     ),
+    el("p", {}, pdfLinks(a)),
     pdfStatus(a),
     tags,
     originKey(a.layers.length ? ["nisar", "satellite", "record"] : ["satellite", "record"]),
@@ -554,7 +552,7 @@ function kidCard(a: AreaView): HTMLElement {
       ),
     ),
     kidQ(6, "kid.q.words", kidWords()),
-    el("p", { className: "kid-actions" }, reportButton(a, "kid.pdf"), more),
+    el("p", { className: "kid-actions" }, pdfLinks(a, { open: "kid.pdf.open", save: "kid.pdf" }), more),
   );
 }
 
@@ -667,9 +665,11 @@ const TOP_N = 5; // timelines in the card keep this many rows; the PDF has them 
 // shows; whenever new data arrives (radar results, detected changes, live reports, a newer
 // satellite photo) the snapshot is taken again, and if its content changed the old PDF is thrown
 // away and a new version is made that lists what is new. Downloads always get the newest version.
-type Pdf = { snap: ReportSnapshot; key: string; version: number; made: string; blob: Blob; changes: string[] };
+// `url` points at the file in this page (a blob URL), so the links can open or save it at once.
+type Pdf = { snap: ReportSnapshot; key: string; version: number; made: string; blob: Blob; url: string; changes: string[] };
 const pdfs = new Map<string, Pdf>();
 const pdfJobs = new Map<string, Promise<Pdf | undefined>>();
+const pdfFailed = new Set<string>(); // areas whose last attempt failed: their link offers a retry
 let pdfEnv: ReportEnv | undefined;
 
 // "radar", "changes"... in words, for the card and the PDF's "what is new" box.
@@ -701,17 +701,25 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
     const made = new Date().toISOString();
     const version = (old?.version ?? 0) + 1;
     const blob = await mod.renderReport(snap, pdfEnv, { version, made, replaces: old?.version, changes });
-    const pdf: Pdf = { snap, key, version, made, blob, changes };
+    const pdf: Pdf = { snap, key, version, made, blob, url: URL.createObjectURL(blob), changes };
     pdfs.set(a.id, pdf); // the old version's file is dropped here
-    showPdfStatus(a.id);
+    // A tab may still be reading the old version: let it go a little later.
+    if (old) setTimeout(() => URL.revokeObjectURL(old.url), 5 * 60 * 1000);
     return pdf;
   })()
+    .then((pdf) => {
+      pdfFailed.delete(a.id);
+      return pdf;
+    })
     .catch((err) => {
       console.error(err);
-      showPdfStatus(a.id, "report.failed");
+      pdfFailed.add(a.id);
       return pdfs.get(a.id);
     })
-    .finally(() => pdfJobs.delete(a.id));
+    .finally(() => {
+      pdfJobs.delete(a.id);
+      showPdfStatus(a.id); // the links point at the new file only now
+    });
   pdfJobs.set(a.id, job);
   return job;
 }
@@ -725,7 +733,10 @@ async function refreshPdfs() {
   try {
     for (const id of [...pdfs.keys()]) {
       const a = areas().find((x) => x.id === id);
-      if (!a) pdfs.delete(id);
+      if (!a) {
+        URL.revokeObjectURL(pdfs.get(id)!.url);
+        pdfs.delete(id);
+      }
       else await updatePdf(a);
     }
   } finally {
@@ -745,6 +756,7 @@ function pdfStatusText(id: string, busy?: Key): string {
 }
 function showPdfStatus(id: string, busy?: Key, _old?: Pdf) {
   for (const node of document.querySelectorAll<HTMLElement>(`[data-pdf-status="${CSS.escape(id)}"]`)) node.textContent = pdfStatusText(id, busy);
+  for (const box of document.querySelectorAll<HTMLElement>(`[data-pdf-links="${CSS.escape(id)}"]`)) fillPdfLinks(box, id, !!busy || pdfJobs.has(id));
 }
 const pdfStatus = (a: AreaView) => {
   const p = el("p", { className: "muted pdf-status" }, pdfStatusText(a.id, pdfJobs.has(a.id) ? "pdf.making" : undefined));
@@ -753,27 +765,55 @@ const pdfStatus = (a: AreaView) => {
   return p;
 };
 
-function saveBlob(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const link = el("a", { href: url, download: name });
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
+// The report's two controls. "Read" opens it in a reader inside the page (reader.ts), which works
+// in every browser, even those that block new tabs or have no PDF viewer. "Download" is a plain link
+// to the finished file: browsers (Safari above all) refuse a download that does not start at the
+// click itself, so the file is made beforehand and kept up to date (updatePdf), never on the click.
+type LinkLabels = { open: Key; save?: Key };
+function pdfLinks(a: AreaView, labels: LinkLabels = { open: "report.open", save: "report.download" }): HTMLElement {
+  const box = el("span", { className: "report-links" });
+  box.dataset.pdfLinks = a.id;
+  box.dataset.open = labels.open;
+  if (labels.save) box.dataset.save = labels.save;
+  const read = el("button", { type: "button", className: "primary" });
+  read.onclick = () => readPdf(a.id);
+  box.append(read);
+  if (labels.save) box.append(el("a", { className: "btn" }));
+  fillPdfLinks(box, a.id, pdfJobs.has(a.id));
+  // Made in the background the first time a place is shown, then kept up to date.
+  if (!pdfs.has(a.id) && !pdfJobs.has(a.id)) setTimeout(() => updatePdf(a), 800);
+  return box;
 }
 
-function reportButton(a: AreaView, label: Key = "report.download"): HTMLButtonElement {
-  const button = el("button", { type: "button", className: "primary" }, t(label));
-  button.onclick = async () => {
-    button.disabled = true;
-    button.textContent = t("report.making");
-    // Always the newest version: the data is checked again first.
-    const pdf = await updatePdf(a);
-    if (pdf) saveBlob(pdf.blob, `gigas-${a.id}-v${pdf.version}-${pdf.made.slice(0, 10)}.pdf`);
-    button.textContent = pdf ? t(label) : t("report.failed");
-    button.disabled = false;
-  };
-  return button;
+const pdfName = (id: string, pdf: Pdf) => `gigas-${id}-v${pdf.version}-${pdf.made.slice(0, 10)}.pdf`;
+
+async function readPdf(id: string) {
+  const a = areas().find((x) => x.id === id);
+  const pdf = pdfs.get(id);
+  if (!a) return;
+  if (!pdf) {
+    updatePdf(a); // failed before: try again; the button says when it is ready
+    return;
+  }
+  const { openReader } = await import("./reader");
+  openReader({ title: a.title, subtitle: pdfStatusText(id), url: pdf.url, fileName: pdfName(id, pdf) });
+}
+
+function fillPdfLinks(box: HTMLElement, id: string, busy: boolean) {
+  const pdf = pdfs.get(id);
+  const ready = !!pdf && !busy; // while a newer version is being made, the old one is not offered
+  const read = box.querySelector("button")!;
+  const save = box.querySelector("a");
+  read.disabled = !ready && !(pdfFailed.has(id) && !busy);
+  read.textContent = ready ? t(box.dataset.open as Key) : pdfFailed.has(id) && !busy ? t("report.failed") : t("report.preparing");
+  if (save) {
+    save.hidden = !ready;
+    save.textContent = t(box.dataset.save as Key);
+    if (ready) {
+      save.href = pdf.url;
+      save.download = pdfName(id, pdf);
+    } else save.removeAttribute("href");
+  }
 }
 
 // Everything the report needs about one area. The satellite pictures are the ones the card
@@ -793,7 +833,7 @@ function reportInput(a: AreaView): ReportInput {
 }
 
 function moreInReport(a: AreaView, n: number): Node {
-  return el("p", { className: "muted more-report" }, t("card.more", { n }), " ", reportButton(a, "report.short"));
+  return el("p", { className: "muted more-report" }, t("card.more", { n }), " ", pdfLinks(a, { open: "report.short" }));
 }
 
 // ---- Why the radar sees changes (explain.ts) ----

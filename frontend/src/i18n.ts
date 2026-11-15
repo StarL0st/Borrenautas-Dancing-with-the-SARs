@@ -280,8 +280,7 @@ const en = {
   "card.more": "{n} more in the full report.",
   "zone.history.top": "Remarkable events in this zone: the {n} most important",
   "report.download": "Download full report (PDF)",
-  "report.short": "Get the PDF",
-  "report.making": "Making the PDF…",
+  "report.short": "Read the full report",
   "report.failed": "The PDF could not be made. Try again.",
   "cmp.kidstats": "About {n} out of every 100 pieces of this picture changed.",
   "kid.panel": "Your guide",
@@ -358,6 +357,13 @@ const en = {
   "kid.look.help2": "Drag the white line left and right to see before and after. Blue: brighter now. Orange: darker now.",
   "kid.look.oneradar": "NISAR has only one picture of this place so far, so there is nothing to compare yet. Try another kind of picture!",
   "kid.look.radarspan": "NISAR's pictures here go back to {date}, so this is as far back as it can show.",
+  "report.open": "Read the report",
+  "report.preparing": "Preparing the report…",
+  "kid.pdf.open": "Read everything",
+  "reader.loading": "Opening the report…",
+  "reader.pages": "{n} pages. Scroll to read; use Download to keep a copy.",
+  "reader.page": "Page {n} of {total}",
+  "reader.failed": "The report could not be shown here. Use Download to open it.",
 };
 
 export type Key = keyof typeof en;
@@ -637,8 +643,7 @@ const es: Record<Key, string> = {
   "card.more": "{n} más en el informe completo.",
   "zone.history.top": "Eventos notables en esta zona: los {n} más importantes",
   "report.download": "Descargar informe completo (PDF)",
-  "report.short": "Obtener el PDF",
-  "report.making": "Creando el PDF…",
+  "report.short": "Leer el informe completo",
   "report.failed": "No se pudo crear el PDF. Inténtalo de nuevo.",
   "cmp.kidstats": "Cambiaron unas {n} de cada 100 partes de esta imagen.",
   "kid.panel": "Tu guía",
@@ -715,6 +720,13 @@ const es: Record<Key, string> = {
   "kid.look.help2": "Arrastra la línea blanca a la izquierda y a la derecha para ver el antes y el después. Azul: más claro ahora. Naranja: más oscuro ahora.",
   "kid.look.oneradar": "NISAR solo tiene una imagen de este lugar por ahora, así que todavía no hay nada que comparar. ¡Prueba otro tipo de imagen!",
   "kid.look.radarspan": "Las imágenes de NISAR aquí empiezan el {date}, así que es lo más atrás que puede mostrar.",
+  "report.open": "Leer el informe",
+  "report.preparing": "Preparando el informe…",
+  "kid.pdf.open": "Leer todo",
+  "reader.loading": "Abriendo el informe…",
+  "reader.pages": "{n} páginas. Desplázate para leer; usa Descargar para guardar una copia.",
+  "reader.page": "Página {n} de {total}",
+  "reader.failed": "No se pudo mostrar el informe aquí. Usa Descargar para abrirlo.",
 };
 
 const de: Record<Key, string> = {
@@ -992,8 +1004,7 @@ const de: Record<Key, string> = {
   "card.more": "{n} weitere im vollständigen Bericht.",
   "zone.history.top": "Bemerkenswerte Ereignisse in dieser Zone: die {n} wichtigsten",
   "report.download": "Vollständigen Bericht herunterladen (PDF)",
-  "report.short": "PDF holen",
-  "report.making": "PDF wird erstellt…",
+  "report.short": "Vollständigen Bericht lesen",
   "report.failed": "Das PDF konnte nicht erstellt werden. Bitte erneut versuchen.",
   "cmp.kidstats": "Etwa {n} von 100 Teilen dieses Bildes haben sich verändert.",
   "kid.panel": "Dein Begleiter",
@@ -1070,6 +1081,13 @@ const de: Record<Key, string> = {
   "kid.look.help2": "Ziehe die weiße Linie nach links und rechts, um vorher und nachher zu sehen. Blau: jetzt heller. Orange: jetzt dunkler.",
   "kid.look.oneradar": "NISAR hat bisher nur ein Bild von diesem Ort, darum gibt es noch nichts zu vergleichen. Probier eine andere Bildart!",
   "kid.look.radarspan": "NISARs Bilder reichen hier bis {date} zurück, weiter zurück geht es nicht.",
+  "report.open": "Bericht lesen",
+  "report.preparing": "Bericht wird vorbereitet…",
+  "kid.pdf.open": "Alles lesen",
+  "reader.loading": "Bericht wird geöffnet…",
+  "reader.pages": "{n} Seiten. Scrollen zum Lesen; mit Herunterladen eine Kopie speichern.",
+  "reader.page": "Seite {n} von {total}",
+  "reader.failed": "Der Bericht kann hier nicht angezeigt werden. Bitte herunterladen.",
 };
 
 export const STRINGS: Record<Lang, Record<Key, string>> = { en, es, de };

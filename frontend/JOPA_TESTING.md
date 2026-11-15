@@ -1,9 +1,11 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Rounds 4 to 8 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
+**Rounds 4 to 9 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 8)
+## What the branch has now (after round 9)
+
+- **Reading a zone's report works everywhere** (round 9): "Read the report" opens it inside the page; "Download full report (PDF)" is a plain link to the finished file.
 
 - **No decision log on the page** (round 8): the header button and the cards' "Why these data and methods?" link are gone. The decisions live in the repository as [DECISIONS.md](DECISIONS.md), generated from `src/decisions.ts` with `npm run decisions`. The PDF report keeps its "Methods and decisions" table.
 
@@ -55,7 +57,17 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `bb7a14f` | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
 | `99896ae` | 7 | Docs: round 7 |
 | `0ea75a8` | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
-| *this commit* | 8 | Docs: round 8 |
+| `80b47e7` | 8 | Docs: round 8 |
+| *next commit* | 9 | Report reader inside the page; report buttons become links to a file made in advance |
+| *this commit* | 9 | Docs: round 9 |
+
+## Round 9 (2026-11-15)
+
+| Request | What changed |
+|---|---|
+| "I am not able to read the report for each zone" | **Cause:** the button made the PDF only after the click (several seconds, satellite search included) and then started the download from code. Browsers, Safari above all, refuse a download or a new tab that does not start at the click itself, so nothing happened. And some browsers (embedded and in-app views) have no PDF viewer at all, so even a new tab would show nothing. **Fix:** (1) Each zone's PDF is made in the background as soon as the zone is shown (Technical card or Simple guide) and kept up to date as before; until it is ready the control says "Preparing the report…". (2) **Read the report** (Simple mode: **Read everything**) opens a reader inside the page (`src/reader.ts`) that draws every page with pdf.js 4.10.38 (Mozilla's PDF renderer), so it works in any browser; it has its own Download and Close. (3) **Download full report (PDF)** is now a plain link to the finished file, so the browser downloads it at the click. (4) "N more in the full report" opens the reader too. (5) If making a PDF ever fails, the control says so and tries again when clicked. pdf.js is loaded only when a report is opened. |
+
+**Checked in the browser:** Chapala, Technical mode: the controls were ready 9 seconds after opening the zone; a real mouse click on "Read the report" opened the reader with all 24 pages drawn; the download link carries the file and its name (`gigas-chapala-v1-2026-11-15.pdf`). Villahermosa, Simple mode: "Read everything" opens the same reader. A production build keeps the reader and pdf.js in their own files.
 
 ## Round 8 (2026-11-15)
 
