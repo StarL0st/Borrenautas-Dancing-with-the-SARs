@@ -876,7 +876,7 @@ G.I.G.A.S is open source under the [GNU Affero General Public License v3.0](LICE
 | Jose Pablo Mendez Espino | Back-end development |
 | Samuel André Rivera Dominguez | Documentation |
 
-<img width="1600" height="1200" alt="image" src="https://github.com/user-attachments/assets/e71b7fbd-c63b-42f7-8449-44247d81ca0a" />
+
 
 
 <!-- TODO (team): GitHub profile links, and a team photo if you want one. -->
