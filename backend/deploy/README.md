@@ -13,7 +13,7 @@ browser --files (manifest, layers, events, cards, history, live)--> Blob Storage
 | Piece | Azure service | Does |
 |---|---|---|
 | Results | Storage account `<prefix>sars`, container `data` (Blob, locally redundant) | Every file under `data/processed`. Anyone may read a file; nobody may list or write. CORS open for GET. Browsers load the map from here, so visitor load never reaches the VM |
-| Backend | Virtual machine `sars-vm` (Ubuntu 24.04, 2 vCPU / 8 GB, 64 GB disk, 4 GB swap), Docker Compose (`compose.yaml`) | `api`: `serve --jobs --public --watch-hours 12 --live-minutes 15` (place lookup, `/query`, `/history`, `/events`, refresh timers). `sync`: copies results to storage. `caddy`: HTTPS (`Caddyfile`) |
+| Backend | Virtual machine `sars-vm` (Ubuntu 24.04, 2 vCPU / 8 GB, 64 GB disk, 4 GB swap), Docker Compose (`compose.yaml`) | `api`: `serve --jobs --public --watch-hours 12 --live-minutes 5` (place lookup, `/query`, `/history`, `/events`, refresh timers). `sync`: copies results to storage. `caddy`: HTTPS (`Caddyfile`) |
 | Working data | The VM disk, `/opt/sars/data` mounted at `/data` | `selected/`, `interim/` (cached radar windows), `processed/`, `sites.json`; survive rebuilds |
 | Site | Cloudflare Pages project `<prefix>` (free), not Azure: it stays up when the VM or the Azure credit is gone | The frontend, built with `VITE_DATA_BASE=<storage url>` and `VITE_API_BASE=<api url>` |
 
@@ -22,7 +22,7 @@ Why two places: if the VM stops or crashes, the site still shows every map, even
 How results reach storage (`sync` in `compose.yaml`, rclone):
 - Signs in as the VM itself (managed identity with the role "Storage Blob Data Contributor"). No storage key is stored anywhere.
 - Two passes: files first, then `manifest.json`, `events.*` and `live.geojson`, so a browser never gets a manifest naming a file that is not uploaded yet.
-- Copies, never deletes: an empty VM disk cannot wipe storage. A removed area stays in storage until deleted by hand.
+- Copies, never deletes: an empty VM disk cannot wipe storage. A removed area stays in storage until deleted by hand: on the VM, `sudo docker run --rm -v /opt/sars/data:/data:ro -e RCLONE_AZUREBLOB_ACCOUNT=<storage> -e RCLONE_AZUREBLOB_USE_MSI=true rclone/rclone:1 sync --dry-run /data/processed :azureblob:data --exclude "*.tmp"` lists what a mirror would delete; read the list, then run it without `--dry-run` (done 2026-11-15: nine areas, 311 files).
 - After each full copy it writes its start time to a shared file; the API sends the "new data" push only when that time is later than the manifest's (`SARS_SYNC_MARKER`), so browsers reload when storage has the new files, not before.
 - Files carry `Cache-Control: no-cache`: URLs are reused after a rerun, so browsers revalidate (a cheap "not modified" answer).
 
