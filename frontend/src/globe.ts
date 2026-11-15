@@ -5,8 +5,9 @@ import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
-import { typeLabel } from "./filters";
-import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
+import { shortLabel, typeLabel } from "./filters";
+import { icon } from "./icons";
+import { groupDots, liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
 import { originBadge, when } from "./origin";
 import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
@@ -77,7 +78,65 @@ const style: StyleSpecification = {
   ],
 };
 
-export function createGlobe(container: string, texture: Texture, onPick: (id: string) => void) {
+// City names (src/assets/cities.json, made by scripts/cities.mjs from Natural Earth).
+export type CityRow = [lon: number, lat: number, rank: number, capital: number, en: string, es: string, de: string];
+// [first rank, last rank, from zoom]: the largest cities show first, the rest as you zoom in.
+const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
+
+export type MarkerKind = "live" | "radar";
+type Dot = { id: string; lon: number; lat: number; type: string; color: string };
+const GROUP_PX = 64; // events of one type closer than this on screen share a marker
+const RADAR_ZOOM = 7; // radar detections show from here in (main.ts loads areas from the same zoom)
+const MAX_MARKERS = 150; // HTML markers get slow in the hundreds: beyond this, groups grow
+
+// "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.
+const exact = (date: string) => {
+  const ms = Date.parse(date);
+  return /T/.test(date) && Number.isFinite(ms) ? `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : date;
+};
+
+// What is known about one event, for the map popup and the right panel. Built from DOM nodes,
+// never HTML strings: the text comes from the data.
+export function eventInfo(p: EventFeature["properties"]): HTMLElement {
+  return el(
+    "div",
+    { className: "event-popup" },
+    el("strong", {}, p.title),
+    el("p", {}, originBadge("nisar", p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
+    el(
+      "p",
+      { className: "muted" },
+      // Simple mode leaves out the confidence figure and the data maturity.
+      t(document.documentElement.dataset.mode === "simple" ? "popup.meta.simple" : "popup.meta", {
+        from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity,
+      }),
+    ),
+    el("p", {}, p.summary),
+  );
+}
+
+// Live events name their source and link to it.
+export function liveInfo(p: LiveFeature["properties"]): HTMLElement {
+  const link = /^https?:\/\//.test(p.url)
+    ? el("a", { href: p.url, target: "_blank", rel: "noopener noreferrer" }, t("live.more"))
+    : null;
+  return el(
+    "div",
+    { className: "event-popup" },
+    el("strong", {}, p.title),
+    el("p", {}, liveWhere(p)),
+    el("p", {}, originBadge("feed", p.source_name || p.source, t("origin.reported", { date: exact(p.date) }))),
+    el("p", { className: "muted" }, typeLabel(p.category)),
+    p.detail ? el("p", {}, p.detail) : "",
+    el("p", { className: "muted" }, t("live.source", { source: p.credit })),
+    link ?? "",
+  );
+}
+
+export function createGlobe(
+  container: string, texture: Texture, onPick: (id: string) => void,
+  onGroup: (kind: MarkerKind, ids: string[]) => void,
+) {
   const map = new Map({ container, style, ...HOME.closeup, maxPitch: MAX_PITCH, attributionControl: { compact: true } });
   map.addControl(new NavigationControl());
   map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
@@ -127,10 +186,24 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         },
         paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.5 },
       });
+      // City names, under the areas' own labels. MapLibre leaves out labels that would overlap;
+      // capitals and larger cities win.
+      map.addSource("cities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      for (const [lo, hi, minzoom] of CITY_TIERS) {
+        map.addLayer({
+          id: `cities-${lo}`, type: "symbol", source: "cities", minzoom,
+          filter: ["all", [">=", ["get", "rank"], lo], ["<=", ["get", "rank"], hi]],
+          layout: {
+            "text-field": ["get", "name"], "text-font": ["Open Sans Semibold"],
+            "text-size": ["case", ["==", ["get", "capital"], 2], 13, 11],
+            "symbol-sort-key": ["-", ["get", "rank"], ["get", "capital"]], "text-padding": 6,
+          },
+          paint: { "text-color": "#fefdff", "text-halo-color": "#010d15", "text-halo-width": 1.2, "text-opacity": 0.85 },
+        }, "areas-halo");
+      }
       // Detected changes (events.geojson): outlines when close, dots at every zoom.
       const empty = { type: "FeatureCollection" as const, features: [] };
       map.addSource("events", { type: "geojson", data: empty });
-      map.addSource("event-points", { type: "geojson", data: empty });
       map.addLayer({
         id: "events-fill", type: "fill", source: "events", minzoom: 8,
         paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 },
@@ -139,31 +212,23 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
         id: "events-line", type: "line", source: "events", minzoom: 8,
         paint: { "line-color": ["get", "color"], "line-width": 1.5 },
       }, "areas-box");
+      map.on("click", "events-fill", (e) => picking || showEvent(e.features![0].properties as EventFeature["properties"], e.lngLat));
+      map.on("mouseenter", "events-fill", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", "events-fill", () => (map.getCanvas().style.cursor = ""));
+      // Where the events behind the selected marker are, as small dots (setGhosts).
+      map.addSource("ghosts", { type: "geojson", data: empty });
       map.addLayer({
-        id: "events-dot", type: "circle", source: "event-points",
+        id: "ghosts", type: "circle", source: "ghosts",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 6],
-          "circle-color": ["get", "color"], "circle-stroke-color": "#010d15", "circle-stroke-width": 1,
+          "circle-radius": 4, "circle-color": ["get", "color"],
+          "circle-opacity": ["case", ["get", "hollow"], 0.15, 0.85],
+          "circle-stroke-color": ["case", ["get", "hollow"], ["get", "color"], "#fefdff"], "circle-stroke-width": 1.5,
         },
       });
-      for (const layer of ["events-fill", "events-dot"]) {
-        map.on("click", layer, (e) => picking || showEvent(e.features![0].properties as EventFeature["properties"], e.lngLat));
-        map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
-      }
-      // Live events (live.geojson): hollow rings, so they never read as radar detections.
-      map.addSource("live", { type: "geojson", data: empty });
-      map.addLayer({
-        id: "live-ring", type: "circle", source: "live",
-        paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3.5, 8, 7],
-          "circle-color": ["get", "color"], "circle-opacity": 0.15,
-          "circle-stroke-color": ["get", "color"], "circle-stroke-width": 1.5,
-        },
-      }, "areas-halo");
-      map.on("click", "live-ring", (e) => picking || showLive(e.features![0].properties as LiveFeature["properties"], e.lngLat));
-      map.on("mouseenter", "live-ring", () => (map.getCanvas().style.cursor = "pointer"));
-      map.on("mouseleave", "live-ring", () => (map.getCanvas().style.cursor = ""));
+      // Auto-rotate ends a move on every frame. Redrawing the markers each time would swap the
+      // one under the pointer before a click lands, so while turning they are redrawn every
+      // 1.5 s at most (they ride along with the map in between) and never under the pointer.
+      map.on("moveend", () => (spinFrameId && (overMarker || performance.now() - drawnAt < 1500)) || drawMarkers());
       // The halo is the click target so the dots are easy to hit on touch screens.
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
@@ -179,6 +244,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   function applyTexture(next: Texture) {
     const { show, ocean, border } = TEXTURES[next];
     for (const id of BASE_LAYERS) map.setLayoutProperty(id, "visibility", show.includes(id) ? "visible" : "none");
+    // The street map has its own place names.
+    for (const [lo] of CITY_TIERS) map.setLayoutProperty(`cities-${lo}`, "visibility", next === "street" ? "none" : "visible");
     map.setPaintProperty("ocean", "background-color", ocean);
     map.setPaintProperty("borders", "line-color", border);
   }
@@ -197,57 +264,61 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   }
 
   const popup = new Popup({ maxWidth: "320px" });
-  // Built from DOM nodes, never HTML strings: event text comes from the data.
-  function showEvent(p: EventFeature["properties"], at: { lng: number; lat: number }) {
-    popup
-      .setLngLat(at)
-      .setDOMContent(
-        el(
-          "div",
-          { className: "event-popup" },
-          el("strong", {}, p.title),
-          el("p", {}, originBadge("nisar", p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
-          el(
-            "p",
-            { className: "muted" },
-            // Simple mode leaves out the confidence figure and the data maturity.
-            t(document.documentElement.dataset.mode === "simple" ? "popup.meta.simple" : "popup.meta", {
-              from: p.from, to: p.to, km: p.area_km2, pct: Math.round(p.confidence * 100), maturity: p.maturity,
-            }),
-          ),
-          el("p", {}, p.summary),
-        ),
-      )
-      .addTo(map);
-  }
+  const showEvent = (p: EventFeature["properties"], at: { lng: number; lat: number }) =>
+    popup.setLngLat(at).setDOMContent(eventInfo(p)).addTo(map);
+  const showLive = (p: LiveFeature["properties"], at: { lng: number; lat: number }) =>
+    popup.setLngLat(at).setDOMContent(liveInfo(p)).addTo(map);
 
-  // "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.
-  const exact = (date: string) => {
-    const ms = Date.parse(date);
-    return /T/.test(date) && Number.isFinite(ms) ? `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : date;
-  };
-
-  // Live events name their source and link to it; text is set as text, never as HTML.
-  function showLive(p: LiveFeature["properties"], at: { lng: number; lat: number }) {
-    const link = /^https?:\/\//.test(p.url)
-      ? el("a", { href: p.url, target: "_blank", rel: "noopener noreferrer" }, t("live.more"))
-      : null;
-    popup
-      .setLngLat(at)
-      .setDOMContent(
-        el(
-          "div",
-          { className: "event-popup" },
-          el("strong", {}, p.title),
-          el("p", {}, liveWhere(p)),
-          el("p", {}, originBadge("feed", p.source_name || p.source, t("origin.reported", { date: exact(p.date) }))),
-          el("p", { className: "muted" }, typeLabel(p.category)),
-          p.detail ? el("p", {}, p.detail) : "",
-          el("p", { className: "muted" }, t("live.source", { source: p.credit })),
-          link ?? "",
-        ),
-      )
-      .addTo(map);
+  // Events as small square markers that always face the screen. Events of one type that sit
+  // close together on screen share one marker with a count. Live events are hollow and radar
+  // detections filled, so a live event never reads as a radar detection.
+  const dots: Record<MarkerKind, Dot[]> = { radar: [], live: [] };
+  let markers: Marker[] = [];
+  let drawnAt = 0, overMarker = false;
+  function drawMarkers() {
+    for (const m of markers) m.remove();
+    markers = [];
+    drawnAt = performance.now();
+    overMarker = false;
+    const { width, height } = map.getContainer().getBoundingClientRect();
+    const c = map.getCenter(), rad = Math.PI / 180;
+    // On the side of the Earth turned toward the camera (the far side also projects to the screen).
+    const facing = (d: Dot) =>
+      Math.sin(c.lat * rad) * Math.sin(d.lat * rad) + Math.cos(c.lat * rad) * Math.cos(d.lat * rad) * Math.cos((d.lon - c.lng) * rad) > 0.15;
+    const seen = (["radar", "live"] as const).map((kind) =>
+      (kind === "radar" && map.getZoom() < RADAR_ZOOM ? [] : dots[kind]).filter(facing).flatMap((d) => {
+        const { x, y } = map.project([d.lon, d.lat]);
+        return x > -GROUP_PX && x < width + GROUP_PX && y > -GROUP_PX && y < height + GROUP_PX ? [{ ...d, x, y }] : [];
+      }),
+    );
+    let px = GROUP_PX, groups = seen.map((pts) => groupDots(pts, px));
+    while (groups[0].length + groups[1].length > MAX_MARKERS) groups = seen.map((pts) => groupDots(pts, (px *= 1.5)));
+    groups.forEach((list, k) => {
+      const kind = (["radar", "live"] as const)[k];
+      for (const g of list) {
+        const b = el("button", { type: "button", className: `bubble ${kind}` }, icon(g[0].type, "ticon on"));
+        if (g.length > 1) b.append(el("span", {}, String(g.length)));
+        b.style.setProperty("--c", g[0].color);
+        b.setAttribute("aria-label", `${shortLabel(g[0].type)}: ${g.length}`);
+        b.title = `${shortLabel(g[0].type)}: ${g.length}`;
+        b.onpointerenter = () => (overMarker = true);
+        b.onpointerleave = () => (overMarker = false);
+        b.onclick = (e) => {
+          e.stopPropagation(); // not also a click on the map under it
+          if (!picking) onGroup(kind, g.map((d) => d.id));
+        };
+        // Double click: close in on the events of this group.
+        b.ondblclick = (e) => {
+          e.stopPropagation(); // not also the map's own double-click zoom
+          const lons = g.map((d) => d.lon), lats = g.map((d) => d.lat);
+          map.fitBounds([Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)], {
+            padding: 96, maxZoom: Math.max(map.getZoom(), kind === "radar" ? 13 : 9),
+          });
+        };
+        const at: [number, number] = [g.reduce((n, d) => n + d.lon, 0) / g.length, g.reduce((n, d) => n + d.lat, 0) / g.length];
+        markers.push(new Marker({ element: b }).setLngLat(at).addTo(map));
+      }
+    });
   }
 
   return {
@@ -260,10 +331,45 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
     },
 
+    // Small dots where the events of the selected marker are; an empty list removes them.
+    async setGhosts(points: { lon: number; lat: number; color: string }[], hollow: boolean) {
+      await ready;
+      map.getSource<GeoJSONSource>("ghosts")!.setData({
+        type: "FeatureCollection",
+        features: points.map((p) => ({
+          type: "Feature" as const, properties: { color: p.color, hollow },
+          geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+        })),
+      });
+    },
+
+    // City names in the page's language (English where the list has no other).
+    async setCities(rows: CityRow[], lang: "en" | "es" | "de") {
+      await ready;
+      const at = { en: 4, es: 5, de: 6 }[lang];
+      map.getSource<GeoJSONSource>("cities")!.setData({
+        type: "FeatureCollection",
+        features: rows.map((r) => ({
+          type: "Feature" as const,
+          properties: { name: r[at] || r[4], rank: r[2], capital: r[3] },
+          geometry: { type: "Point" as const, coordinates: [r[0], r[1]] },
+        })),
+      });
+    },
+
+    // Tell the page where the map looks each time it comes to rest: zoom and [w, s, e, n].
+    onView(seen: (zoom: number, box: [number, number, number, number]) => void) {
+      map.on("moveend", () => {
+        const b = map.getBounds();
+        seen(map.getZoom(), [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+      });
+    },
+
     // `shown` already passed the filters and carries its display color.
     async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
       await ready;
-      map.getSource<GeoJSONSource>("live")!.setData({ type: "FeatureCollection", features: shown as never });
+      dots.live = shown.map(({ properties: p }) => ({ id: p.id, lon: p.lon, lat: p.lat, type: p.category, color: p.color }));
+      drawMarkers();
     },
 
     // Outlines of the countries picked in the search, as MultiPolygon coordinates.
@@ -302,13 +408,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
     async setEvents(shown: (EventFeature & { properties: { color: string } })[]) {
       await ready;
       map.getSource<GeoJSONSource>("events")!.setData({ type: "FeatureCollection", features: shown as never });
-      map.getSource<GeoJSONSource>("event-points")!.setData({
-        type: "FeatureCollection",
-        features: shown.map((f) => ({
-          type: "Feature" as const, properties: f.properties,
-          geometry: { type: "Point" as const, coordinates: [f.properties.lon, f.properties.lat] },
-        })),
-      });
+      dots.radar = shown.map(({ properties: p }) => ({ id: p.id, lon: p.lon, lat: p.lat, type: p.category, color: p.color }));
+      drawMarkers();
     },
 
     // MapLibre skips flight animations by itself when the user prefers reduced motion.
@@ -324,10 +425,10 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.once("moveend", () => showLive(p, { lng: p.lon, lat: p.lat }));
     },
 
-    async goTo(lng: number, lat: number) {
+    async goTo(lng: number, lat: number, zoom = 8) {
       await ready;
       marker.setLngLat([lng, lat]).addTo(map);
-      map.flyTo({ center: [lng, lat], zoom: 8 });
+      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), zoom) });
     },
 
     setView(next: ViewMode) {

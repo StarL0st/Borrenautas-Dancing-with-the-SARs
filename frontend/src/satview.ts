@@ -43,17 +43,12 @@ export function viewBox(bbox: [number, number, number, number], layer: SatLayer)
 
 export const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
-// A thumbnail, failing after 15 s so a request that never answers cannot stall the search.
 function load(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const timer = setTimeout(() => {
-      img.src = "";
-      reject(new Error(`timeout: ${url}`));
-    }, 15_000);
     img.crossOrigin = "anonymous"; // GIBS sends CORS headers, so the pixels can be read
-    img.onload = () => (clearTimeout(timer), resolve(img));
-    img.onerror = () => (clearTimeout(timer), reject(new Error(url)));
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(url));
     img.src = url;
   });
 }
@@ -82,19 +77,16 @@ export type Found = { url: string; date: string; layer: string };
  * The newest clear picture on or before `from`, looking back at most `days` days.
  * Resolves undefined when none is found. `signal` stops the search (the tab was closed).
  */
-// Days checked at once: the thumbnails are tiny, and checking one day at a time made a cloudy
-// place take most of a minute.
-const BATCH = 6;
-
 export async function findClear(
   layer: SatLayer, bbox: [number, number, number, number], from: Date, days: number, signal?: AbortSignal, maxCloud?: number,
 ): Promise<Found | undefined> {
   const box = viewBox(bbox, layer);
   // Daily layers are complete every day; the 8-day vegetation index needs no cloud check.
   const strict = layer.id === "hls";
-  // The picture of one day, or undefined (no pass, too cloudy, or the tile failed).
-  const tryDay = async (i: number): Promise<Found | undefined> => {
-    const date = isoDay(new Date(from.getTime() - i * 86400000));
+  for (let i = 0; i < days; i++) {
+    if (signal?.aborted) return undefined;
+    const day = new Date(from.getTime() - i * 86400000);
+    const date = isoDay(day);
     for (const name of layer.layers) {
       try {
         const thumb = await load(gibsUrl(name, box, date, 48));
@@ -106,13 +98,6 @@ export async function findClear(
         // one missing tile is not the end of the search
       }
     }
-    return undefined;
-  };
-  for (let start = 0; start < days; start += BATCH) {
-    if (signal?.aborted) return undefined;
-    const batch = await Promise.all(Array.from({ length: Math.min(BATCH, days - start) }, (_, k) => tryDay(start + k)));
-    const found = batch.find(Boolean); // the newest clear day of the batch
-    if (found) return found;
   }
   return undefined;
 }

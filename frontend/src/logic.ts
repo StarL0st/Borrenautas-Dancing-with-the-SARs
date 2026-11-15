@@ -43,6 +43,7 @@ export type ManifestArea = {
   layers: Layer[];
   timeseries?: SeriesRef[]; // C4 files: the area's own values per date
   credits?: string[];
+  friendly?: string; // C8 file: the area's findings in plain words
 };
 
 export type Manifest = { contract_version: string; synthetic: boolean; areas: ManifestArea[] };
@@ -77,6 +78,10 @@ export type AreaView = {
   layers: Layer[];
   series: SeriesRef[];
   credits: string[];
+  friendly?: string; // C8 file, when the back end made one
+  requested?: boolean; // looked up by some visitor, not a curated site
+  kind?: string; // "mosaic": a whole country
+  stub?: { events: number; layers: number; dates: string[] }; // from index.json; its files are not loaded yet
 };
 
 // Contract change types -> the app's filter types (ids in filters.ts). The contract has no field
@@ -149,6 +154,7 @@ export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaV
     layers,
     series: a.timeseries ?? [],
     credits: a.credits ?? [],
+    friendly: a.friendly,
   };
 }
 
@@ -247,3 +253,78 @@ const inRing = (x: number, y: number, ring: number[][]) => {
 // and the smallest countries are missing; switch to the 1:50m file if that matters.
 export const inside = (lon: number, lat: number, polys: number[][][][]) =>
   polys.some(([outer, ...holes]) => inRing(lon, lat, outer) && !holes.some((h) => inRing(lon, lat, h)));
+
+// Contract C8: what the radar found in an area, in plain words. The back end makes it for every
+// area, new lookups included, so it describes any place without hand-written text.
+export type FriendlyCard = {
+  category: string;
+  label: string;
+  level: number; // 0 watched for, nothing found; 1 small or weak; 2 1-5% of the area; 3 over 5%
+  headline: string;
+  number?: { value: number; unit: string; label: string };
+  places?: number;
+  from?: string;
+  to?: string;
+};
+export type Friendly = { status: "calm" | "watch" | "alert"; headline: string; cards: FriendlyCard[]; data_notes: string[] };
+
+/** A C8 file as the page uses it; undefined when it is not one. Cards missing their words are left out. */
+export function readFriendly(j: unknown): Friendly | undefined {
+  const f = j as Partial<Friendly> | null;
+  if (!f || typeof f.headline !== "string" || !Array.isArray(f.cards)) return undefined;
+  return {
+    status: f.status === "watch" || f.status === "alert" ? f.status : "calm",
+    headline: f.headline,
+    cards: f.cards.filter((c) => c && typeof c.category === "string" && typeof c.headline === "string" && Number.isFinite(c.level)),
+    data_notes: Array.isArray(f.data_notes) ? f.data_notes.map(String) : [],
+  };
+}
+
+// ---- Loading on demand (index.json, contract 0.7) ----
+
+// One entry of index.json: an area without its layers and events.
+export type IndexArea = Omit<ManifestArea, "layers" | "timeseries" | "credits" | "friendly"> & {
+  events?: number; layers?: number; dates?: string[]; requested?: boolean; kind?: string;
+};
+
+// Areas written before contract 0.7 carry neither flag, so the id and the size also count:
+// looked-up places are `cell-...` or `at-...`, and only a country is wider than 3 degrees.
+export const flags = (a: { id: string; bbox?: Bbox; requested?: boolean; kind?: string }) => ({
+  requested: a.requested ?? /^(cell|at)-/.test(a.id),
+  kind: a.kind ?? (a.bbox && a.bbox[2] - a.bbox[0] > 3 ? "mosaic" : undefined),
+});
+
+export const stubView = (a: IndexArea): AreaView => ({
+  ...toAreaView({ ...a, layers: [] }),
+  ...flags(a),
+  stub: { events: a.events ?? 0, layers: a.layers ?? 0, dates: a.dates ?? [] },
+});
+
+export const overlaps = (a: Bbox, b: Bbox) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+
+export const NEAR_KM = 10; // same as the back end's lookup (server.py NEAR_KM)
+const grown = ([w, s, e, n]: Bbox, km: number): Bbox => {
+  const dy = km / 111.32, dx = dy / Math.cos((((s + n) / 2) * Math.PI) / 180);
+  return [w - dx, s - dy, e + dx, n + dy];
+};
+
+// The area a position belongs to: inside its box or within NEAR_KM of it. Curated sites win over
+// looked-up places; whole countries never match (every point would).
+export function areaAt<A extends { bbox: Bbox; requested?: boolean; kind?: string }>(lon: number, lat: number, areas: A[]): A | undefined {
+  const hits = areas.filter((a) => a.kind !== "mosaic" && overlaps(grown(a.bbox, NEAR_KM), [lon, lat, lon, lat]));
+  return hits.find((a) => !a.requested) ?? hits[0];
+}
+
+// ---- Markers that stand for several events ----
+
+// Points on the screen become groups: same type, and within `px` of the group's first point.
+// Each group is drawn as one marker; zooming in moves the points apart and splits it.
+export function groupDots<T extends { x: number; y: number; type: string }>(pts: T[], px: number): T[][] {
+  const groups: T[][] = [];
+  for (const p of pts) {
+    const g = groups.find(([q]) => q.type === p.type && Math.abs(q.x - p.x) <= px && Math.abs(q.y - p.y) <= px);
+    if (g) g.push(p);
+    else groups.push([p]);
+  }
+  return groups;
+}

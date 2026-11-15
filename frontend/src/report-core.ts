@@ -6,7 +6,7 @@
 // content key make the same PDF; when new data changes the key, the old PDF is thrown away and a
 // new version is made, listing what changed (`diffSnapshots`).
 import type { Series } from "./chart";
-import type { AreaView, EventFeature, LiveFeature } from "./logic";
+import type { AreaView, EventFeature, Friendly, LiveFeature } from "./logic";
 import type { Found } from "./satview";
 
 export type ReportSnapshot = {
@@ -16,6 +16,7 @@ export type ReportSnapshot = {
   lang: string;
   sat: [Found | undefined, Found | undefined]; // before, now
   series: [string, Series[]][];
+  friendly?: Friendly; // C8 cards; made from `events`, so not part of the key
   asOf: { radar: string; live: string }; // when the sources last published (not part of the key)
 };
 

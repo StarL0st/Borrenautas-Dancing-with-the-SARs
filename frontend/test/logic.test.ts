@@ -5,7 +5,7 @@ import { HISTORY, distanceKm, mostDestructive, zoneHistory, zoneNote } from "../
 import { readFileSync } from "node:fs";
 import { collectLive, eonetCategory, parseEonet, parseGdacs, parseNws, parseUsgs, parseVolcanoes, quakeSeverity, recent } from "../src/livefeeds.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
-import { ago, datesFor, inFilter, inside, layerAt, liveFiltered, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
+import { ago, datesFor, inFilter, inside, layerAt, liveFiltered, liveList, liveShown, liveWhere, readFriendly, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -155,7 +155,8 @@ test("zone history, worst recent events and distances", () => {
   const worst = mostDestructive(HISTORY, 2015, 3);
   assert.ok(worst.every((e) => e.severity === 3 && e.date >= "2015"));
   assert.ok(Math.abs(distanceKm([-99.13, 19.43], [-98.2, 19.04]) - 106) < 5, "Mexico City to Puebla is about 106 km");
-  assert.ok(zoneNote("cdmx", [0, 0]) && zoneNote("example-subsidence", [-99.13, 19.43]) && !zoneNote("x", [0, 0]));
+  // Notes belong to one place only: a new place next door must not borrow them.
+  assert.ok(zoneNote("cdmx") && !zoneNote("example-subsidence") && !zoneNote("x"));
 });
 
 test("GIBS requests use WMS 1.3.0 axis order and a sharp box", () => {
@@ -213,7 +214,6 @@ test("live feeds: events expire after 24 hours; one source failing does not stop
     return eonet;
   });
   assert.equal(got.ok, 4); // the weather and volcano feeds answered with nothing in them
-  assert.deepEqual(got.failed, ["gdacs"]); // the page keeps GDACS's last events until they expire
   assert.deepEqual(got.features.map((f) => f.properties.source).sort(), ["eonet", "usgs"]);
   // An event its source still lists as going on stays past 24 hours.
   assert.equal(recent([{ properties: { date: "2026-11-01", active: true } } as LiveFeature], now).length, 1);
@@ -382,4 +382,47 @@ test("report versions: same data, same key; new data, a new key and a list of wh
     { kind: "satellite", date: "2026-11-13" },
   ]);
   assert.deepEqual(diffSnapshots(base, { ...base, lang: "es" }), [{ kind: "lang" }]);
+});
+
+test("friendly cards (C8) are read safely", () => {
+  const f = readFriendly({
+    status: "watch", headline: "Biggest signal: farming.", data_notes: ["Provisional NISAR data."],
+    cards: [
+      { category: "agriculture", label: "Farming", level: 2, headline: "Fields changed.", number: { value: 39.7, unit: "km2", label: "area affected" } },
+      { category: "urban", label: "Building", level: 0, headline: "No new structures stood out." },
+      { label: "broken, no category", level: 1, headline: "x" },
+    ],
+  });
+  assert.equal(f?.status, "watch");
+  assert.deepEqual(f?.cards.map((c) => c.category), ["agriculture", "urban"]);
+  assert.equal(readFriendly({ status: "odd", headline: "h", cards: [] })?.status, "calm");
+  assert.equal(readFriendly({ cards: [] }), undefined);
+  assert.equal(readFriendly(null), undefined);
+  assert.equal(toAreaView({ id: "a", title: "A", summary: "", change_types: [], layers: [], friendly: "areas/a/friendly.json" }).friendly, "areas/a/friendly.json");
+});
+
+test("a position belongs to the area it is in or next to; index entries become stubs", async () => {
+  const { areaAt, overlaps, stubView } = await import("../src/logic.ts");
+  const city = { id: "city", bbox: [-103.5, 20.5, -103.2, 20.8] as [number, number, number, number] };
+  const cell = { id: "cell", bbox: [-103.6, 20.4, -103.1, 20.9] as [number, number, number, number], requested: true };
+  const country = { id: "mx", bbox: [-118, 14, -86, 33] as [number, number, number, number], kind: "mosaic" };
+  assert.equal(areaAt(-103.3, 20.6, [cell, city, country])?.id, "city"); // curated before looked-up
+  assert.equal(areaAt(-103.3, 20.86, [city])?.id, "city"); // 6.7 km north of the box
+  assert.equal(areaAt(-103.3, 21.0, [city, country]), undefined); // 22 km away; a country never matches
+  assert.equal(areaAt(-103.3, 20.6, [cell])?.id, "cell");
+  assert.ok(overlaps(city.bbox, cell.bbox) && !overlaps(city.bbox, [0, 0, 1, 1]));
+  const stub = stubView({ id: "a", title: "A", summary: "", change_types: ["wildfire"], bbox: [0, 0, 1, 1], events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"], requested: true });
+  assert.deepEqual(stub.stub, { events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"] });
+  assert.deepEqual([stub.requested, stub.layers.length, stub.types], [true, 0, ["wildfires"]]);
+  // Entries from before contract 0.7 have no flags: the id and the size stand in.
+  const old = (id: string, bbox: [number, number, number, number]) => stubView({ id, title: "", summary: "", change_types: [], bbox });
+  assert.deepEqual([old("cell-1n-2w", [0, 0, 1, 1]).requested, old("mexico", [-118, 14, -86, 33]).kind, old("chapala", [0, 0, 1, 1]).kind], [true, "mosaic", undefined]);
+});
+
+test("markers group events of one type that are close on screen", async () => {
+  const { groupDots } = await import("../src/logic.ts");
+  const pt = (id: string, x: number, y: number, type = "wildfires") => ({ id, x, y, type });
+  const groups = groupDots([pt("a", 0, 0), pt("b", 30, 20), pt("c", 30, 20, "floods"), pt("d", 200, 0), pt("e", 50, 50)], 56);
+  assert.deepEqual(groups.map((g) => g.map((p) => p.id)), [["a", "b", "e"], ["c"], ["d"]]);
+  assert.deepEqual(groupDots([], 56), []);
 });

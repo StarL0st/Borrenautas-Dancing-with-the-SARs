@@ -178,7 +178,7 @@ output { color: var(--text); }
 .ticon.sm { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
 .ticon.sm path { stroke-width: 1.6; }
 .ftypes { display: grid; gap: 1px; margin-top: 4px; }
-
+.ftype { display: flex; align-items: center; gap: 8px; margin: 0; padding: 2px 6px; border-radius: 4px; font-size: 0.93rem; color: var(--muted); cursor: pointer; }
 .ftype[hidden] { display: none; }
 .ftype .ticon { width: 18px; height: 18px; }
 button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86rem; }
@@ -188,7 +188,8 @@ button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86
   .ftype:hover { background: var(--raised); }
 }
 /* Simple mode: a grid of icon tiles with short names, easier to tap than a checklist. */
-
+:root[data-mode="simple"] .ftypes { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+:root[data-mode="simple"] .ftype { flex-direction: column; gap: 2px; padding: 4px 2px; text-align: center; font-size: 0.72rem; line-height: 1.15; border: 1px solid var(--line); overflow-wrap: anywhere; }
 :root[data-mode="simple"] .ftype .ticon { width: 20px; height: 20px; }
 :root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
 
@@ -336,14 +337,6 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .timeline li::before { content: ""; position: absolute; left: -18px; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
 .timeline time { display: block; font-size: 0.86rem; color: var(--muted); }
 
-/* ---- From jopa-testing: satellite view. "Now" underneath, "before" on top, clipped at the swipe position. ---- */
-
-.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
-
-.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
-.tag-before { left: 6px; }
-.tag-now { right: 6px; }
-
 /* ---- Chart ---- */
 
 .chart { margin: 0 0 10px; }
@@ -376,27 +369,42 @@ th { color: var(--muted); font-weight: 400; }
 /* ---- jopa-testing: event icons, history, satellite ---- */
 
 /* Visually hidden but still focusable and read by screen readers (the filter checkboxes). */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 /* Event icons: one silhouette, outline only when off, filled with the group color when on. */
+.ticon { flex: none; width: 22px; height: 22px; color: var(--c, currentColor); }
+.ticon path { fill: transparent; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; transition: fill 150ms ease; }
+.ticon.on path, .ftype input:checked + .ticon path { fill: currentColor; }
+.ticon.sm { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
+.ticon.sm path { stroke-width: 1.6; }
 
+.ftypes { display: grid; gap: 1px; margin-top: 4px; }
 /* Compact buttons: the whole button is small, not only the icon. */
 .ftype { display: flex; align-items: center; gap: 8px; margin: 0; padding: 2px 6px; border-radius: 4px; font-size: 0.9rem; color: var(--muted); cursor: pointer; }
-
+.ftype[hidden] { display: none; }
+.ftype .ticon { width: 18px; height: 18px; }
+button.more { display: block; margin: 4px 0 0; padding: 2px 8px; font-size: 0.86rem; }
+.ftype:has(input:checked) { color: var(--text); }
+.ftype:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) {
   .ftype:hover { background: var(--raised); }
 }
 /* Simple mode: a grid of big icon tiles with short names, easier to tap than a checklist. */
 :root[data-mode="simple"] .ftypes { grid-template-columns: repeat(4, 1fr); gap: 4px; }
-:root[data-mode="simple"] .ftype { flex-direction: column; gap: 2px; padding: 4px 2px; text-align: center; font-size: 0.72rem; line-height: 1.15; border: 1px solid var(--line); overflow-wrap: anywhere; }
+:root[data-mode="simple"] .ftype { flex-direction: column; gap: 2px; padding: 4px 2px; text-align: center; font-size: 0.72rem; line-height: 1.15; border: 1px solid var(--line); }
+:root[data-mode="simple"] .ftype .ticon { width: 20px; height: 20px; }
+:root[data-mode="simple"] .ftype:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+
 
 /* Recent events list; serious and extreme live events carry a danger label. */
-
+#live-list .result strong { display: flex; align-items: center; }
 /* The danger tag keeps clear of the text before it (source name) and of the row's right edge. */
 .sev { display: inline-block; margin: 4px 0 0 10px; padding: 1px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; line-height: 1.4; white-space: nowrap; color: var(--ink); vertical-align: middle; }
 #live-list .result { padding-right: 14px; }
 #live-list .result .muted { margin-right: 2px; }
 .sev.s2 { background: #f5a524; }
 .sev.s3 { background: #e5484d; color: var(--text); }
+
 
 /* Zone history: a strip of years with one mark per event, then the rows. */
 .years { position: relative; height: 26px; margin: 8px 6px 0; border-bottom: 1px solid var(--line); }
@@ -409,11 +417,14 @@ th { color: var(--muted); font-weight: 400; }
 .hist > summary time { display: inline; margin-right: 8px; }
 
 h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--muted); }
-
+.sources { font-size: 0.8rem; overflow-wrap: anywhere; }
 .sources a, .event-popup .sources a { color: var(--muted); }
 .small { font-size: 0.8rem; }
 
 /* Satellite view: "now" underneath, "before" on top, clipped at the swipe position. */
+.tag-now, .tag-before { position: absolute; top: 6px; padding: 0 6px; border-radius: 4px; background: #010d15cc; font-size: 0.8rem; pointer-events: none; }
+.tag-before { left: 6px; }
+.tag-now { right: 6px; }
 
 /* ---- Tour ---- */
 
@@ -464,6 +475,14 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
 .setting { margin: 16px 0 0; padding: 0; border: 0; }
 .setting legend { padding: 0 0 6px; font-weight: 600; }
 
+/* Friendly cards (C8): one row per kind of finding, its level as a tag; "nothing found" rows are dimmed. */
+.friendly { list-style: none; padding: 0; }
+.friendly li { padding: 8px 0; border-top: 1px solid var(--line); }
+.friendly li p { margin: 2px 0 0; }
+.friendly li.level-0 { color: var(--muted); }
+.tag.status-watch, .tag.status-alert, .friendly .level-3 .tag { border-color: var(--accent); color: var(--accent); }
+.friendly-notes { padding-left: 18px; }
+
 /* Panel tabs: phones only. */
 .tabs { display: none; }
 
@@ -492,6 +511,10 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
   @media (max-width: 600px) {
     .mode { order: 1; flex-basis: 100%; }
     .mode .seg { flex: 1; }
+    /* Title and the three header buttons share one row. */
+    header { gap: 6px; }
+    h1 { font-size: 1rem; letter-spacing: 0.04em; }
+    header > button { padding: 4px 8px; font-size: 0.86rem; }
   }
   #live-list { max-height: none; }
   /* 16px or more, or iOS zooms the page into a focused field. */
@@ -501,6 +524,17 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
   #wheel[data-size="large"] { width: 150px; }
   .settings-body { grid-template-columns: 1fr; }
   .settings-help { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .app { transition: none; }
+}
+
+/* Touch screens: fingers need bigger targets, and no grey flash on tap. */
+@media (pointer: coarse) {
+  button { -webkit-tap-highlight-color: transparent; }
+  header button, .tabs button, .toolbar button, .actions button, .seg span { min-height: 40px; }
+  .seg span { display: grid; place-items: center; }
+  .chip { min-height: 32px; }
 }
 
 /* ---- jopa-testing: data origins, comparator, radar explainer ---- */
@@ -537,9 +571,6 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
   border: 1px solid var(--line); border-radius: 4px; background: #000;
   cursor: ew-resize; touch-action: none; user-select: none;
 }
-/* At full size a sideways drag moves the divider and an up-down drag still scrolls the panel
-   (phones); zoomed in, every drag moves the picture. */
-.cmp-frame:not(.zoomed) { touch-action: pan-y; }
 .cmp-frame.zoomed { cursor: grab; }
 .cmp-frame.zoomed:active { cursor: grabbing; }
 .cmp-frame[hidden] { display: none; }
@@ -599,6 +630,8 @@ details.why > summary { font-weight: 600; }
 .sheet[open] { transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out); @starting-style { opacity: 0; scale: var(--press); } }
 .sheet::backdrop { background: #000000b3; }
 .sheet-body { padding: 12px 16px 16px; }
+.ask { width: min(440px, calc(100vw - 32px)); }
+.ask .tour-actions { justify-content: flex-end; }
 @media (max-width: 600px) {
   .why-card { grid-template-columns: 1fr; }
   .cmp-pick { grid-template-columns: 1fr; }
@@ -669,14 +702,27 @@ a.btn[hidden] { display: none; }
 .reader-body > .muted { color: #d6dde3; text-align: center; }
 .reader-pages { display: grid; justify-items: center; gap: 14px; }
 .reader-page { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 4px 18px #0008; }
-@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
-  .app { transition: none; }
-}
 
-/* Touch screens: fingers need bigger targets, and no grey flash on tap. */
-@media (pointer: coarse) {
-  button { -webkit-tap-highlight-color: transparent; }
-  header button, .tabs button, .toolbar button, .actions button, .seg span { min-height: 40px; }
-  .seg span { display: grid; place-items: center; }
-  .chip { min-height: 32px; }
+/* The visitor's own places: the row and its remove button side by side. */
+.result-row { display: flex; align-items: stretch; }
+.result-row .result { flex: 1; min-width: 0; }
+.remove { flex: none; width: 44px; background: none; border: 0; color: var(--muted); font-size: 1.2rem; line-height: 1; }
+.remove:hover, .remove:focus-visible { color: var(--text); }
+
+/* Event markers on the globe: small squares that face the screen. Filled: seen by the radar.
+   Hollow: a live event from a public feed. */
+.bubble {
+  display: flex; align-items: center; gap: 2px; min-width: 28px; height: 28px; padding: 0 4px;
+  border: 2px solid var(--c); border-radius: 6px; background: var(--c); color: #010d15;
+  font: 600 12px/1 "IBM Plex Sans", system-ui, sans-serif; cursor: pointer; box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
 }
+.bubble.live { background: rgb(1 13 21 / 0.8); color: var(--c); }
+.bubble .ticon { width: 16px; height: 16px; color: inherit; }
+/* No press-shrink here: MapLibre places a marker with a transform, and `scale` shrinks that
+   offset too, so the marker would jump toward the map's corner and miss the click. */
+button.bubble:active:not(:disabled) { scale: none; filter: brightness(1.3); }
+.bubble:hover, .bubble:focus-visible { outline: 2px solid #fefdff; outline-offset: 1px; z-index: 1; }
+.cluster h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 1rem; }
+.cluster h3 span { flex: 1; }
+.cluster-item { padding: 8px 0; border-top: 1px solid var(--line); }
+.cluster-item p { margin: 4px 0; }

@@ -21,7 +21,7 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
-> **Branch `jopa-testing`:** the team's latest `main` and `frontend` (merged 2026-11-15) plus: a source-and-date badge on every piece of data, a "why the radar sees changes" explainer, before/after comparators with zoom and a change percentage (radar and satellite photos), a Simple-mode guide written for a 10-year-old, top-5 timelines in Technical mode, Mexico zone notes and remarkable events, and a PDF report per area that is remade as a new version whenever new data changes it, with every explanation cited. Overview: [../README.md](../README.md). Using it: [../docs/11-user-guide.md](../docs/11-user-guide.md). Reports: [../docs/12-pdf-reports.md](../docs/12-pdf-reports.md). Sources: [../docs/13-sources-policy.md](../docs/13-sources-policy.md). History: [JOPA_TESTING.md](JOPA_TESTING.md).
+> **Branch `jopa-testing` (local):** the latest `frontend` plus Mexico context data, compact icon filters, worldwide live events, a remarkable-events timeline per zone, notes on plants and animals, a source-and-date badge on every piece of data (NISAR radar, other satellite, live report, published record), a simple "why the radar sees changes" explainer, a before/after comparator with zoom and a change-percentage control (radar and satellite photos), a decision log, a Simple-mode guide written for a 10-year-old, top-5 timelines in Technical mode, and a downloadable PDF report per zone that is remade as a new version whenever new data changes it, with every explanation cited (mostly NASA sources). See [JOPA_TESTING.md](JOPA_TESTING.md).
 
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 
@@ -250,6 +250,28 @@ Work done on branch `mobile` (made from `main` at a036035, worktree `sars-mobile
 4. Landscape phones: maybe put the globe and the panel side by side when the screen is short.
 
 **To resume:** `cd frontend && npm ci && npm run dev`, then Chrome DevTools device mode (390×844). Preview upload: build with the two `VITE_` variables, then `npx wrangler versions upload --preview-alias <branch>`.
+
+**Later the same evening:** the phone layout was tried on a real phone (works). The `frontend/` part of `jopa-testing` (up to 1d955b6) was squashed into `mobile` (f948463): origin badges, radar explainer, the zoomable before/after comparator (replaces the old before/now pictures and already drags anywhere), Simple-mode guide, PDF reports, `DECISIONS.md`. Its backend, docs and specs changes were left out, and `jopa-testing` itself is untouched and unmerged, so they stay open for the team (`docs/10`, to-do 6). Fitted to phones: the Open areas tab takes the panel's name ("Your guide" in Simple mode), and the header's three buttons share one row on narrow phones. Checked in headless Chrome: 30 tests pass, phone, landscape and desktop render, tabs, tour and the growing panel work.
+
+## Branch `testing-frontend` (2026-11-14, night)
+
+Made from `mobile` (which already holds the `frontend/` part of `jopa-testing`). Not merged anywhere yet.
+
+- **PDF report on demand.** One orange "Make report" button; it switches to "Preparing the report…" the moment it is pressed, then to "Read the report" with "Download" next to it. Nothing is built in the background any more and nothing is rebuilt on live, radar or hourly refreshes: building blocks the page for seconds on a phone, and the old rebuilds made the buttons flip back to "Preparing" at random. A report stays as made until the page reloads.
+- **Place descriptions from the back end.** "What the radar found here" in every Technical card and in the PDF, from the area's C8 friendly cards (`areas/<id>/friendly.json`; `readFriendly` in `src/logic.ts` checks the file). Works for any area the back end makes, lookups included. Sentences are English only (C8 has no translations); kind names and levels are translated.
+- **Hand-written text kept, but labelled and never borrowed.** `ZONES` notes (`src/mexico.ts`) show only for the area id they were written for, as "Background notes"; the 100 km nearest-note fallback is gone. The past-disasters list (`HISTORY`) stays, labelled "hand-picked list".
+- Checked in headless Chrome against the Azure data: Make → Preparing → Read + Download on desktop and phone, the reader shows all 22 pages, the PDF text holds the new section; 31 tests pass. Not checked: a real phone, Simple mode's guide (it has no hand-written place text and does not show the cards yet).
+
+## Branch `testing` (2026-11-14, late night): load on demand, markers, city names, my places
+
+Preview: https://testing-gigas-project.starl0stgaming.workers.dev (built against Azure; production is untouched).
+
+- **Load on demand** (contract 0.7.0, `docs/04` C11). `loadLive` reads `index.json`; areas are stubs (`AreaView.stub`) until `loadArea` fetches `areas/<id>/area.json` and `events.geojson`: on opening, or when the map rests at zoom 7 or more over the area (`globe.onView`). Without `index.json` the old path (whole `manifest.json`) is used.
+- **Markers** (`globe.ts` `drawMarkers`, `logic.ts` `groupDots`). HTML markers replace the event dots and live rings: same type and within 64 px on screen share one marker with a count; at most 150 markers, beyond that groups grow. Filled: radar. Hollow: live. A click calls back with the event ids; `clusterCard` in `main.ts` lists them on top of the right panel.
+- **City names** (`src/assets/cities.json` from `scripts/cities.mjs`, Natural Earth populated places). Four symbol layers by city rank; hidden on the Street look.
+- **My places** (`places.ts`). `localStorage["places"]` holds `[lon, lat]` pairs only. `areaAt` (`logic.ts`) matches a position to an area (inside or within 10 km of its box). The list shows those areas, whole countries, and "Processing" rows for positions with no area yet; suggestions (`SUGGESTED`) while the visitor has none. "Process this place" opens a known area instead of asking the server.
+- Checked with a headless browser against the preview (list, markers, group card, zoom-in loading, my places kept over a reload and removed). Not checked: phone layout, Simple mode, the tour, keyboard use of the markers.
+- Known: markers of different types can overlap; a place with no NISAR data stays "Processing" until removed.
 
 ## Test
 
