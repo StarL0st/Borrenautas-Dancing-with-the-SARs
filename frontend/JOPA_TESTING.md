@@ -1,9 +1,15 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Pushed to GitHub as the branch `jopa-testing` (not merged anywhere).** Checked without a browser after every round: `tsc --noEmit`, the frontend unit tests (15) and the backend unit tests (45) pass. It was run locally on 2026-11-14 and looked at in the app's browser.
+**Round 4 is local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (24 after round 4) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 3)
+## What the branch has now (after round 4)
+
+- **The latest `frontend` branch** (welcome screen, country search, live events the page fetches itself, NOAA weather alerts and USGS volcano levels, Azure addresses), with this branch's own features kept.
+- **Every piece of data says where it comes from and when**, with one badge style: ◆ NISAR radar, ● other satellite, ▲ live report, ■ published record, each with the product and the date it was taken.
+- **"Why the radar sees changes"**: a simple illustrated explainer, in each card (the ideas for that area) and as a full page from the header.
+- **Before/after comparator** with zoom and a "changes larger than N%" control, for NISAR radar pictures and for the satellite photos.
+- **Decision log**: why these data and methods were chosen, what was given up, with dates.
 
 - **Event icons** on every filter type: filled when on, outline when off. Compact buttons, with "Show N more" per group.
 - **Live events, worldwide, last 24 hours,** for every type with a public feed, weather included. Serious and extreme events carry a danger label. The page says how often the server checks the sources.
@@ -26,7 +32,23 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `281dd08` | 3 | Removed the "How dangerous" slider (and its minimum-danger filter and texts) and the "Infrastructure risks near you" function (panel, location, radius slider, globe dots, data, texts, styles, tests) |
 | `82c0e5d` | 3 | Docs: round 3 and this change log |
 | `31596a7` | 3 | Removed the "Most dangerous right now" box (heading, list, empty message, `topLive`, texts, styles, test) |
-| *this commit* | 3 | Docs: change log row above |
+| `2103f2d` | 3 | Docs: change log row above |
+| `a3c0da6` | 4 | Merged the latest `origin/frontend` (abbf80b) into this branch; kept the Mexico history, zone notes, worst-events list, Simple-mode popup and danger labels |
+| `db6c2a1` | 4 | Data origin badges, radar explainer, before/after comparator, decision log |
+| *this commit* | 4 | Docs: round 4 |
+
+## Round 4 (2026-11-14, night)
+
+| Request | What changed |
+|---|---|
+| Update to the new frontend and use it in my branch | `origin/frontend` merged in (merge commit `a3c0da6`). Conflicts resolved by keeping both: the frontend's page-side live feeds (`src/livefeeds.ts`), country filter and welcome screen, plus this branch's Mexico data (`src/mexico.ts`), worst-events list, zone notes, Simple-mode popup and danger labels. Polar types (ice sheets, sea ice, permafrost, glacial lakes) are back in the filters, as on `frontend`. |
+| Make it very clear which data are from NISAR, which from other sources, and when they were taken | New `src/origin.ts`: one badge style everywhere, shape + name + color (never color alone). **NISAR radar** (diamond): each radar picture says product, channel, maturity and date (for example *GCOV HV · PROVISIONAL · taken 2026-08-14*); detected changes say their two dates; timeline rows, charts and the globe's change popups carry it too. Areas with no radar data say so plainly. **Other satellite** (circle): each satellite photo names the satellite (HLS Landsat or Sentinel-2, VIIRS, MODIS) and its date. **Live report** (triangle): the live list says the reports are not NISAR; each popup gives the agency and the exact report time in UTC. **Published record** (square): zone notes, remarkable events and the worst-events list say when the sources were checked. Each card starts with a key of the kinds it uses. |
+| A module that explains why the radar sees changes, simply | New `src/explain.ts` (text, English and Spanish; German falls back to English) and `src/explain-view.ts` (small drawings). Seven ideas: an echo not a photo, water is a mirror, corners shine, leaves scramble the wave, wet ground echoes more, measuring centimeters, what can fool it. The numbers are the back end's own rules (3 dB flood and forest loss, 4 dB new buildings, 5 cm/yr sinking, 0.04 km² minimum). **In each card:** "Why the radar sees changes here", folded, with the ideas for that area's types. **Header button "How radar sees":** all seven. |
+| A before/after comparator with zoom and a change-percentage control | New `src/compare.ts` (canvas view) and `src/compare-core.ts` (the math, unit-tested). **Radar:** a new "Compare two dates" section picks any two dates of the HH or HV backscatter (Technical mode; Simple mode compares the first and latest). The gray levels are turned back into echo power with each picture's own dB stretch, so the comparison is real. A warning appears if the two dates have different data maturity. **Satellite photos:** the old swipe was replaced by the same comparator; zooming in loads a sharper picture of that part. **Both:** divider to swipe, zoom 1–8× (buttons, wheel, double-click, keys + − 0 and arrows), drag to move, "Mark what changed" with a "Changes larger than N%" slider (Technical radar shows the dB too), blue for brighter and orange for darker, and "N% of what you see changed". Change = \|after − before\| ÷ the brighter one, after a 3 × 3 average: 50% is 3 dB, the step the detection rules use. Photos default to 30% and say it is a visual guide. |
+| A small record of decisions | New `src/decisions.ts` and a **Decision log** header button (also "Why these data and methods?" at the end of each card). 13 decisions with date, kind (data, method, design), what we chose, why, instead of what, and what we give up; filter by kind. Dates and numbers come from the repository (`docs/03`, `docs/10`, `classify.py`, `site.py`). |
+| Run it locally | `npm run dev` at http://127.0.0.1:5173/, reading the team's real NISAR results from the Azure storage (`VITE_DATA_BASE`, read-only) so the radar parts have data. See "When you want to run it". |
+
+**Checked in the browser:** Mexico City card shows the key and NISAR badges with dates; the radar comparator reads real pixels (HV, 2026-08-14 vs 2026-10-13: 0.2% changed by more than 50%, 13% by more than 20%); zoom works; the satellite comparator found HLS pictures 2025-11-13 and 2026-10-31; both dialogs open and the decision filter works (a bug that cancelled clicks inside the dialog was fixed). **Not checked in the browser:** the Simple-mode popup (the hidden browser pane pauses the mode switch's animation).
 
 ## Round 3 (2026-11-14, evening)
 
@@ -273,6 +295,16 @@ See "Source check" in Round 2 for what was checked and corrected, and what was n
 3. **Tutorial:** the tour has no steps yet for the new panels.
 
 ## When you want to run it
+
+Round 4: the front end alone, reading the team's real NISAR results from Azure (read-only):
+
+```bash
+cd frontend && VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/ VITE_API_BASE=https://gigas-sars.westus2.cloudapp.azure.com/ npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+Without those two variables it looks for a local back end at http://127.0.0.1:8765/ and, without one, shows example places (no NISAR data, which the cards then say).
+
+Earlier rounds:
 
 Node is at `/opt/homebrew/bin/node`. If your shell doesn't find it, run `export PATH="/opt/homebrew/bin:$PATH"` first.
 

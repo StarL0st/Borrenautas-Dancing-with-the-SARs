@@ -21,7 +21,7 @@ The frontend reads only contract data (`docs/04-contracts.md`): the manifest (C1
 
 ## Current state
 
-> **Branch `jopa-testing` (local):** Mexico context data, compact icon filters with "Show more" (filled when on, outline when off), worldwide live events from the last 24 hours including weather (hurricanes, storms, heat, cold, dust) with danger levels, "Most dangerous right now", "Most destructive recent events", a remarkable-events timeline per zone, a satellite before/now view (NASA GIBS) and notes on plants and animals in each area card (open areas panel in Technical mode only; Simple mode uses a popup), and a simpler Simple mode. See [JOPA_TESTING.md](JOPA_TESTING.md).
+> **Branch `jopa-testing` (local):** the latest `frontend` plus Mexico context data, compact icon filters, worldwide live events, a remarkable-events timeline per zone, notes on plants and animals, a source-and-date badge on every piece of data (NISAR radar, other satellite, live report, published record), a simple "why the radar sees changes" explainer, a before/after comparator with zoom and a change-percentage control (radar and satellite photos), and a decision log. See [JOPA_TESTING.md](JOPA_TESTING.md).
 
 A globe that zooms into a map (one MapLibre map, `globe` projection).
 
