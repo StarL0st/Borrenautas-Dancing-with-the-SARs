@@ -194,6 +194,16 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - Desktop is unchanged.
 - Checked 2026-11-14 in headless Chrome at 390×844, 844×390 and 1440×900 (no page scroll, no console errors besides the missing back-end file). Not checked: a real phone, Safari, dragging the wheel by touch. Landscape phones are cramped: the map's button column is cut off at the bottom of the globe.
 
+## Deploy (Cloudflare Worker `gigas-project`)
+
+`wrangler.jsonc` serves `dist/` as static files. Workers Builds (Cloudflare dashboard → `gigas-project` → Settings → Build) builds from GitHub:
+
+- Root directory `frontend`, build command `npm ci && npm run build`, deploy command `npx wrangler deploy`, non-production branch deploy command `npx wrangler versions upload`, production branch `main`.
+- Build variables: `VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/`, `VITE_API_BASE=https://gigas-sars.westus2.cloudapp.azure.com/`.
+- Every push to another branch gets its own preview at `https://<branch>-gigas-project.starl0stgaming.workers.dev`; only `main` changes the live site.
+
+By hand, from `frontend/` after a build with those two variables: `npx wrangler versions upload --preview-alias <branch>` (preview) or `npx wrangler deploy` (live).
+
 ## Test
 
 ```
