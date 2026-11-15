@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import mimetypes
+import shutil
 import time
 from contextlib import asynccontextmanager
 from itertools import pairwise
@@ -16,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from . import history
 from .export import CONTRACT_VERSION, ingest, ingested_ids, load_events, load_manifest
 from .granule import open_granule
 from .sites import add_site, bbox_around
@@ -31,6 +33,21 @@ RECHECK_HOURS = 12
 MAX_QUEUED = 20
 MAX_CELLS = 300
 MAX_NEW_PER_HOUR = 5  # per client address
+MIN_FREE_GB = 5  # below this no new place is accepted: cached windows fill the disk
+MAX_STREAMS = 500  # open /events connections; each one holds a socket and a queue
+HISTORY_KM = 5  # /history keeps events within this box around the point
+WORLD = [-180, -90, 180, 90]
+
+_cache: dict[Path, tuple[int, dict]] = {}
+
+
+def _cached(path: Path, load) -> dict:
+    """A parsed JSON file, read again only when it changed (events.json is several MB and
+    /query and /history would otherwise parse it on every request). Callers must not modify it."""
+    mtime = path.stat().st_mtime_ns if path.exists() else 0
+    if _cache.get(path, (None,))[0] != mtime:
+        _cache[path] = (mtime, load(path.parent))
+    return _cache[path][1]
 
 
 class SiteRequest(BaseModel):
@@ -90,7 +107,7 @@ def query(
     box = bbox or [point[0], point[1], point[0], point[1]]
     events = [
         e
-        for e in load_events(data_dir)["events"]
+        for e in _cached(Path(data_dir) / "events.json", load_events)["events"]
         if _overlaps(e["bbox"], box)
         and (point is None or contains(e["geometry"], *point))
         and (type_ is None or e["type"] == type_)
@@ -98,8 +115,25 @@ def query(
         and (from_ is None or e["date_range"][1] >= from_)
         and (to is None or e["date_range"][0] <= to)
     ]
-    areas = [a["id"] for a in load_manifest(data_dir)["areas"] if _overlaps(a["bbox"], box)]
+    manifest = _cached(Path(data_dir) / "manifest.json", load_manifest)
+    areas = [a["id"] for a in manifest["areas"] if _overlaps(a["bbox"], box)]
     return {"contract_version": CONTRACT_VERSION, "events": events, "area_ids": areas}
+
+
+def history_at(data_dir: Path, lon: float, lat: float, from_=None, to=None, category=None) -> dict:
+    """C10 /history: per area at the point, what happened near it, in time order."""
+    near = bbox_around(lon, lat, HISTORY_KM)
+    found = query(data_dir, bbox=near, from_=from_, to=to, category=category)["events"]
+    manifest = _cached(Path(data_dir) / "manifest.json", load_manifest)
+    return {
+        "contract_version": CONTRACT_VERSION,
+        "point": [lon, lat],
+        "histories": [
+            history.build(a, [e for e in found if e["area_id"] == a["id"]], data_dir, from_, to)
+            for a in manifest["areas"]
+            if _overlaps(a["bbox"], [lon, lat, lon, lat])
+        ],
+    }
 
 
 def create_app(
@@ -109,14 +143,25 @@ def create_app(
     jobs=None,
     admin_token: str | None = None,
     public: bool = False,
+    sync_marker: Path | None = None,
 ) -> FastAPI:
     """`jobs` (live.Jobs) enables /sites; without it the server is read-only. With `admin_token`
     set, POST requests need `Authorization: Bearer <token>` (they start downloads). `public`
-    lets anyone POST /sites {lat, lon} without a token, within limits (see lookup)."""
+    lets anyone POST /sites {lat, lon} without a token, within limits (see lookup).
+    `sync_marker`: browsers read the files from a copy (Blob Storage, deploy/compose.yaml), so a
+    push waits until the copy has caught up; the file holds the start time of the last full copy."""
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     clients: set[asyncio.Queue] = set()
     recent: dict[str, list[float]] = {}  # client address -> times of its new cells
+
+    def copied(mtime_ns: int | None) -> bool:
+        if sync_marker is None or mtime_ns is None:
+            return True
+        try:
+            return int(Path(sync_marker).read_text()) * 1e9 > mtime_ns
+        except (OSError, ValueError):
+            return False
 
     async def watch():
         manifest, last, failed = data_dir / "manifest.json", None, {}
@@ -126,13 +171,13 @@ def create_app(
                 await asyncio.to_thread(scan_inbox, inbox, data_dir, failed)
             # Any writer (inbox, CLI ingest) changes manifest.json; that is the push trigger.
             mtime = manifest.stat().st_mtime_ns if manifest.exists() else None
-            if mtime != last:
+            if mtime != last and copied(mtime):
                 last = mtime
                 for q in clients:
                     q.put_nowait({"type": "manifest", "url": "manifest.json"})
             # Live disaster feeds (livefeeds.py) have their own push event.
             live_mtime = live_file.stat().st_mtime_ns if live_file.exists() else None
-            if live_mtime != live_last:
+            if live_mtime != live_last and copied(live_mtime):
                 live_last = live_mtime
                 for q in clients:
                     q.put_nowait({"type": "live", "url": "live.geojson"})
@@ -145,6 +190,7 @@ def create_app(
         task.cancel()
 
     app = FastAPI(title="sars-pipeline", lifespan=lifespan)
+    app.state.clients = clients  # open /events streams (tests look here)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -203,6 +249,8 @@ def create_app(
             return {"id": site_id, **state, "status": "done"}
         if jobs.queued() >= MAX_QUEUED:
             raise HTTPException(429, "the processing queue is full; try again in a few minutes")
+        if shutil.disk_usage(data_dir).free < MIN_FREE_GB * 1e9:
+            raise HTTPException(429, "this server is out of space for new places")
         if site_id not in sites:
             if sum(bool(s.get("requested")) for s in sites.values()) >= MAX_CELLS:
                 raise HTTPException(429, "this server holds its maximum number of places")
@@ -314,8 +362,83 @@ def create_app(
             raise HTTPException(400, "give lat and lon, or bbox")
         return query(data_dir, point=[lon, lat], type_=type, from_=from_, to=to, category=category)
 
+    @app.get("/history")
+    def history_endpoint(
+        lat: float = Query(ge=-90, le=90),
+        lon: float = Query(ge=-180, le=180),
+        category: str | None = None,
+        from_: str | None = Query(None, alias="from"),
+        to: str | None = None,
+    ):
+        return history_at(data_dir, lon, lat, from_, to, category)
+
+    @app.get("/api/areas")
+    def api_areas():
+        """Every processed area, without its layer list (that is in /manifest.json)."""
+        manifest = _cached(data_dir / "manifest.json", load_manifest)
+        counts: dict[str, int] = {}
+        for e in _cached(data_dir / "events.json", load_events)["events"]:
+            counts[e["area_id"]] = counts.get(e["area_id"], 0) + 1
+        keys = ("id", "title", "summary", "bbox", "center", "categories", "products")
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "areas": [
+                {
+                    **{k: a[k] for k in keys if k in a},
+                    "layers": len(a["layers"]),
+                    "events": counts.get(a["id"], 0),
+                    "friendly": a.get("friendly"),
+                    "history": a.get("history"),
+                }
+                for a in manifest["areas"]
+            ],
+        }
+
+    @app.get("/api/events")
+    def api_events(
+        area: str | None = None,
+        category: str | None = None,
+        from_: str | None = Query(None, alias="from"),
+        to: str | None = None,
+        min_confidence: float = Query(0, ge=0, le=1),
+        limit: int = Query(100, ge=1, le=1000),
+        offset: int = Query(0, ge=0),
+    ):
+        """NISAR-derived events (C7), most confident first. `total` counts all that match."""
+        found = [
+            e
+            for e in query(data_dir, bbox=WORLD, from_=from_, to=to, category=category)["events"]
+            if (area is None or e["area_id"] == area) and e["confidence"] >= min_confidence
+        ]
+        found.sort(key=lambda e: -e["confidence"])
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "total": len(found),
+            "events": found[offset : offset + limit],
+        }
+
+    @app.get("/api/live")
+    def api_live(category: str | None = None, source: str | None = None):
+        """Live events from public feeds (C9, live.geojson), filtered. Not NISAR detections."""
+        if not (data_dir / "live.geojson").exists():
+            raise HTTPException(404, "no live events collected yet")
+        doc = _cached(
+            data_dir / "live.geojson",
+            lambda d: json.loads((d / "live.geojson").read_text(encoding="utf-8")),
+        )
+        keep = [
+            f
+            for f in doc["features"]
+            if (category is None or f["properties"]["category"] == category)
+            and (source is None or f["properties"]["source"] == source)
+        ]
+        return {**doc, "features": keep}
+
     @app.get("/events")
     async def events():
+        if len(clients) >= MAX_STREAMS:
+            # The frontend works without the stream (it reloads on a timer).
+            raise HTTPException(503, "too many open event streams")
         q: asyncio.Queue = asyncio.Queue()
         clients.add(q)
 

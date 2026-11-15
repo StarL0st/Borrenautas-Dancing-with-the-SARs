@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from scipy import ndimage
 
-from . import categorize, classify, firms, friendly
+from . import categorize, classify, firms, friendly, history
 from .categorize import COVER_COLORS, COVER_NAMES, decide, outline
 from .export import (
     CONTRACT_VERSION,
@@ -1047,6 +1047,8 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
             except Exception as err:  # one product failing must not hide the others
                 log.exception("%s %s failed", site_id, name)
                 errors[name] = str(err)
+    # The floor comes last: confidence is final only after the persistence check.
+    run.events = [ev for ev in run.events if ev["confidence"] >= cfg["min_confidence"]]
 
     w, s, e, n = site["bbox"]
     counts: dict[str, int] = {}
@@ -1084,6 +1086,11 @@ def run_site(site_id: str, site: dict, data_dir: Path, interim: Path, selection:
         km2 = abs(Geod(ellps="WGS84").geometry_area_perimeter(border(site["clip"]))[0]) / 1e6
     cards = friendly.cards(area, run.events, km2)
     _write_json(data_dir / area["friendly"], {"contract_version": CONTRACT_VERSION, **cards})
+    area["history"] = f"areas/{site_id}/history.json"
+    _write_json(
+        data_dir / area["history"],
+        {"contract_version": CONTRACT_VERSION, **history.build(area, run.events, data_dir)},
+    )
     manifest = load_manifest(data_dir)
     old = {a["id"] for a in manifest["areas"] if a.get("site") == site_id or a["id"] == site_id}
     manifest["areas"] = [a for a in manifest["areas"] if a["id"] not in old] + [area]
