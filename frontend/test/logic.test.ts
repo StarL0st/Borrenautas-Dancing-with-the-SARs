@@ -415,3 +415,11 @@ test("a position belongs to the area it is in or next to; index entries become s
   assert.deepEqual(stub.stub, { events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"] });
   assert.deepEqual([stub.requested, stub.layers.length, stub.types], [true, 0, ["wildfires"]]);
 });
+
+test("markers group events of one type that are close on screen", async () => {
+  const { groupDots } = await import("../src/logic.ts");
+  const pt = (id: string, x: number, y: number, type = "wildfires") => ({ id, x, y, type });
+  const groups = groupDots([pt("a", 0, 0), pt("b", 30, 20), pt("c", 30, 20, "floods"), pt("d", 200, 0), pt("e", 50, 50)], 56);
+  assert.deepEqual(groups.map((g) => g.map((p) => p.id)), [["a", "b", "e"], ["c"], ["d"]]);
+  assert.deepEqual(groupDots([], 56), []);
+});

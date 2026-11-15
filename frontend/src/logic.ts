@@ -308,3 +308,17 @@ export function areaAt<A extends { bbox: Bbox; requested?: boolean; kind?: strin
   const hits = areas.filter((a) => a.kind !== "mosaic" && overlaps(grown(a.bbox, NEAR_KM), [lon, lat, lon, lat]));
   return hits.find((a) => !a.requested) ?? hits[0];
 }
+
+// ---- Markers that stand for several events ----
+
+// Points on the screen become groups: same type, and within `px` of the group's first point.
+// Each group is drawn as one marker; zooming in moves the points apart and splits it.
+export function groupDots<T extends { x: number; y: number; type: string }>(pts: T[], px: number): T[][] {
+  const groups: T[][] = [];
+  for (const p of pts) {
+    const g = groups.find(([q]) => q.type === p.type && Math.abs(q.x - p.x) <= px && Math.abs(q.y - p.y) <= px);
+    if (g) g.push(p);
+    else groups.push([p]);
+  }
+  return groups;
+}

@@ -5,7 +5,7 @@ import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
 import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./filters";
-import { createGlobe, type ViewMode } from "./globe";
+import { createGlobe, eventInfo, liveInfo, type MarkerKind, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
 import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
@@ -91,7 +91,15 @@ const dot = (color: string) => {
   return d;
 };
 
-const globe = createGlobe("map", settings.texture, toggle);
+// The marker last clicked on the globe: the events it stands for are listed in the right panel.
+let cluster: { kind: MarkerKind; ids: string[] } | undefined;
+const CLUSTER_ROWS = 40;
+const globe = createGlobe("map", settings.texture, toggle, (kind, ids) => {
+  cluster = { kind, ids };
+  showPanel("detail", true);
+  render();
+  $("detail").scrollTop = 0;
+});
 // The home, auto-rotate and view wheel squares join MapLibre's own column of + and - buttons.
 const column = document.querySelector(".maplibregl-ctrl-top-right")!;
 column.prepend($("ctrl-home"));
@@ -360,16 +368,50 @@ function render() {
   timebar.replaceChildren(); // each open area's card puts its date slider back
   $("detail-title").textContent = $("tab-detail").textContent = t(simple() ? "kid.panel" : "h.open");
   $("detail").dataset.i18nLabel = simple() ? "kid.panel" : "h.open";
+  const group = clusterCard();
   if (simple()) {
     // Simple mode: a guide written for a 10-year-old, one place at a time.
     const a = shown.find((x) => x.id === opened[0]);
-    cards.replaceChildren(a ? kidCard(a) : kidWelcome());
+    cards.replaceChildren(...(group ? [group] : []), a ? kidCard(a) : kidWelcome());
   } else {
     cards.replaceChildren(
-      ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : [el("p", { className: "muted" }, t("cards.empty"))]),
+      ...(group ? [group] : []),
+      ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : group ? [] : [el("p", { className: "muted" }, t("cards.empty"))]),
     );
   }
   entering = undefined;
+}
+
+// The events behind the clicked marker, each with its details and a way to go to it.
+function clusterCard(): HTMLElement | undefined {
+  if (!cluster) return;
+  const { kind, ids } = cluster;
+  const wanted = new Set(ids);
+  const items =
+    kind === "live"
+      ? liveEvents.filter((f) => wanted.has(f.properties.id)).map((f) => ({ p: f.properties, info: () => liveInfo(f.properties), zoom: 6 }))
+      : reports.filter((f) => wanted.has(f.properties.id)).map((f) => ({ p: f.properties, info: () => eventInfo(f.properties), zoom: 11 }));
+  if (!items.length) return void (cluster = undefined); // the data moved on
+  const close = el("button", { type: "button" }, t("card.close"));
+  close.onclick = () => {
+    cluster = undefined;
+    render();
+  };
+  return el(
+    "section",
+    { className: `card cluster ${kind}` },
+    el("h3", {}, typeIcon(items[0].p.category), t(kind === "live" ? "cluster.live" : "cluster.radar", { n: items.length, type: shortLabel(items[0].p.category) })),
+    ...items.slice(0, CLUSTER_ROWS).map(({ p, info, zoom }) => {
+      const go = el("button", { type: "button", className: "link" }, t("cluster.go"));
+      go.onclick = () => {
+        setSpin(false);
+        globe.goTo(p.lon, p.lat, zoom);
+      };
+      return el("div", { className: "cluster-item" }, info(), go);
+    }),
+    ...(items.length > CLUSTER_ROWS ? [el("p", { className: "muted" }, t("cluster.more", { n: items.length - CLUSTER_ROWS }))] : []),
+    el("p", { className: "actions" }, close),
+  );
 }
 
 // ---- The visitor's own places (places.ts) ----

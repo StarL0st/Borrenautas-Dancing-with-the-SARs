@@ -708,3 +708,17 @@ a.btn[hidden] { display: none; }
 .result-row .result { flex: 1; min-width: 0; }
 .remove { flex: none; width: 44px; background: none; border: 0; color: var(--muted); font-size: 1.2rem; line-height: 1; }
 .remove:hover, .remove:focus-visible { color: var(--text); }
+
+/* Event markers on the globe: small squares that face the screen. Filled: seen by the radar.
+   Hollow: a live event from a public feed. */
+.bubble {
+  display: flex; align-items: center; gap: 2px; min-width: 28px; height: 28px; padding: 0 4px;
+  border: 2px solid var(--c); border-radius: 6px; background: var(--c); color: #010d15;
+  font: 600 12px/1 "IBM Plex Sans", system-ui, sans-serif; cursor: pointer; box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+}
+.bubble.live { background: rgb(1 13 21 / 0.8); color: var(--c); }
+.bubble .ticon { width: 16px; height: 16px; color: inherit; }
+.bubble:hover, .bubble:focus-visible { outline: 2px solid #fefdff; outline-offset: 1px; z-index: 1; }
+.cluster h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 1rem; }
+.cluster-item { padding: 8px 0; border-top: 1px solid var(--line); }
+.cluster-item p { margin: 4px 0; }
