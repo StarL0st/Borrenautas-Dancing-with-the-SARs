@@ -558,6 +558,19 @@ function satSection(a: AreaView): Node {
   const setSwipe = () => frame.style.setProperty("--x", `${(v.swipe = +swipe.value)}%`);
   swipe.oninput = setSwipe;
   setSwipe();
+  // Pressing anywhere on the pictures and dragging moves the line (the slider's own thumb is too small
+  // to find by touch); the slider stays for the keyboard and screen readers.
+  const drag = (e: PointerEvent) => {
+    if (!frame.hasPointerCapture(e.pointerId)) return;
+    const r = frame.getBoundingClientRect();
+    swipe.value = String(Math.round(((e.clientX - r.left) / r.width) * 100));
+    setSwipe();
+  };
+  frame.onpointerdown = (e) => {
+    frame.setPointerCapture(e.pointerId);
+    drag(e);
+  };
+  frame.onpointermove = drag;
   const credit = el("p", { className: "muted sources" });
 
   const agoOut = el("output");
@@ -777,7 +790,8 @@ const buildWheel = () =>
 
 // ---- Side panels: the arrows on the edges of the globe push them away and pull them back ----
 
-// On a phone the two panels share the space under the globe: tabs pick one, showing it hides the other.
+// On a phone the two panels share the space under the globe: tabs pick one, showing it hides the other,
+// and pressing the open one again hides it so the globe takes the whole screen.
 const phone = matchMedia("(max-width: 900px)");
 function showPanel(id: "nav" | "detail", on: boolean) {
   $(id).inert = !on;
@@ -788,7 +802,7 @@ function showPanel(id: "nav" | "detail", on: boolean) {
 }
 for (const id of ["nav", "detail"] as const) {
   $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
-  $(`tab-${id}`).onclick = () => showPanel(id, true);
+  $(`tab-${id}`).onclick = () => showPanel(id, $(`tab-${id}`).getAttribute("aria-pressed") !== "true");
 }
 
 // ---- Welcome screen: the Earth's horizon turning under the title, until Start ----
