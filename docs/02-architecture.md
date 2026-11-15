@@ -45,11 +45,11 @@ browser --files (manifest, layers, events, cards, history, live)--> Blob Storage
 - **Processing happens inside the API process**: a queue handles places that visitors look up (public, rate limited), a timer re-checks the curated sites every 12 hours and processes only those with new granules, and another refreshes the live disaster feeds. One process on purpose: the queue and the limits live in memory.
 - **Order of a new result**: written to the VM disk, copied to storage (files first, then the manifest and event indexes), and only then pushed to browsers as "new data".
 - **Working data** (selections, cached radar windows) stays on the VM disk and survives rebuilds. Results processed locally are uploaded with `azure.sh seed`.
-- **Frontend**: a static site (Azure Static Web Apps), detached from the backend, built with two addresses: storage for files, the API for calls (contract C6).
+- **Frontend**: a static site on Cloudflare Pages (free plan; it stays up when the virtual machine or the Azure credit is gone), detached from the backend, built with two addresses: storage for files, the API for calls (contract C6).
 - **Transport**: plain HTTPS downloads and one server-sent-events stream. No message broker and no database: the cache is files, and a push stream already tells browsers when to reload.
 - **Guards**: at most 500 open push streams, lookup limits per address, no new places on a nearly full disk, a memory limit and swap so a heavy job restarts the API instead of freezing the machine. Measured numbers: `backend/deploy/README.md`.
 - **Secrets**: the Earthdata token, the FIRMS key and the admin token live in `/opt/sars/.env` on the virtual machine (owner-only) or `backend/.env` (local), never in images or the repo. The machine writes to storage as itself (managed identity); no storage key is kept.
-- **Names**: the API at `api.<domain>`, the site at `www.<domain>`, DNS at Cloudflare with its proxy off for both.
+- **Names**: the API at `api.<domain>`, the site at `<domain>` (set in the Pages project), DNS at Cloudflare with its proxy off for `api`.
 
 ## Default stack (ADR-001)
 
@@ -62,7 +62,7 @@ browser --files (manifest, layers, events, cards, history, live)--> Blob Storage
 | Charts | uPlot or Chart.js | Small and fast; decide in ADR-001 |
 | Tests | pytest; Vitest | `make test` runs both |
 | CI | GitHub Actions | Lint, test, contract validation, build, smoke |
-| Hosting | Microsoft Azure: Blob Storage (results), one virtual machine (API and processing), Static Web Apps (site) | Decided 2026-11-14; always keep `vite preview` and the static export as fallback |
+| Hosting | Microsoft Azure: Blob Storage (results), one virtual machine (API and processing); Cloudflare Pages (site) | Decided 2026-11-14; always keep `vite preview` and the static export as fallback |
 | License | Permissive (MIT or Apache-2.0) | Decide in ADR-005; challenge wants open source |
 
 ## Pipeline stages

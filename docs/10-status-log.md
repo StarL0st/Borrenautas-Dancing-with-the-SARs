@@ -33,7 +33,7 @@ The backend writes `contract_version` 0.6.0. The frontend accepts any `0.x`.
 |---|---|
 | API (HTTPS) | `https://gigas-sars.westus2.cloudapp.azure.com` (will move to `api.gigas.earth`) |
 | Results | `https://gigassars.blob.core.windows.net/data/` (for example `manifest.json`) |
-| Site | Not published yet (`azure.sh site`) |
+| Site | Not published yet. Goes to Cloudflare Pages, not Azure (decided 2026-11-14): `azure.sh site`, or a Pages project connected to the `frontend` branch (`backend/deploy/README.md`) |
 | Resources | Resource group `sars`, region `westus2`: virtual machine `sars-vm` (`Standard_B2s_v2`, 2 vCPU, 8 GB), storage account `gigassars` |
 
 Checked on Azure on 2026-11-14:
@@ -95,8 +95,8 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | # | Task | Owner |
 |---|---|---|
 | 1 | Open the frontend against Azure in a browser and try it: map, Mexico, a case study, looking up a place | Humans |
-| 2 | Publish the site: `AZ_PREFIX=gigas backend/deploy/azure.sh site` | Human with backend |
-| 3 | Domain `gigas.earth` (DNS is at Porkbun today): record `A api 20.112.74.42`, then `SARS_DOMAIN=gigas.earth backend/deploy/azure.sh dns` for the rest (`backend/deploy/README.md`) | Human |
+| 2 | Publish the site on Cloudflare Pages: `npx wrangler login`, then `AZ_PREFIX=gigas backend/deploy/azure.sh site`; or connect a Pages project to the `frontend` branch | Human with backend |
+| 3 | Domain `gigas.earth` (DNS is at Porkbun today): move the nameservers to Cloudflare, record `A api 20.112.74.42` (proxy off), then `SARS_DOMAIN=gigas.earth backend/deploy/azure.sh dns` for the rest (`backend/deploy/README.md`) | Human |
 | 4 | Azure account is a Free Trial: credit ends 30 days after sign-up (to be confirmed in the portal). Check that date against the judging period; upgrade to pay-as-you-go if needed. Add a budget alert | Human |
 | 5 | Frontend: show history (`areas/<id>/history.json`, C10) in the bottom timeline; friendly cards (C8); a "processing" state from `GET /sites/<id>`; the server's sentence on a 429 answer | Frontend |
 | 6 | Decide what to take from `archive/jopa-testing` (not merged). It includes a backend change (`refresh_minutes` in `live.geojson`) that `backend` does not have | Both lanes |
