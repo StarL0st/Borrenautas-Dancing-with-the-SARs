@@ -2,7 +2,7 @@
 //
 // Two pictures of the same place on two dates, drawn on canvases so the change can be measured
 // pixel by pixel (compare-core.ts). A divider swipes between them; zoom with the buttons, the
-// wheel, a double-click or the keyboard; drag to move. "Mark what changed" paints the pixels
+// Ctrl + wheel, a double-click or the keyboard; drag to move. "Mark what changed" paints the pixels
 // whose brightness changed by more than the chosen percentage and says how much of the view did.
 //
 // Pixels can only be read when the server allows it (CORS): NASA GIBS and the team's storage do.
@@ -223,6 +223,9 @@ export function comparator(o: CompareOptions): HTMLElement {
   };
 
   frame.addEventListener("wheel", (e) => {
+    // Plain scrolling passes on to the panel (it used to zoom by accident, then a drag panned);
+    // Ctrl/⌘ + scroll zooms, and so does a trackpad pinch, which browsers send with ctrlKey.
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     zoomAt(e.deltaY < 0 ? 1.25 : 0.8, ...at(e));
   }, { passive: false });
