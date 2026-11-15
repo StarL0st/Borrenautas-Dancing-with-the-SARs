@@ -92,7 +92,6 @@ time, output, td, .legend, .axis, .chart-tip, #coords input { font-family: var(-
 }
 .app.no-nav { --nav-w: 0px; }
 /* The open areas panel is part of Technical mode; Simple mode shows a short popup on the globe. */
-:root[data-mode="simple"] .app { --detail-w: 0px; }
 .app.no-detail { --detail-w: 0px; }
 /* The panels keep their width and slide out past the edge instead of squeezing their text. */
 #nav { width: 300px; justify-self: end; }
@@ -619,3 +618,29 @@ details.why > summary { font-weight: 600; }
   .decision dl { grid-template-columns: 1fr; }
   .cmp-pick { grid-template-columns: 1fr; }
 }
+
+/* ---- jopa-testing: Simple mode's guide (written for a 10-year-old) ---- */
+.kid { font-size: 1.05rem; line-height: 1.5; }
+.kid p { margin: 6px 0; }
+.kid-hello { margin-top: 0; font-size: 1.5rem; font-weight: 600; }
+.kid-big { font-size: 1.12rem; }
+.kid-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.35rem; color: var(--text); }
+.kid-q { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); }
+.kid-q h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 1.08rem; color: var(--text); }
+.kid-n {
+  display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: var(--ink); font-size: 0.95rem; font-weight: 600;
+}
+.kid-list, .kid-src, .kid-words { margin: 4px 0; padding: 0; list-style: none; }
+.kid-list li, .kid-src li { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; }
+.kid-list .ticon { flex: none; width: 22px; height: 22px; margin-top: 2px; }
+.kid-list .dot { margin-top: 6px; }
+.kid-src .origin { flex: none; }
+.kid-words li { margin: 6px 0; padding-left: 12px; border-left: 3px solid var(--accent); }
+.kid-steps { margin: 4px 0; padding-left: 22px; }
+.kid-steps li { margin: 6px 0; }
+.kid-fact { font-size: 1.1rem; }
+.kid-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.kid .cmp-stats { font-weight: 600; }
+.more-report { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.more-report button { margin: 0; }

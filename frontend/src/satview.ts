@@ -78,7 +78,7 @@ export type Found = { url: string; date: string; layer: string };
  * Resolves undefined when none is found. `signal` stops the search (the tab was closed).
  */
 export async function findClear(
-  layer: SatLayer, bbox: [number, number, number, number], from: Date, days: number, signal?: AbortSignal,
+  layer: SatLayer, bbox: [number, number, number, number], from: Date, days: number, signal?: AbortSignal, maxCloud?: number,
 ): Promise<Found | undefined> {
   const box = viewBox(bbox, layer);
   // Daily layers are complete every day; the 8-day vegetation index needs no cloud check.
@@ -92,7 +92,7 @@ export async function findClear(
         const thumb = await load(gibsUrl(name, box, date, 48));
         const { empty, cloud } = look(thumb);
         if (empty > 0.25) continue; // no pass that day
-        if (layer.id !== "ndvi" && cloud > (strict ? 0.3 : 0.6)) continue;
+        if (layer.id !== "ndvi" && cloud > (maxCloud ?? (strict ? 0.3 : 0.6))) continue;
         return { url: gibsUrl(name, box, date, 640), date, layer: name };
       } catch {
         // one missing tile is not the end of the search

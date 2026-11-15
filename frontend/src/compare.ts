@@ -7,7 +7,7 @@
 //
 // Pixels can only be read when the server allows it (CORS): NASA GIBS and the team's storage do.
 // When a server does not, the comparator still swipes and zooms and says change cannot be measured.
-import { changeMap, pctToDb, viewRect, type Decode } from "./compare-core";
+import { changeMap, isCloud, pctToDb, viewRect, type Decode } from "./compare-core";
 import { t } from "./i18n";
 import { el } from "./ui";
 
@@ -22,6 +22,7 @@ export type CompareOptions = {
   after: Picture;
   state: CompareState; // kept by the caller, so the view survives the card being rebuilt
   technical: boolean; // Technical mode also says the threshold in dB
+  basic?: boolean; // Simple mode's guide: no threshold slider, no help text, a plainer result
   /** Sharper pictures of a zoomed-in part, when the source can make them (GIBS can). */
   sharper?: (rect: Rect) => { before: string; after: string } | undefined;
   origin: (Node | string)[]; // the source badges, shown under the pictures
@@ -146,7 +147,20 @@ export function comparator(o: CompareOptions): HTMLElement {
       return;
     }
     const up = (100 * n.brighter) / n.valid, down = (100 * n.darker) / n.valid;
-    stats.textContent = t("cmp.stats", { pct: fmt(up + down), up: fmt(up), down: fmt(down) });
+    // Photos: the share of the view that is cloud in either picture (left out of the count).
+    let clouds = 0;
+    if (o.kind === "optical") {
+      for (let i = 0; i < b.data.length; i += 4) {
+        if (isCloud(b.data[i], b.data[i + 1], b.data[i + 2]) || isCloud(a.data[i], a.data[i + 1], a.data[i + 2])) clouds++;
+      }
+      clouds = (100 * clouds) / (w * h);
+    }
+    if (o.basic) {
+      // Too cloudy to count fairly: say why instead of showing a number that clouds made up.
+      stats.textContent = clouds > 10 ? t("cmp.kidclouds") : t("cmp.kidstats", { n: Math.max(up + down > 0 ? 1 : 0, Math.round(up + down)) });
+      return;
+    }
+    stats.textContent = t("cmp.stats", { pct: fmt(up + down), up: fmt(up), down: fmt(down) }) + (clouds >= 1 ? ` ${t("cmp.clouds", { pct: fmt(clouds) })}` : "");
   }
 
   // Sharper pictures for the zoomed-in part, once the view has rested.
@@ -295,11 +309,10 @@ export function comparator(o: CompareOptions): HTMLElement {
       el("label", { htmlFor: swipe.id, className: "cmp-swipe" }, el("span", { className: "muted" }, t("cmp.before")), swipe, el("span", { className: "muted" }, t("cmp.after"))),
     ),
     el("div", { className: "cmp-row" }, el("label", { className: "check", htmlFor: mark.id }, mark, " ", t("cmp.mark"))),
-    pctLabel,
-    pct,
+    ...(o.basic ? [] : [pctLabel, pct]),
     legend,
     stats,
-    el("p", { className: "muted small" }, t("cmp.help"), " ", t(o.kind === "radar" ? "cmp.radar" : "cmp.optical")),
+    ...(o.basic ? [] : [el("p", { className: "muted small" }, t("cmp.help"), " ", t(o.kind === "radar" ? "cmp.radar" : "cmp.optical"))]),
     el("p", { className: "origin-line" }, ...o.origin),
   );
 }

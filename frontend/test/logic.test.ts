@@ -258,15 +258,19 @@ test("comparator: change is relative, the same both ways, and 50% is 3 dB", () =
 test("comparator: marks brighter and darker pixels past the threshold, skips missing ones", () => {
   const w = 6, h = 1;
   const px = (vals: number[], alpha = 255) => new Uint8ClampedArray(vals.flatMap((v) => [v, v, v, alpha]));
-  const before = px([100, 100, 100, 100, 100, 100]);
-  const after = px([100, 100, 100, 200, 200, 200]);
+  const before = px([60, 60, 60, 60, 60, 60]);
+  const after = px([60, 60, 60, 120, 120, 120]);
   const { codes, stats } = changeMap(before, after, w, h, opticalDecode, opticalDecode, 0.3);
-  // The 3x3 average blurs the edge: the last unchanged pixel averages to 133 against 100, a 25%
-  // change, under the 30% threshold; the first changed one averages to 167, 40%.
+  // The 3x3 average blurs the edge: the last unchanged pixel averages to 80 against 60, a 25%
+  // change, under the 30% threshold; the first changed one averages to 100, 40%.
   assert.deepEqual([...codes], [0, 0, 0, 1, 1, 1]);
   assert.deepEqual(stats, { valid: 6, brighter: 3, darker: 0 });
-  const half = changeMap(before, px([100, 100, 100, 200, 200, 200], 0), w, h, opticalDecode, opticalDecode, 0.3);
+  const half = changeMap(before, px([60, 60, 60, 120, 120, 120], 0), w, h, opticalDecode, opticalDecode, 0.3);
   assert.equal(half.stats.valid, 0, "transparent pixels are no data");
+  const cloudy = changeMap(px([60, 60, 60, 60, 60, 60]), px([60, 60, 60, 230, 230, 230]), w, h, opticalDecode, opticalDecode, 0.3, true);
+  assert.deepEqual(cloudy.stats, { valid: 2, brighter: 0, darker: 0 }, "a cloud (and the pixel next to it) in one photo is not a change");
+  // Dark ground in photos: 20 -> 35 is not a 43% change, it is measured against at least 60.
+  assert.equal(changeMap(px([20]), px([35]), 1, 1, opticalDecode, opticalDecode, 0.3, true).stats.brighter, 0);
   // Two radar pictures with different stretches: the same gray can be a different echo.
   const same = changeMap(px([128]), px([128]), 1, 1, radarDecode(-20, 0), radarDecode(-14, 6), 0.5);
   assert.deepEqual(same.stats, { valid: 1, brighter: 1, darker: 0 });
@@ -292,4 +296,47 @@ test("decision log: unique ids, real dates, every field in English and Spanish",
     assert.match(d.date, /^\d{4}-\d{2}-\d{2}$/);
     for (const f of [d.title, d.chose, d.why, d.instead, d.tradeoff]) assert.ok(f.en && f.es, d.id);
   }
+});
+
+// ---- jopa-testing round 5: top-5 timelines, PDF text, Simple-mode guide ----
+
+import { topEvents } from "../src/logic.ts";
+import { topHistory } from "../src/mexico.ts";
+import { clean, fill } from "../src/pdf-text.ts";
+import { KID_FACTS, KID_FOUND, KID_TYPES, kidFact } from "../src/kid.ts";
+
+test("timeline keeps the 5 most important changes (size x confidence), newest first", () => {
+  const ev = (date: string, confidence: number, km2: number) => ({ date, title: date, confidence, km2 });
+  const events = [ev("2026-01", 0.9, 100), ev("2026-02", 0.2, 1), ev("2026-03", 0.8, 50), ev("2026-04", 0.5, 4), ev("2026-05", 0.9, 0.1), ev("2026-06", 0.6, 30), ev("2026-07", 0.7, 9)];
+  assert.deepEqual(topEvents(events).map((e) => e.date), ["2026-07", "2026-06", "2026-04", "2026-03", "2026-01"]);
+  // With only radar passes, the latest five.
+  const passes = ["a", "b", "c", "d", "e", "f"].map((x, i) => ({ date: `2026-0${i + 1}`, pols: ["HH"] }));
+  assert.deepEqual(topEvents(passes).map((e) => e.date), ["2026-06", "2026-05", "2026-04", "2026-03", "2026-02"]);
+});
+
+test("zone history keeps the 5 worst events, oldest first", () => {
+  const top = topHistory(HISTORY, 5);
+  assert.equal(top.length, 5);
+  assert.deepEqual(top.map((e) => e.date), [...top.map((e) => e.date)].sort());
+  const worst = Math.min(...top.map((e) => e.severity));
+  assert.ok(HISTORY.filter((e) => e.severity > worst).every((e) => top.includes(e)), "nothing worse is left out");
+});
+
+test("PDF text: only letters the built-in fonts can draw", () => {
+  assert.equal(clean("Área −3 dB ≥ 4 → “ok” … Tōkyō"), 'Área -3 dB >= 4 -> "ok" ... Tokyo');
+  assert.equal(clean("km² · 25 × 25"), "km² · 25 × 25");
+  assert.ok([...clean("漢字")].every((c) => c === "?"));
+  assert.equal(fill("{n} of {total}", { n: 2, total: 9 }), "2 of 9");
+});
+
+test("Simple-mode guide: every sentence in English and Spanish, every kind has words", () => {
+  for (const [k, v] of Object.entries(KID_TYPES)) assert.ok(v.en && v.es, k);
+  for (const [k, v] of Object.entries(KID_FACTS)) assert.ok(v.en && v.es, k);
+  for (const [k, v] of Object.entries(KID_FOUND)) {
+    assert.ok(v.many.en.includes("{n}") && v.many.es.includes("{n}") && v.one.en.startsWith("1 ") && v.one.es.startsWith("1 "), k);
+  }
+  // Every change the back end can report has kid words (categorize.py).
+  for (const k of ["floods", "deforestation", "wildfires", "agriculture", "urban", "subsidence", "groundwater", "drought", "other"]) assert.ok(KID_FOUND[k], k);
+  assert.equal(kidFact(["nothing", "floods"]), KID_FACTS.floods);
+  assert.equal(kidFact([]), KID_FACTS.default);
 });

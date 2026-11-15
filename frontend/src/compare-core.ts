@@ -19,23 +19,45 @@ export const opticalDecode: Decode = (v) => v;
 export const pctToDb = (p: number) => -10 * Math.log10(1 - Math.min(p, 0.999));
 
 /** Signed relative change, -1..1: positive when `after` is brighter. */
-export const relChange = (before: number, after: number) => {
-  const top = Math.max(before, after);
+export const relChange = (before: number, after: number, floor = 0) => {
+  const top = Math.max(before, after, floor);
   return top > 0 ? (after - before) / top : 0;
 };
 
 export type ChangeStats = { valid: number; brighter: number; darker: number };
 
-// Luminance of RGBA pixels, NaN where either picture has no data (transparent or empty black).
-function brightness(px: Uint8ClampedArray, decode: Decode, emptyIsBlack: boolean): Float32Array {
+// Luminance of RGBA pixels, NaN where the picture has no data: transparent, or for photos empty
+// black (no pass) and cloud (bright and gray-white, the same test satview.ts uses). Clouds come and
+// go every day; counting them would mark half a cloudy picture as "changed".
+export const isCloud = (r: number, g: number, b: number) => Math.min(r, g, b) > 185 && Math.max(r, g, b) - Math.min(r, g, b) < 30;
+// A cloud's soft edge is not white enough to be caught, so photos also drop a 1-pixel ring
+// around each cloud.
+function brightness(px: Uint8ClampedArray, decode: Decode, photo: boolean, w: number): Float32Array {
   const out = new Float32Array(px.length / 4);
+  const cloud = new Uint8Array(out.length);
   for (let i = 0, j = 0; i < px.length; i += 4, j++) {
     const r = px[i], g = px[i + 1], b = px[i + 2], a = px[i + 3];
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    out[j] = a < 128 || (emptyIsBlack && r + g + b < 6) ? NaN : decode(lum);
+    if (photo && isCloud(r, g, b)) cloud[j] = 1;
+    out[j] = a < 128 || (photo && (r + g + b < 6 || cloud[j])) ? NaN : decode(lum);
+  }
+  if (photo) {
+    const h = out.length / w;
+    for (let j = 0; j < out.length; j++) {
+      if (!cloud[j]) continue;
+      const x = j % w, y = (j - x) / w;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy;
+        if (xx >= 0 && xx < w && yy >= 0 && yy < h) out[yy * w + xx] = NaN;
+      }
+    }
   }
   return out;
 }
+
+// Photos: dark ground (forest, shadow) changes a few levels from day to day; measured against at
+// least this brightness (of 255), that noise is not called a change.
+const PHOTO_FLOOR = 60;
 
 // 3x3 mean, skipping missing pixels: radar speckle and photo noise would otherwise light up
 // single pixels everywhere.
@@ -70,10 +92,10 @@ function smooth(v: Float32Array, w: number, h: number): Float32Array {
  */
 export function changeMap(
   before: Uint8ClampedArray, after: Uint8ClampedArray, w: number, h: number,
-  decodeBefore: Decode, decodeAfter: Decode, threshold: number, emptyIsBlack = false,
+  decodeBefore: Decode, decodeAfter: Decode, threshold: number, photo = false,
 ): { codes: Uint8Array; stats: ChangeStats } {
-  const b = smooth(brightness(before, decodeBefore, emptyIsBlack), w, h);
-  const a = smooth(brightness(after, decodeAfter, emptyIsBlack), w, h);
+  const b = smooth(brightness(before, decodeBefore, photo, w), w, h);
+  const a = smooth(brightness(after, decodeAfter, photo, w), w, h);
   const codes = new Uint8Array(w * h);
   const stats: ChangeStats = { valid: 0, brighter: 0, darker: 0 };
   for (let i = 0; i < codes.length; i++) {
@@ -82,7 +104,7 @@ export function changeMap(
       continue;
     }
     stats.valid++;
-    const c = relChange(b[i], a[i]);
+    const c = relChange(b[i], a[i], photo ? PHOTO_FLOOR : 0);
     if (c > threshold) (codes[i] = 1), stats.brighter++;
     else if (c < -threshold) (codes[i] = 2), stats.darker++;
   }

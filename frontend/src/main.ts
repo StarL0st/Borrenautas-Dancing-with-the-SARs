@@ -9,15 +9,18 @@ import { createGlobe, type ViewMode } from "./globe";
 import { setLang, t, type Key } from "./i18n";
 import { icon } from "./icons";
 import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
+import type { ReportInput } from "./report";
+import { CLASSES, RAMPS } from "./legend";
 import { topicsFor, TOPICS } from "./explain";
 import { explainer } from "./explain-view";
 import { DECISIONS, type Decision } from "./decisions";
+import { KID_FOUND, KID_TYPES, kidFact } from "./kid";
 import {
-  HISTORY, mostDestructive, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
+  distanceKm, HISTORY, mostDestructive, topHistory, tx, zoneHistory, zoneNote, type HistoryEvent, type Source,
 } from "./mexico";
 import countriesUrl from "./assets/countries.json?url";
 import {
-  ago, datesFor, inFilter, inside, layerAt, liveList, liveShown, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
+  ago, datesFor, inFilter, inside, layerAt, topEvents, liveList, liveShown, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
   type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
@@ -298,9 +301,17 @@ function render() {
   );
   globe.keepOverlays(opened);
   timebar.replaceChildren(); // each open area's card puts its date slider back
-  cards.replaceChildren(
-    ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : [el("p", { className: "muted" }, t("cards.empty"))]),
-  );
+  $("detail-title").textContent = t(simple() ? "kid.panel" : "h.open");
+  $("detail").dataset.i18nLabel = simple() ? "kid.panel" : "h.open";
+  if (simple()) {
+    // Simple mode: a guide written for a 10-year-old, one place at a time.
+    const a = shown.find((x) => x.id === opened[0]);
+    cards.replaceChildren(a ? kidCard(a) : kidWelcome());
+  } else {
+    cards.replaceChildren(
+      ...(opened.length ? opened.map((id) => card(shown.find((a) => a.id === id)!)) : [el("p", { className: "muted" }, t("cards.empty"))]),
+    );
+  }
   entering = undefined;
 }
 
@@ -309,9 +320,15 @@ function toggle(id: string) {
   const a = areas().find((x) => x.id === id);
   if (!a) return;
   if (simple()) {
-    // No side panel in Simple mode: a short popup, with a way into the full details.
-    setSpin(false);
-    globe.openInfo(a.center[0], a.center[1], simpleArea(a), 6);
+    // Simple mode's guide shows one place at a time; clicking it again goes back to the welcome.
+    opened = opened[0] === id ? [] : [id];
+    showPanel("detail", true);
+    if (opened.length) {
+      setSpin(false);
+      globe.focus(a);
+    }
+    render();
+    $("detail").scrollTop = 0;
     return;
   }
   const opening = !opened.includes(id);
@@ -332,9 +349,10 @@ function card(a: AreaView) {
   if (a.example) tags.append(el("span", { className: "tag warn" }, t("tag.example")));
   if (a.synthetic) tags.append(el("span", { className: "tag warn" }, t("tag.synthetic")));
 
-  // Simple mode sums the radar passes up in one sentence and drops the confidence figures.
-  const passes = a.events.filter((e) => e.pols).map((e) => e.date).sort();
-  const timeline = (simple() ? a.events.filter((e) => !e.pols) : a.events).map((e) =>
+  // Technical mode only (Simple mode has its own panel, kidCard). The timeline keeps the 5 most
+  // important rows; everything is in the PDF report.
+  const top = topEvents(a.events, TOP_N);
+  const timeline = top.map((e) =>
     el(
       "li",
       {},
@@ -346,10 +364,11 @@ function card(a: AreaView) {
         { className: "muted" },
         e.pols
           ? t("timeline.pols", { list: e.pols.join(", ") })
-          : [e.text, !simple() && e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
+          : [e.text, e.confidence !== undefined && t("timeline.confidence", { pct: Math.round(e.confidence * 100) })].filter(Boolean).join(" "),
       ),
     ),
   );
+  const changes = a.events.filter((e) => !e.pols).length;
 
   const box = el(
     "details",
@@ -359,6 +378,7 @@ function card(a: AreaView) {
       "p",
       { className: "actions" },
       el("button", { type: "button", onclick: () => globe.focus(a) }, t("card.show")),
+      reportButton(a),
       el("button", { type: "button", onclick: () => toggle(a.id) }, t("card.close")),
     ),
     tags,
@@ -368,14 +388,12 @@ function card(a: AreaView) {
     whySection(a),
     ...radarCompare(a),
     satSection(a),
-    simple() ? el("div") : chartSection(a),
-    // "What changed": the zone's notes (including plants and animals), then the detected changes.
-    // Simple mode already titles the detected changes "What changed", so the notes join them.
-    ...(simple() ? [] : changesSection(a, true)),
-    el("h4", {}, t(simple() ? "simple.changes" : "card.timeline")),
-    ...(simple() ? changesSection(a, false) : []),
-    ...(simple() && passes.length ? [el("p", {}, t("simple.passes", { n: passes.length, from: passes[0], to: passes.at(-1)! }))] : []),
+    chartSection(a),
+    ...changesSection(a, true),
+    // "The 5 most important" only when there were more to choose from.
+    el("h4", {}, a.events.length > TOP_N ? t(changes ? "card.top" : "card.toppasses", { n: TOP_N }) : t("card.timeline")),
     timeline.length ? el("ol", { className: "timeline" }, ...timeline) : el("p", { className: "muted" }, t("card.noreports")),
+    ...(a.events.length > timeline.length ? [moreInReport(a, a.events.length - timeline.length)] : []),
     ...historySection(a),
     el("p", {}, el("button", { type: "button", className: "link", onclick: () => openSheet("decisions") }, t("card.decisions"))),
     ...(a.credits.length ? [el("h4", {}, t("card.credits")), el("ul", {}, ...a.credits.map((c) => el("li", { className: "muted" }, c)))] : []),
@@ -438,6 +456,169 @@ function radarSection(a: AreaView): Node[] {
     el("label", { htmlFor: opacity.id }, t("radar.opacity")), opacity,
     info,
   ];
+}
+
+// ---- Simple mode's guide (words in kid.ts and i18n.ts "kid.*") ----
+
+const kidDate = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString(lang(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+// A numbered question with its answer.
+function kidQ(n: number, title: Key, ...body: (Node | string)[]): HTMLElement {
+  return el("section", { className: "kid-q" }, el("h4", {}, el("span", { className: "kid-n" }, String(n)), t(title)), ...body);
+}
+
+function kidWords(): HTMLElement {
+  return el("ul", { className: "kid-words" }, ...(["kid.word.radar", "kid.word.satellite", "kid.word.echo"] as Key[]).map((k) => el("li", {}, t(k))));
+}
+
+// Nothing open yet: what this is and how to use it.
+function kidWelcome(): HTMLElement {
+  const colors: [string, Key][] = [["natural", "kid.color.natural"], ["human", "kid.color.human"], ["land", "kid.color.land"]];
+  return el(
+    "div",
+    { className: "kid" },
+    el("p", { className: "kid-hello" }, t("kid.hello")),
+    el("p", { className: "kid-big" }, t("kid.intro")),
+    kidQ(1, "kid.how", el("ol", { className: "kid-steps" }, el("li", {}, t("kid.step1")), el("li", {}, t("kid.step2")), el("li", {}, t("kid.step3")))),
+    kidQ(2, "kid.colors", el("ul", { className: "kid-list" }, ...colors.map(([g, k]) => el("li", {}, dot(GROUPS.find((x) => x.id === g)!.color), t(k))))),
+    kidQ(3, "kid.nisar.title", el("p", {}, originBadge("nisar")), el("p", {}, t("kid.nisar"))),
+    kidQ(4, "kid.q.words", kidWords()),
+  );
+}
+
+function kidCard(a: AreaView): HTMLElement {
+  const L = lang();
+  // What the radar found, by kind, most first.
+  const counts = new Map<string, number>();
+  for (const e of reports) if (e.properties.area_id === a.id) counts.set(e.properties.category, (counts.get(e.properties.category) ?? 0) + 1);
+  const found = [...counts].sort((p, q) => q[1] - p[1]).slice(0, 4);
+  const days = [...new Set(a.layers.filter((l) => l.role === "backscatter").map((l) => l.date ?? ""))].filter(Boolean).sort();
+  const span = radarSpan(a);
+
+  const saw: Node[] = !a.layers.length
+    ? [el("p", {}, t("kid.saw.noradar"))]
+    : [
+        ...(days.length ? [el("p", {}, t("kid.saw.visits", { n: days.length, from: kidDate(days[0]), to: kidDate(days.at(-1)!) }))] : []),
+        ...(found.length
+          ? [
+              el("p", {}, t("kid.saw.found")),
+              el(
+                "ul",
+                { className: "kid-list" },
+                ...found.map(([k, n]) => {
+                  const words = KID_FOUND[k] ?? KID_FOUND.other;
+                  return el("li", {}, typeIcon(k), tx(n === 1 ? words.one : words.many, L).replace("{n}", String(n)));
+                }),
+              ),
+              el("p", { className: "muted" }, t("kid.saw.maybe")),
+            ]
+          : [el("p", {}, t("kid.saw.none"))]),
+      ];
+
+  // Photos a year apart, found like the Technical card's satellite view.
+  const look = el("div", {}, el("p", { className: "muted" }, t("kid.look.finding")));
+  const satLine = el("li", {}, originBadge("satellite"), " ", t("kid.src.satellite.plain"));
+  const wide = a.bbox[2] - a.bbox[0] > 1.5;
+  satPair(a, wide ? "viirs" : "hls", 12, true).then(([now, old]) => {
+    if (!now || !old) {
+      look.replaceChildren(el("p", { className: "muted" }, t("kid.look.none")));
+      return;
+    }
+    const state = kidCompare.get(a.id) ?? newCompareState("optical");
+    kidCompare.set(a.id, state);
+    look.replaceChildren(
+      el("p", {}, t("kid.look.help")),
+      comparator({
+        id: `kid-${a.id}`, kind: "optical", state, technical: false, basic: true,
+        before: { url: old.url, date: kidDate(old.date), decode: opticalDecode },
+        after: { url: now.url, date: kidDate(now.date), decode: opticalDecode },
+        origin: [],
+      }),
+    );
+    satLine.replaceChildren(originBadge("satellite"), " ", t("kid.src.satellite", { before: kidDate(old.date), now: kidDate(now.date) }));
+  });
+
+  const close = el("button", { type: "button", className: "link" }, "← ", t("kid.close"));
+  close.onclick = () => {
+    opened = [];
+    render();
+  };
+  const more = el("button", { type: "button" }, t("kid.more"));
+  more.onclick = () => {
+    setMode("technical");
+    if (!opened.includes(a.id)) toggle(a.id);
+  };
+  return el(
+    "div",
+    { className: "kid" },
+    close,
+    el("p", { className: "muted" }, t("kid.visiting")),
+    el("h3", { className: "kid-title" }, dot(colorOf(a)), a.title),
+    kidQ(1, "kid.q.what", el("p", {}, t("kid.watch")), el("ul", { className: "kid-list" }, ...a.types.map((k) => el("li", {}, typeIcon(k), KID_TYPES[k] ? tx(KID_TYPES[k], L) : shortLabel(k))))),
+    kidQ(2, "kid.q.saw", ...saw),
+    kidQ(3, "kid.q.look", look),
+    kidQ(4, "kid.q.fact", el("p", { className: "kid-fact" }, tx(kidFact(a.types), L))),
+    kidQ(
+      5,
+      "kid.q.where",
+      el(
+        "ul",
+        { className: "kid-src" },
+        el("li", {}, originBadge("nisar"), " ", span ? t("kid.src.nisar", { date: kidDate(span[1]) }) : t("kid.src.nonisar")),
+        satLine,
+        el("li", {}, originBadge("record"), " ", t("kid.src.record", { date: kidDate(RECORDS_CHECKED) })),
+      ),
+    ),
+    kidQ(6, "kid.q.words", kidWords()),
+    el("p", { className: "kid-actions" }, reportButton(a, "kid.pdf"), more),
+  );
+}
+
+const kidCompare = new Map<string, CompareState>();
+
+// ---- Full report as a PDF (report.ts, loaded only when asked for) ----
+
+const TOP_N = 5; // timelines in the card keep this many rows; the PDF has them all
+
+function reportButton(a: AreaView, label: Key = "report.download"): HTMLButtonElement {
+  const button = el("button", { type: "button", className: "primary" }, t(label));
+  button.onclick = async () => {
+    button.disabled = true;
+    button.textContent = t("report.making");
+    try {
+      const { downloadReport } = await import("./report");
+      await downloadReport(reportInput(a));
+      button.textContent = t(label);
+    } catch (err) {
+      console.error(err);
+      button.textContent = t("report.failed");
+    } finally {
+      button.disabled = false;
+    }
+  };
+  return button;
+}
+
+// Everything the report needs about one area. The satellite pictures are the ones the card
+// shows (same layer and months), so the PDF matches the page.
+function reportInput(a: AreaView): ReportInput {
+  const wide = a.bbox[2] - a.bbox[0] > 1.5;
+  const v = satViews.get(a.id);
+  return {
+    area: a,
+    events: reports.filter((e) => e.properties.area_id === a.id).map((e) => e.properties),
+    live: liveEvents.map((f) => f.properties).filter((p) => distanceKm([p.lon, p.lat], a.center) <= 300),
+    lang: lang(),
+    base: BASE,
+    series: () => loadSeries(a),
+    satellite: () => satPair(a, v?.layer ?? (wide ? "viirs" : "hls"), MONTHS[v?.ago ?? 3]).then(([now, old]) => [old, now]),
+    typeName: shortLabel,
+    satName: gibsName,
+  };
+}
+
+function moreInReport(a: AreaView, n: number): Node {
+  return el("p", { className: "muted more-report" }, t("card.more", { n }), " ", reportButton(a, "report.short"));
 }
 
 // ---- Why the radar sees changes (explain.ts) and the decision log (decisions.ts) ----
@@ -596,27 +777,6 @@ function radarCompare(a: AreaView): Node[] {
   ];
 }
 
-// The colors the back end paints into its images (backend/src/sars_pipeline/site.py and
-// categorize.py). Keep in step with the back end.
-// Color bars run from the low end of `value_range` to the high end.
-const RAMPS: Record<string, string> = {
-  gray: "#000, #fff",
-  rdbu: "rgb(215 48 39), transparent, rgb(40 110 220)",
-  brbg: "rgb(166 97 26), rgb(1 133 113)",
-};
-// shortcut: "classes" layers are matched by their group label because the contract does not
-// list their classes; replace with the contract's class list if it gains one.
-const CLASSES: Record<string, [string, Key][]> = {
-  "Surface type": [
-    ["rgb(33 113 181)", "class.water"], ["rgb(200 60 60)", "class.built"],
-    ["rgb(49 163 84)", "class.vegetation"], ["rgb(217 180 120)", "class.bare"],
-  ],
-  "Detected change": [
-    ["rgb(33 113 181)", "class.darkening"], ["rgb(230 85 13)", "class.hvdrop"],
-    ["rgb(200 60 160)", "class.brightening"], ["rgb(150 150 150)", "class.strong"],
-  ],
-};
-
 function layerInfo(l: Layer): Node[] {
   const what = [l.product === "derived" ? l.group : `${l.product} ${l.group ?? l.polarization ?? ""}`, l.maturity].filter(Boolean).join(" · ");
   const out: Node[] = [
@@ -722,28 +882,6 @@ function chartSection(a: AreaView): Node {
 
 // ---- Zone notes, history, satellite view (jopa-testing; data in mexico.ts, satview.ts) ----
 
-// Simple mode's popup for an area: what it is, what changed, and a button to the full card.
-function simpleArea(a: AreaView): Node {
-  const note = zoneNote(a.id, a.center);
-  const more = el("button", { type: "button", className: "primary" }, t("simple.details"));
-  more.onclick = () => {
-    setMode("technical");
-    if (!opened.includes(a.id)) toggle(a.id);
-  };
-  return el(
-    "div",
-    { className: "event-popup" },
-    el("strong", {}, a.title),
-    el("p", {}, ...a.types.map((id) => el("span", { className: "tag" }, shortLabel(id)))),
-    el("p", {}, a.summary),
-    a.layers.length
-      ? el("p", {}, originBadge("nisar", "", t("origin.taken", { date: when(radarSpan(a)) }), { synthetic: a.synthetic }))
-      : el("p", { className: "muted" }, t("origin.nonisar")),
-    ...(note ? [el("p", { className: "muted" }, tx(note.changes, lang()))] : []),
-    el("p", {}, more),
-  );
-}
-
 const lang = () => settings.lang;
 
 // First and last date of the area's radar pictures.
@@ -812,8 +950,9 @@ function historyItem(e: HistoryEvent): HTMLDetailsElement {
 // Remarkable events that touched this zone: a strip of years with one mark per event (click a
 // mark to open its row), then the rows, oldest first.
 function historySection(a: AreaView): Node[] {
-  const events = zoneHistory(HISTORY, a.bbox);
-  const head = el("h4", {}, t("zone.history"));
+  const all = zoneHistory(HISTORY, a.bbox);
+  const events = topHistory(all, TOP_N);
+  const head = el("h4", {}, all.length > TOP_N ? t("zone.history.top", { n: TOP_N }) : t("zone.history"));
   if (!events.length) return [head, el("p", { className: "muted" }, t("zone.history.none"))];
   const first = Math.min(1975, +events[0].date.slice(0, 4)), last = new Date().getUTCFullYear();
   const items = events.map(historyItem);
@@ -835,7 +974,11 @@ function historySection(a: AreaView): Node[] {
   });
   const axis = el("div", { className: "years-axis" }, el("span", {}, String(first)), el("span", {}, String(last)));
   const origin = el("p", {}, originBadge("record", "", t("origin.checked", { date: RECORDS_CHECKED })));
-  return [head, origin, strip, axis, el("ol", { className: "timeline history" }, ...items.map((d) => el("li", {}, d)))];
+  return [
+    head, origin, strip, axis,
+    el("ol", { className: "timeline history" }, ...items.map((d) => el("li", {}, d))),
+    ...(all.length > events.length ? [moreInReport(a, all.length - events.length)] : []),
+  ];
 }
 
 // Satellite view (from the `jopa-testing` branch): "now" and "before" pictures from NASA GIBS in the
@@ -855,15 +998,27 @@ const gibsName = (layer: string) =>
   : layer.startsWith("MODIS") ? "MODIS Terra · 7-2-1 · 250 m"
   : layer;
 
-function satFind(layerId: string, bbox: AreaView["bbox"], from: Date): Promise<Found | undefined> {
+// `clear`: look longer for a day with almost no clouds (Simple mode's guide).
+function satFind(layerId: string, bbox: AreaView["bbox"], from: Date, clear = false): Promise<Found | undefined> {
   const layer = SAT_LAYERS.find((l) => l.id === layerId) ?? SAT_LAYERS[0];
-  const key = `${layer.id}|${bbox.join(",")}|${isoDay(from)}`;
+  const key = `${layer.id}|${bbox.join(",")}|${isoDay(from)}|${clear}`;
   let found = satCache.get(key);
   if (!found) {
-    found = findClear(layer, bbox, from, layer.daily ? 12 : 60);
+    found = clear
+      ? findClear(layer, bbox, from, layer.daily ? 30 : 45, undefined, 0.08).then((f) => f ?? satFind(layerId, bbox, from))
+      : findClear(layer, bbox, from, layer.daily ? 12 : 60);
     satCache.set(key, found);
   }
   return found;
+}
+
+// The "now" and "before" pictures: `months` apart, the newest a day ago (GIBS publishes about a
+// day late). The sharp 30 m pictures skip many days and the open sea: fall back to the daily ones.
+function satPair(a: AreaView, id: string, months: number, clear = false): Promise<[Found | undefined, Found | undefined]> {
+  const today = new Date(Date.now() - 86400000);
+  const then = new Date(today.getTime() - months * 30.44 * 86400000);
+  const pair = (layer: string) => Promise.all([satFind(layer, a.bbox, today, clear), satFind(layer, a.bbox, then, clear)]);
+  return pair(id).then((found) => (id === "hls" && !(found[0] && found[1]) ? pair("viirs") : found));
 }
 
 function satSection(a: AreaView): Node {
@@ -888,12 +1043,8 @@ function satSection(a: AreaView): Node {
     label();
     holder.replaceChildren();
     status.textContent = t("sat.finding");
-    const today = new Date(Date.now() - 86400000); // GIBS publishes about a day late
-    const then = new Date(today.getTime() - MONTHS[+ago.value] * 30.44 * 86400000);
     const id = layerId();
-    const pair = (layer: string) => Promise.all([satFind(layer, a.bbox, today), satFind(layer, a.bbox, then)]);
-    // The sharp 30 m pictures skip many days and the open sea: fall back to the daily ones.
-    pair(id).then((found) => (id === "hls" && !(found[0] && found[1]) ? pair("viirs") : found)).then(([now, old]) => {
+    satPair(a, id, MONTHS[+ago.value]).then(([now, old]) => {
       if (mine !== run) return; // a newer choice replaced this one
       if (!now || !old) {
         status.textContent = t("sat.none", { n: id === "hls" ? 60 : 12 });

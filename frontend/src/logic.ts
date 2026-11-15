@@ -51,7 +51,7 @@ export type SeriesRef = { id: string; title: string; url: string };
 
 // One timeline row. A detected change has `title`, `text` and `confidence`; a plain radar pass
 // has only `pols`. The UI words them in the current language.
-export type TimelineEvent = { date: string; title?: string; text?: string; confidence?: number; pols?: string[] };
+export type TimelineEvent = { date: string; title?: string; text?: string; confidence?: number; km2?: number; pols?: string[] };
 
 // One feature of events.geojson (contract 0.3, C6); properties are flat for MapLibre.
 export type EventFeature = {
@@ -122,6 +122,7 @@ const report = (e: EventFeature): TimelineEvent => ({
   title: e.properties.title,
   text: e.properties.summary,
   confidence: e.properties.confidence,
+  km2: e.properties.area_km2,
 });
 
 export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaView {
@@ -149,6 +150,18 @@ export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaV
     series: a.timeseries ?? [],
     credits: a.credits ?? [],
   };
+}
+
+// The `n` most important rows of a timeline, newest first. A detected change weighs its size
+// times how sure the back end is (a big, sure change first); plain radar passes have no weight,
+// so the latest ones are kept.
+export const importance = (e: TimelineEvent) => (e.confidence ?? 0) * Math.sqrt(e.km2 ?? 0);
+export function topEvents(events: TimelineEvent[], n = 5): TimelineEvent[] {
+  const changes = events.filter((e) => !e.pols);
+  const pool = changes.length
+    ? [...changes].sort((x, y) => importance(y) - importance(x) || y.date.localeCompare(x.date)).slice(0, n)
+    : [...events].sort((x, y) => y.date.localeCompare(x.date)).slice(0, n);
+  return pool.sort((x, y) => y.date.localeCompare(x.date));
 }
 
 // Round axis ticks covering [min, max]: steps of 1, 2 or 5 times a power of ten, about `n` of them.

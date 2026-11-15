@@ -362,6 +362,13 @@ export function zoneHistory(events: HistoryEvent[], bbox: [number, number, numbe
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** The `n` most important events of a zone (worst, then newest), oldest first for a timeline. */
+export const topHistory = (events: HistoryEvent[], n = 5) =>
+  [...events]
+    .sort((a, b) => b.severity - a.severity || b.date.localeCompare(a.date))
+    .slice(0, n)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
 /** The most destructive events since `fromYear`, worst first, then newest first. */
 export const mostDestructive = (events: HistoryEvent[], fromYear: number, n: number) =>
   events
