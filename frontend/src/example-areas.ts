@@ -7,31 +7,34 @@ import { typeLabel } from "./filters";
 import { t } from "./i18n";
 import type { AreaView } from "./logic";
 
-// [filter type id, place, longitude, latitude]
+// [filter type id, place, longitude, latitude]. Scope (jopa-testing): Mexico only, one widely
+// known place per type (see the "Remarkable events" data in mexico.ts for what happened there).
 const PLACES: [string, string, number, number][] = [
-  ["earthquakes", "Kahramanmaraş, Türkiye", 36.94, 37.58],
-  ["volcanoes", "Kīlauea, Hawaiʻi", -155.29, 19.41],
-  ["landslides", "Oso, Washington, USA", -121.85, 48.28],
-  ["floods", "Sindh, Pakistan", 68.5, 26.0],
-  ["sinkholes", "Dead Sea shore", 35.4, 31.4],
-  ["wildfires", "Paradise, California, USA", -121.62, 39.76],
-  ["drought", "Lake Mead, USA", -114.4, 36.15],
-  ["marine", "Tōhoku coast, Japan", 141.5, 38.3],
-  ["glaciers", "Columbia Glacier, Alaska", -147.1, 61.1],
-  ["ice-sheets", "Jakobshavn Glacier, Greenland", -49.8, 69.17],
-  ["sea-ice", "Beaufort Sea", -140, 74],
-  ["permafrost", "Batagaika crater, Siberia", 134.77, 67.58],
-  ["glacial-lakes", "Imja Lake, Nepal", 86.93, 27.9],
-  ["induced-seismicity", "Pawnee, Oklahoma, USA", -96.8, 36.34],
-  ["oil-spills", "Deepwater Horizon site, Gulf of Mexico", -88.37, 28.74],
-  ["groundwater", "Central Valley, California, USA", -119.8, 36.3],
-  ["subsidence", "Mexico City, Mexico", -99.13, 19.43],
-  ["logging", "Rondônia, Brazil", -63, -10.5],
-  ["coastal-loss", "Louisiana coast, USA", -90.3, 29.3],
-  ["reservoirs", "Groningen gas field, Netherlands", 6.8, 53.3],
-  ["deforestation", "Central Kalimantan, Indonesia", 114, -1.5],
-  ["urban", "Shenzhen, China", 114.06, 22.54],
-  ["agriculture", "Punjab, India", 75.85, 30.9],
+  ["earthquakes", "Juchitán, Oaxaca", -95.02, 16.43],
+  ["volcanoes", "Popocatépetl, Puebla–Morelos–State of Mexico", -98.62, 19.02],
+  ["hurricanes", "Acapulco, Guerrero", -99.88, 16.85],
+  ["storms", "Piedras Negras, Coahuila", -100.52, 28.7],
+  ["floods", "Villahermosa, Tabasco", -92.93, 17.99],
+  ["landslides", "La Pintada, Guerrero", -100.33, 17.36],
+  ["sinkholes", "Santa María Zacatepec, Puebla", -98.37, 19.1],
+  ["wildfires", "Sierra de Arteaga, Coahuila", -100.75, 25.35],
+  ["drought", "Valle de Bravo reservoir (Cutzamala), State of Mexico", -100.13, 19.19],
+  ["heat", "Mexicali, Baja California", -115.45, 32.62],
+  ["cold", "Sierra Tarahumara, Chihuahua", -107.6, 27.75],
+  ["dust", "Ciudad Juárez, Chihuahua", -106.44, 31.69],
+  ["marine", "Sargassum on the Riviera Maya, Quintana Roo", -86.87, 20.85],
+  ["glaciers", "Pico de Orizaba (Citlaltépetl), Puebla–Veracruz", -97.27, 19.03],
+  ["induced-seismicity", "Los Humeros geothermal field, Puebla", -97.45, 19.68],
+  ["oil-spills", "Ixtoc I site, Bay of Campeche", -92.33, 19.41],
+  ["industrial", "Sonora River (Cananea mine spill), Sonora", -110.3, 30.98],
+  ["groundwater", "Aguascalientes valley, Aguascalientes", -102.29, 21.88],
+  ["subsidence", "Mexico City", -99.13, 19.43],
+  ["logging", "Sierra Tarahumara forests, Chihuahua", -107.9, 28.3],
+  ["coastal-loss", "El Bosque, Centla, Tabasco", -93.08, 18.53],
+  ["reservoirs", "Cantarell oil field, Bay of Campeche", -92.2, 19.38],
+  ["deforestation", "Hopelchén, Campeche", -89.74, 19.75],
+  ["urban", "Monterrey metro area, Nuevo León", -100.31, 25.67],
+  ["agriculture", "El Bajío, Guanajuato", -101.0, 20.6],
 ];
 
 // A function, not a constant: the summary is in the current language.

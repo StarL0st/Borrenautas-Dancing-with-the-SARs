@@ -107,7 +107,7 @@ Use the same pattern with each collection's title and DOI.
 | uv | 0.12.13 | MIT OR Apache-2.0 | tooling |
 | rclone (`rclone/rclone` container image) | 1.x | MIT | deployment: copies results to Azure Blob Storage |
 | Caddy (`caddy` container image) | 2.x | Apache-2.0 | deployment: HTTPS in front of the API |
-| Cloudflare Workers (static assets) and Wrangler (`wrangler` npm package) | Workers free plan; Wrangler 4.x | Service under Cloudflare's terms; Wrangler MIT OR Apache-2.0 | deployment: hosts the built frontend. No data comes from it |
+| Cloudflare Workers static assets and Wrangler (`wrangler` npm package) | Workers free plan (Worker `gigas-project`, the newer form of Pages); Wrangler 4.x | Service under Cloudflare's terms; Wrangler MIT OR Apache-2.0 | deployment: hosts the built frontend (`frontend/wrangler.jsonc`). No data comes from it |
 | Docker Engine and Compose (Ubuntu packages) | as packaged in Ubuntu 24.04 | Apache-2.0 | deployment: runs the containers |
 | httpx | dev dependency | BSD-3-Clause | backend: tests and the load test script |
 | MapLibre GL JS | 6.18.0 | BSD-3-Clause | frontend: globe and map |

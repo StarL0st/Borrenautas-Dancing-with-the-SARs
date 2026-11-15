@@ -7,6 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { t } from "./i18n";
 import { typeLabel } from "./filters";
 import { liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
+import { originBadge, when } from "./origin";
 import { satelliteLayer } from "./satellite";
 import { el } from "./ui";
 
@@ -16,10 +17,11 @@ const BASEMAP = "https://demotiles.maplibre.org/";
 const MAX_PITCH = 80;
 
 export type ViewMode = "globe" | "closeup";
-// Whole Earth seen from far away, or a low tilted camera with the curved horizon in view.
+// Scope (jopa-testing): Mexico. "Globe view" shows the country on the curve of the Earth; the
+// close-up is a low tilted camera over central Mexico with the horizon in view.
 const HOME: Record<ViewMode, { center: [number, number]; zoom: number; pitch: number; bearing: number }> = {
-  globe: { center: [-40, 20], zoom: 1.4, pitch: 0, bearing: 0 },
-  closeup: { center: [-40, 20], zoom: 3.6, pitch: 76, bearing: 0 },
+  globe: { center: [-102, 23.5], zoom: 3.4, pitch: 0, bearing: 0 },
+  closeup: { center: [-99.5, 19.5], zoom: 5.2, pitch: 70, bearing: 0 },
 };
 
 // How the Earth is drawn. Each texture is a set of basemap layers switched on together.
@@ -204,6 +206,7 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           "div",
           { className: "event-popup" },
           el("strong", {}, p.title),
+          el("p", {}, originBadge("nisar", p.maturity, t("origin.taken", { date: when([p.from, p.to]) }))),
           el(
             "p",
             { className: "muted" },
@@ -218,6 +221,12 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       .addTo(map);
   }
 
+  // "2026-11-14 10:30 UTC": the feeds' own time, without guessing a time zone.
+  const exact = (date: string) => {
+    const ms = Date.parse(date);
+    return /T/.test(date) && Number.isFinite(ms) ? `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : date;
+  };
+
   // Live events name their source and link to it; text is set as text, never as HTML.
   function showLive(p: LiveFeature["properties"], at: { lng: number; lat: number }) {
     const link = /^https?:\/\//.test(p.url)
@@ -231,7 +240,8 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
           { className: "event-popup" },
           el("strong", {}, p.title),
           el("p", {}, liveWhere(p)),
-          el("p", { className: "muted" }, `${p.date} · ${typeLabel(p.category)}`),
+          el("p", {}, originBadge("feed", p.source_name || p.source, t("origin.reported", { date: exact(p.date) }))),
+          el("p", { className: "muted" }, typeLabel(p.category)),
           p.detail ? el("p", {}, p.detail) : "",
           el("p", { className: "muted" }, t("live.source", { source: p.credit })),
           link ?? "",
@@ -241,6 +251,15 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
   }
 
   return {
+    // Fly to a place and show a popup built by the caller (DOM nodes, never HTML strings).
+    async openInfo(lon: number, lat: number, content: Node, zoom = 6) {
+      await ready;
+      // The popup opens at once and rides along with the flight, so it never waits on an
+      // animation (a hidden tab pauses animations, and "moveend" would never come).
+      popup.setLngLat([lon, lat]).setDOMContent(content).addTo(map);
+      map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
+    },
+
     // `shown` already passed the filters and carries its display color.
     async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
       await ready;

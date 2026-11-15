@@ -33,7 +33,7 @@ The backend writes `contract_version` 0.6.0. The frontend accepts any `0.x`.
 |---|---|
 | API (HTTPS) | `https://gigas-sars.westus2.cloudapp.azure.com` (will move to `api.gigas.earth`) |
 | Results | `https://gigassars.blob.core.windows.net/data/` (for example `manifest.json`) |
-| Site | https://gigas-project.starl0stgaming.workers.dev (Cloudflare Worker `gigas-project`, static files; built with the two addresses above). Checked 2026-11-14 19:55: serves the built app. `gigas.earth` not connected yet |
+| Site | https://gigas.earth, also https://gigas-project.starl0stgaming.workers.dev (Cloudflare Worker `gigas-project`, account StarL0stGaming; static files only, config in `frontend/wrangler.jsonc`; built with the storage address and an API address). Build and deploy steps: `frontend/README.md` (Deploy). Previews per branch: `https://<branch>-gigas-project.starl0stgaming.workers.dev` |
 | Resources | Resource group `sars`, region `westus2`: virtual machine `sars-vm` (`Standard_B2s_v2`, 2 vCPU, 8 GB), storage account `gigassars` |
 
 Checked on Azure on 2026-11-14:
@@ -108,6 +108,7 @@ Checked locally against a running server: manifest, `/query`, friendly cards, lo
 | 9 | Video, demo script and submission form (F07); confirm the judging criteria and submission rules in `docs/08` | Humans |
 | 10 | License file and repository visibility | Humans |
 | 11 | `frontend/INTEGRATION.md` describes contract 0.5 and an old state of `testing`: update or remove | Frontend |
+| 14 | Try the phone layout on a real phone (iOS Safari, Android Chrome): tabs, panel growing on scroll, before/now drag (`frontend/README.md`, handoff of the `mobile` branch) | Humans |
 
 ### Decisions (asked at 20:00 on 2026-11-14, answered at 21:15)
 
