@@ -376,13 +376,9 @@ export const mostDestructive = (events: HistoryEvent[], fromYear: number, n: num
     .sort((a, b) => b.severity - a.severity || b.date.localeCompare(a.date))
     .slice(0, n);
 
-/** The zone note for an area: by id, else the nearest zone within 100 km of its center. */
-export function zoneNote(id: string, center: [number, number]): ZoneNote | undefined {
-  if (ZONES[id]) return ZONES[id];
-  let best: ZoneNote | undefined, bestKm = 100;
-  for (const z of Object.values(ZONES)) {
-    const d = distanceKm(z.center, center);
-    if (d <= bestKm) [best, bestKm] = [z, d];
-  }
-  return best;
+/** The hand-written note for an area, only when it was written for that very area (same id): a new
+ *  place nearby must not show another place's text. Every place gets its own words from the back
+ *  end's friendly cards (C8). */
+export function zoneNote(id: string): ZoneNote | undefined {
+  return Object.hasOwn(ZONES, id) ? ZONES[id] : undefined;
 }

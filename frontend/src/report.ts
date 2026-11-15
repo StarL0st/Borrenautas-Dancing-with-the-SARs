@@ -12,7 +12,7 @@ import { DECISIONS } from "./decisions";
 import { TOPICS, topicsFor } from "./explain";
 import { t } from "./i18n";
 import { CLASSES } from "./legend";
-import { datesFor, importance, layerAt, liveWhere, SOURCE_SHORT, ticks, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
+import { datesFor, importance, layerAt, liveWhere, SOURCE_SHORT, ticks, type AreaView, type EventFeature, type Friendly, type Layer, type LiveFeature } from "./logic";
 import { tx, zoneHistory, zoneNote, HISTORY, type Source } from "./mexico";
 import { RECORDS_CHECKED } from "./origin";
 import type { ReportMeta, ReportSnapshot } from "./report-core";
@@ -29,6 +29,7 @@ export type ReportInput = {
   asOf: ReportSnapshot["asOf"];
   series: () => Promise<[string, Series[]][]>;
   satellite: () => Promise<[Found | undefined, Found | undefined]>; // before, now
+  friendly: () => Promise<Friendly | undefined>; // C8 cards, when the back end made them
 };
 
 // How to word and find things; not part of the content.
@@ -40,11 +41,12 @@ export type ReportEnv = {
 
 /** Everything the report shows, fetched now. Compare snapshots with report-core.ts. */
 export async function snapshotReport(input: ReportInput): Promise<ReportSnapshot> {
-  const [sat, series] = await Promise.all([
+  const [sat, series, friendly] = await Promise.all([
     input.satellite().catch(() => [undefined, undefined] as [undefined, undefined]),
     input.series().catch(() => [] as [string, Series[]][]),
+    input.friendly().catch(() => undefined),
   ]);
-  return { area: input.area, events: input.events, live: input.live, lang: input.lang, asOf: input.asOf, sat, series };
+  return { area: input.area, events: input.events, live: input.live, lang: input.lang, asOf: input.asOf, sat, series, friendly };
 }
 
 // ---- Words ----
@@ -74,8 +76,16 @@ const EN = {
   sPictures: "Pictures: before and after",
   sChanges: "Detected changes",
   sTrends: "Change over time",
-  sZone: "What changed in the zone",
-  sHistory: "Remarkable events in this zone",
+  sZone: "Background notes (written by the team for this place)",
+  sHistory: "Remarkable past events nearby (hand-picked list)",
+  sFriendly: "What the radar found here",
+  fKind: "Kind",
+  fLevel: "Level",
+  fWhat: "What it means",
+  fSize: "Size and dates",
+  fLevels: "Watched for, nothing found|Small or weak|1-5% of the area|Over 5% of the area",
+  fStatus: "Calm|Worth watching|Alert",
+  fNote: "Made automatically for every area from its radar results (contract C8).",
   sLive: "Live reports nearby",
   sWhy: "How the radar sees these changes",
   sMethods: "Methods and decisions",
@@ -115,7 +125,6 @@ const EN = {
   noTrends: "No time series for this area.",
   nature: "Plants and animals",
   sources: "Sources",
-  noZone: "No notes for this zone yet.",
   hYear: "Date", hEvent: "Event", hImpact: "What happened",
   noHistory: "No remarkable events recorded within 150 km.",
   liveIntro: "Reports from public alert services within 300 km, as of {date}. These are not NISAR data.",
@@ -155,8 +164,16 @@ const ES: Words = {
   sPictures: "Imágenes: antes y después",
   sChanges: "Cambios detectados",
   sTrends: "Cambio en el tiempo",
-  sZone: "Qué cambió en la zona",
-  sHistory: "Eventos importantes en esta zona",
+  sZone: "Notas de contexto (escritas por el equipo para este lugar)",
+  sHistory: "Eventos notables del pasado cerca (lista elegida a mano)",
+  sFriendly: "Lo que encontró el radar aquí",
+  fKind: "Tipo",
+  fLevel: "Nivel",
+  fWhat: "Qué significa",
+  fSize: "Tamaño y fechas",
+  fLevels: "Vigilado, sin hallazgos|Pequeño o débil|1-5 % del área|Más del 5 % del área",
+  fStatus: "En calma|Para vigilar|Alerta",
+  fNote: "Hecho automáticamente para cada área a partir de sus resultados de radar (contrato C8); las frases vienen en inglés.",
   sLive: "Reportes en vivo cercanos",
   sWhy: "Cómo ve el radar estos cambios",
   sMethods: "Métodos y decisiones",
@@ -196,7 +213,6 @@ const ES: Words = {
   noTrends: "No hay series de tiempo para esta zona.",
   nature: "Plantas y animales",
   sources: "Fuentes",
-  noZone: "Aún no hay notas para esta zona.",
   hYear: "Fecha", hEvent: "Evento", hImpact: "Qué pasó",
   noHistory: "No hay eventos importantes registrados a menos de 150 km.",
   liveIntro: "Reportes de servicios públicos de alerta a menos de 300 km, al {date}. No son datos de NISAR.",
@@ -746,11 +762,32 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     swatches(lines.map((s, i) => [LINES[i % LINES.length], s.label]));
   }
 
-  // ===== 5. What changed in the zone =====
-  section(L.sZone);
-  const note = zoneNote(a.id, a.center);
-  if (!note) para(L.noZone, { c: MUTED });
-  else {
+  // ===== What the radar found, in plain words (C8: made by the back end for every area) =====
+  const f = snap.friendly;
+  if (f) {
+    section(L.sFriendly);
+    chip("nisar");
+    const status = L.fStatus.split("|")[["calm", "watch", "alert"].indexOf(f.status)];
+    para(`${status}. ${f.headline}`, { style: "bold", gap: 3 });
+    if (f.cards.length) {
+      const levels = L.fLevels.split("|");
+      table(
+        [L.fKind, L.fLevel, L.fWhat, L.fSize],
+        f.cards.map((c) => {
+          const size = c.number ? `${c.number.value} ${c.number.unit}` : "";
+          const span = c.from && c.to ? `${c.from} - ${c.to}` : "";
+          return [env.typeName(c.category) || c.label, levels[Math.max(0, Math.min(3, c.level))], c.headline, [size, span].filter(Boolean).join(" · ")];
+        }),
+        { widths: [30, 32, 80, 36], size: 8 },
+      );
+    }
+    for (const n of [...f.data_notes, L.fNote]) para(n, { size: 8.5, c: MUTED, gap: 1 });
+  }
+
+  // ===== Background notes, only for a place the team wrote them for =====
+  const note = zoneNote(a.id);
+  if (note) {
+    section(L.sZone);
     chip("record", fill(L.checked, { date: RECORDS_CHECKED }));
     para(tx(note.changes, lang), { gap: 4 });
     heading(L.nature);

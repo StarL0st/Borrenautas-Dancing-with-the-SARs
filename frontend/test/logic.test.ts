@@ -5,7 +5,7 @@ import { HISTORY, distanceKm, mostDestructive, zoneHistory, zoneNote } from "../
 import { readFileSync } from "node:fs";
 import { collectLive, eonetCategory, parseEonet, parseGdacs, parseNws, parseUsgs, parseVolcanoes, quakeSeverity, recent } from "../src/livefeeds.ts";
 import { gibsUrl, viewBox, SAT_LAYERS } from "../src/satview.ts";
-import { ago, datesFor, inFilter, inside, layerAt, liveFiltered, liveList, liveShown, liveWhere, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
+import { ago, datesFor, inFilter, inside, layerAt, liveFiltered, liveList, liveShown, liveWhere, readFriendly, supportedVersion, ticks, toAreaView, type Layer, type LiveFeature } from "../src/logic.ts";
 
 const layer = (polarization: string, date: string, extra: Partial<Layer> = {}) =>
   ({ id: `${polarization}-${date}`, kind: "image_overlay", bounds: [0, 0, 1, 1], polarization, date, ...extra }) as Layer;
@@ -155,7 +155,8 @@ test("zone history, worst recent events and distances", () => {
   const worst = mostDestructive(HISTORY, 2015, 3);
   assert.ok(worst.every((e) => e.severity === 3 && e.date >= "2015"));
   assert.ok(Math.abs(distanceKm([-99.13, 19.43], [-98.2, 19.04]) - 106) < 5, "Mexico City to Puebla is about 106 km");
-  assert.ok(zoneNote("cdmx", [0, 0]) && zoneNote("example-subsidence", [-99.13, 19.43]) && !zoneNote("x", [0, 0]));
+  // Notes belong to one place only: a new place next door must not borrow them.
+  assert.ok(zoneNote("cdmx") && !zoneNote("example-subsidence") && !zoneNote("x"));
 });
 
 test("GIBS requests use WMS 1.3.0 axis order and a sharp box", () => {
@@ -381,4 +382,21 @@ test("report versions: same data, same key; new data, a new key and a list of wh
     { kind: "satellite", date: "2026-11-13" },
   ]);
   assert.deepEqual(diffSnapshots(base, { ...base, lang: "es" }), [{ kind: "lang" }]);
+});
+
+test("friendly cards (C8) are read safely", () => {
+  const f = readFriendly({
+    status: "watch", headline: "Biggest signal: farming.", data_notes: ["Provisional NISAR data."],
+    cards: [
+      { category: "agriculture", label: "Farming", level: 2, headline: "Fields changed.", number: { value: 39.7, unit: "km2", label: "area affected" } },
+      { category: "urban", label: "Building", level: 0, headline: "No new structures stood out." },
+      { label: "broken, no category", level: 1, headline: "x" },
+    ],
+  });
+  assert.equal(f?.status, "watch");
+  assert.deepEqual(f?.cards.map((c) => c.category), ["agriculture", "urban"]);
+  assert.equal(readFriendly({ status: "odd", headline: "h", cards: [] })?.status, "calm");
+  assert.equal(readFriendly({ cards: [] }), undefined);
+  assert.equal(readFriendly(null), undefined);
+  assert.equal(toAreaView({ id: "a", title: "A", summary: "", change_types: [], layers: [], friendly: "areas/a/friendly.json" }).friendly, "areas/a/friendly.json");
 });

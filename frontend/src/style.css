@@ -475,6 +475,14 @@ h5 { margin: 12px 0 4px; font-size: 0.86rem; font-weight: 600; color: var(--mute
 .setting { margin: 16px 0 0; padding: 0; border: 0; }
 .setting legend { padding: 0 0 6px; font-weight: 600; }
 
+/* Friendly cards (C8): one row per kind of finding, its level as a tag; "nothing found" rows are dimmed. */
+.friendly { list-style: none; padding: 0; }
+.friendly li { padding: 8px 0; border-top: 1px solid var(--line); }
+.friendly li p { margin: 2px 0 0; }
+.friendly li.level-0 { color: var(--muted); }
+.tag.status-watch, .tag.status-alert, .friendly .level-3 .tag { border-color: var(--accent); color: var(--accent); }
+.friendly-notes { padding-left: 18px; }
+
 /* Panel tabs: phones only. */
 .tabs { display: none; }
 

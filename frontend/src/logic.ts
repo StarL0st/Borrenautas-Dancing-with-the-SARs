@@ -43,6 +43,7 @@ export type ManifestArea = {
   layers: Layer[];
   timeseries?: SeriesRef[]; // C4 files: the area's own values per date
   credits?: string[];
+  friendly?: string; // C8 file: the area's findings in plain words
 };
 
 export type Manifest = { contract_version: string; synthetic: boolean; areas: ManifestArea[] };
@@ -77,6 +78,7 @@ export type AreaView = {
   layers: Layer[];
   series: SeriesRef[];
   credits: string[];
+  friendly?: string; // C8 file, when the back end made one
 };
 
 // Contract change types -> the app's filter types (ids in filters.ts). The contract has no field
@@ -149,6 +151,7 @@ export function toAreaView(a: ManifestArea, reports: EventFeature[] = []): AreaV
     layers,
     series: a.timeseries ?? [],
     credits: a.credits ?? [],
+    friendly: a.friendly,
   };
 }
 
@@ -247,3 +250,29 @@ const inRing = (x: number, y: number, ring: number[][]) => {
 // and the smallest countries are missing; switch to the 1:50m file if that matters.
 export const inside = (lon: number, lat: number, polys: number[][][][]) =>
   polys.some(([outer, ...holes]) => inRing(lon, lat, outer) && !holes.some((h) => inRing(lon, lat, h)));
+
+// Contract C8: what the radar found in an area, in plain words. The back end makes it for every
+// area, new lookups included, so it describes any place without hand-written text.
+export type FriendlyCard = {
+  category: string;
+  label: string;
+  level: number; // 0 watched for, nothing found; 1 small or weak; 2 1-5% of the area; 3 over 5%
+  headline: string;
+  number?: { value: number; unit: string; label: string };
+  places?: number;
+  from?: string;
+  to?: string;
+};
+export type Friendly = { status: "calm" | "watch" | "alert"; headline: string; cards: FriendlyCard[]; data_notes: string[] };
+
+/** A C8 file as the page uses it; undefined when it is not one. Cards missing their words are left out. */
+export function readFriendly(j: unknown): Friendly | undefined {
+  const f = j as Partial<Friendly> | null;
+  if (!f || typeof f.headline !== "string" || !Array.isArray(f.cards)) return undefined;
+  return {
+    status: f.status === "watch" || f.status === "alert" ? f.status : "calm",
+    headline: f.headline,
+    cards: f.cards.filter((c) => c && typeof c.category === "string" && typeof c.headline === "string" && Number.isFinite(c.level)),
+    data_notes: Array.isArray(f.data_notes) ? f.data_notes.map(String) : [],
+  };
+}

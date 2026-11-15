@@ -21,8 +21,8 @@ import {
 } from "./mexico";
 import countriesUrl from "./assets/countries.json?url";
 import {
-  ago, datesFor, inFilter, inside, layerAt, topEvents, liveList, liveShown, liveWhere, polarizations, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
-  type AreaView, type EventFeature, type Layer, type LiveFeature, type Manifest,
+  ago, datesFor, inFilter, inside, layerAt, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
+  type AreaView, type Friendly, type EventFeature, type Layer, type LiveFeature, type Manifest,
 } from "./logic";
 import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
 import { comparator, newCompareState, type CompareState, type Picture } from "./compare";
@@ -65,6 +65,7 @@ let entering: string | undefined; // the tab that was just opened, so only it an
 const collapsed = new Set<string>();
 const views = new Map<string, { pol: string; date: string; opacity: number }>(); // radar settings per area
 const seriesCache = new Map<string, Promise<[string, Series[]][]>>(); // chart data per area, by unit
+const friendlyCache = new Map<string, Promise<Friendly | undefined>>(); // C8 cards per area
 
 // Example places stand in only while there are no real areas.
 const areas = () => (live.length ? live : exampleAreas());
@@ -386,6 +387,7 @@ function card(a: AreaView) {
     tags,
     originKey(a.layers.length ? ["nisar", "satellite", "record"] : ["satellite", "record"]),
     el("p", {}, a.summary),
+    friendlySection(a),
     ...radarSection(a),
     whySection(a),
     ...radarCompare(a),
@@ -695,7 +697,6 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
     const key = contentKey(snap);
     const old = pdfs.get(a.id);
     if (old && old.key === key) return old;
-    showPdfStatus(a.id, old ? "pdf.updating" : "pdf.making", old);
     const changes = old ? diffSnapshots(old.snap, snap).map(changeText) : [];
     const made = new Date().toISOString();
     const version = (old?.version ?? 0) + 1;
@@ -720,6 +721,8 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
       showPdfStatus(a.id); // the links point at the new file only now
     });
   pdfJobs.set(a.id, job);
+  // Busy at once: fetching the pictures takes a while before any drawing starts.
+  showPdfStatus(a.id, pdfs.has(a.id) ? "pdf.updating" : "pdf.making");
   return job;
 }
 
@@ -733,7 +736,7 @@ function pdfStatusText(id: string, busy?: Key): string {
   const head = t("pdf.ready", { v: pdf.version, time: hhmm(pdf.made) });
   return pdf.version > 1 && pdf.changes.length ? `${head} ${t("pdf.new", { old: pdf.version - 1, list: pdf.changes.join("; ") })}` : head;
 }
-function showPdfStatus(id: string, busy?: Key, _old?: Pdf) {
+function showPdfStatus(id: string, busy?: Key) {
   for (const node of document.querySelectorAll<HTMLElement>(`[data-pdf-status="${CSS.escape(id)}"]`)) node.textContent = pdfStatusText(id, busy);
   for (const box of document.querySelectorAll<HTMLElement>(`[data-pdf-links="${CSS.escape(id)}"]`)) fillPdfLinks(box, id, !!busy || pdfJobs.has(id));
 }
@@ -805,6 +808,7 @@ function reportInput(a: AreaView): ReportInput {
     lang: lang(),
     asOf: { radar: manifestAt, live: liveUpdated },
     series: () => loadSeries(a),
+    friendly: () => loadFriendly(a),
     satellite: () => satPair(a, v?.layer ?? (wide ? "viirs" : "hls"), MONTHS[v?.ago ?? 3]).then(([now, old]) => [old, now]),
   };
 }
@@ -1026,6 +1030,53 @@ function chartSection(a: AreaView): Node {
   return box;
 }
 
+// ---- What the radar found, in plain words (contract C8 friendly cards) ----
+
+// Made by the back end for every area, new lookups included, so every place is described from its
+// own data. The sentences come in English only (the contract has no translations); the kind names
+// and level words are the page's own.
+function loadFriendly(a: AreaView): Promise<Friendly | undefined> {
+  if (!a.friendly) return Promise.resolve(undefined);
+  let pending = friendlyCache.get(a.id);
+  if (!pending) {
+    pending = fetch(new URL(a.friendly, BASE))
+      .then((res) => (res.ok ? res.json() : undefined))
+      .then(readFriendly)
+      .catch(() => undefined); // a missing or broken file leaves the section out
+    friendlyCache.set(a.id, pending);
+  }
+  return pending;
+}
+
+function friendlySection(a: AreaView): Node {
+  const box = el("div");
+  loadFriendly(a).then((f) => {
+    if (!f) return;
+    const num = new Intl.NumberFormat(lang(), { maximumFractionDigits: 1 });
+    const rows = f.cards.map((c) => {
+      const level = Math.max(0, Math.min(3, c.level));
+      const size = c.number ? `${num.format(c.number.value)} ${c.number.unit === "km2" ? "km²" : c.number.unit}` : "";
+      const span = level && c.places !== undefined && c.from && c.to ? t("friendly.span", { places: c.places, from: c.from, to: c.to }) : "";
+      return el(
+        "li",
+        { className: `level-${level}` },
+        el("strong", {}, typeIcon(c.category), isType(c.category) ? typeLabel(c.category) : c.label),
+        " ", el("span", { className: "tag" }, t(`friendly.level.${level}` as Key)),
+        el("p", {}, c.headline),
+        ...(size || span ? [el("p", { className: "muted" }, [size, span].filter(Boolean).join(" · "))] : []),
+      );
+    });
+    box.replaceChildren(
+      el("h4", {}, t("friendly.title")),
+      el("p", {}, originBadge("nisar", "", "", { compact: true, synthetic: a.synthetic }), " ", el("span", { className: `tag status-${f.status}` }, t(`friendly.${f.status}` as Key)), " ", f.headline),
+      ...(rows.length ? [el("ul", { className: "friendly" }, ...rows)] : []),
+      // The contract says these notes (data maturity, "a hypothesis, not confirmed") must be shown.
+      el("ul", { className: "muted small friendly-notes" }, ...f.data_notes.map((n) => el("li", {}, n)), el("li", {}, t("friendly.note"))),
+    );
+  });
+  return box;
+}
+
 // ---- Zone notes, history, satellite view (jopa-testing; data in mexico.ts, satview.ts) ----
 
 const lang = () => settings.lang;
@@ -1057,7 +1108,7 @@ function typeIcon(type: string): SVGSVGElement {
 
 // What changed in the zone, plants and animals included. Empty when the zone has no notes.
 function changesSection(a: AreaView, heading: boolean): Node[] {
-  const note = zoneNote(a.id, a.center);
+  const note = zoneNote(a.id);
   if (!note) return [];
   return [
     ...(heading ? [el("h4", {}, t("zone.changes"))] : []),
@@ -1232,6 +1283,7 @@ function satSection(a: AreaView): Node {
 
 async function loadLive() {
   seriesCache.clear();
+  friendlyCache.clear();
   try {
     const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" }); // never an old copy
     if (!res.ok) throw new Error(String(res.status));
