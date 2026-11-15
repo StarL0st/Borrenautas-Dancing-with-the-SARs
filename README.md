@@ -42,7 +42,7 @@ The Earth's surface is always changing: wetlands flood and dry, forests are clea
 
 G.I.G.A.S makes that data readable:
 
-- A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a phone.
+- A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
 - **Two modes**: *Simple*, written so a 10-year-old can follow it, and *Technical*, with every layer, measurement and provenance record.
@@ -73,9 +73,9 @@ The challenge asks for an interactive application that uses NISAR data to track 
 - Live site: [gigas.earth](https://gigas.earth)
 - Demo video: (awaiting)
 
-## The web application
+## The web page
 
-The app opens on a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. On the first visit the app asks whether you want the tutorial and which mode to start in. The house button brings you back.
+The page opens on a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. On the first visit the app asks whether you want the tutorial and which mode to start in. The house button brings you back.
 
 The screen has three parts:
 
@@ -83,12 +83,12 @@ The screen has three parts:
 - **The globe**: one map that is a globe when zoomed out and a flat map when zoomed in.
 - **Right panel**: the areas you opened, stacked as tabs. In Simple mode it becomes "Your guide".
 
-On a phone the globe sits on top and the panels below it, under two tabs (**Explore** and **Open areas**). The panel grows as you scroll and the globe shrinks to a strip.
+On a mobile device the globe sits on top and the panels below it, under two tabs (**Explore** and **Open areas**). The panel grows as you scroll and the globe shrinks to a strip.
 
 <p align="center">
   <img src="images/app-overview.png" alt="The app in Simple mode: live events and my places on the left, Mexico on the globe with grouped event markers, and the guide for Mexico on the right" width="800">
 </p>
-<p align="center">The app in Simple mode: live events on the left, Mexico on the globe with its markers, and "Your guide" on the right.</p>
+<p align="center">The program in Simple mode: live events on the left, Mexico on the globe with its markers, and "Your guide" on the right.</p>
 
 ## Features
 
@@ -132,7 +132,7 @@ On a phone the globe sits on top and the panels below it, under two tabs (**Expl
 - **An orbiting satellite** as a decoration. Its orbit has NISAR's tilt, but its position, height and size are not real, and the tutorial says so.
 - **Side panels** can be pushed off screen and pulled back with the arrows on the globe's edges.
 
-### Finding things
+### Scope reduction
 
 - **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events keep only what lies inside them.
 
@@ -214,9 +214,9 @@ Areas load only when needed: when you open one, or when you zoom in close over i
 
 ### Simple mode: "Your guide"
 
-Simple mode has its own side panel, written for a 10-year-old: a welcome guide, then six numbered questions for each place:
+Simple mode has its own side panel, written for beginners: a welcome guide, then six numbered questions for each place:
 
-1. What is this place about?
+1. What is the place about?
 2. What did the space radar see?
 3. Look for yourself (pick the kind of picture and how far back)
 4. Did you know?
@@ -225,18 +225,18 @@ Simple mode has its own side panel, written for a 10-year-old: a welcome guide, 
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="images/guide-1.png" alt="Your guide for Villahermosa: question 1, what is this place about, lists cutting down forests, farming, wildfires, floods and growing cities; question 2 says NISAR looked at the place on 10 days"><br>1-2: the place and what the radar saw</td>
-    <td align="center" width="33%"><img src="images/guide-2.png" alt="Question 3, look for yourself: choose the kind of picture (close-up photo chosen) and how far back (1 year chosen), then a before and after photo with changes in blue and orange"><br>3: look for yourself</td>
-    <td align="center" width="33%"><img src="images/guide-3.png" alt="Question 5, where does this come from, with NISAR radar, other satellite and published record explained, and question 6, words to know: radar, satellite, echo; then Make report and I want all the details"><br>5-6: sources and words to know</td>
+    <td align="center" width="33%"><img src="images/guide-1.png" alt="Your guide for Villahermosa: question 1, what is this place about, lists cutting down forests, farming, wildfires, floods and growing cities; question 2 says NISAR looked at the place on 10 days"><br>1-2: The place and what the radar saw</td>
+    <td align="center" width="33%"><img src="images/guide-2.png" alt="Question 3, look for yourself: choose the kind of picture (close-up photo chosen) and how far back (1 year chosen), then a before and after photo with changes in blue and orange"><br>3-4: Look for yourself</td>
+    <td align="center" width="33%"><img src="images/guide-3.png" alt="Question 5, where does this come from, with NISAR radar, other satellite and published record explained, and question 6, words to know: radar, satellite, echo; then Make report and I want all the details"><br>5-6: Sources and words to know</td>
   </tr>
 </table>
 
-A **"Why the radar sees changes"** explainer, with pictures, is in every area card ("Why the radar sees changes here") and as a full page from the **How radar sees** button in the header.
-
+A **"Why the radar sees changes"** section explains with pictures, in every area card, and can expand to a full page with the "How radar sees"
+button tab.
 <p align="center">
   <img src="images/how-radar-sees-button.png" alt="The How radar sees button, highlighted in the header between Tutorial and the mode switch" width="800">
 </p>
-<p align="center">The How radar sees button opens the explainer.</p>
+<p align="center">"How radar sees" button opens the explainer.</p>
 
 ### Live events ("Happening now")
 
