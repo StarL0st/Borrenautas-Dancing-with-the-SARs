@@ -253,6 +253,15 @@ Work done on branch `mobile` (made from `main` at a036035, worktree `sars-mobile
 
 **Later the same evening:** the phone layout was tried on a real phone (works). The `frontend/` part of `jopa-testing` (up to 1d955b6) was squashed into `mobile` (f948463): origin badges, radar explainer, the zoomable before/after comparator (replaces the old before/now pictures and already drags anywhere), Simple-mode guide, PDF reports, `DECISIONS.md`. Its backend, docs and specs changes were left out, and `jopa-testing` itself is untouched and unmerged, so they stay open for the team (`docs/10`, to-do 6). Fitted to phones: the Open areas tab takes the panel's name ("Your guide" in Simple mode), and the header's three buttons share one row on narrow phones. Checked in headless Chrome: 30 tests pass, phone, landscape and desktop render, tabs, tour and the growing panel work.
 
+## Branch `testing-frontend` (2026-11-14, night)
+
+Made from `mobile` (which already holds the `frontend/` part of `jopa-testing`). Not merged anywhere yet.
+
+- **PDF report on demand.** One orange "Make report" button; it switches to "Preparing the report…" the moment it is pressed, then to "Read the report" with "Download" next to it. Nothing is built in the background any more and nothing is rebuilt on live, radar or hourly refreshes: building blocks the page for seconds on a phone, and the old rebuilds made the buttons flip back to "Preparing" at random. A report stays as made until the page reloads.
+- **Place descriptions from the back end.** "What the radar found here" in every Technical card and in the PDF, from the area's C8 friendly cards (`areas/<id>/friendly.json`; `readFriendly` in `src/logic.ts` checks the file). Works for any area the back end makes, lookups included. Sentences are English only (C8 has no translations); kind names and levels are translated.
+- **Hand-written text kept, but labelled and never borrowed.** `ZONES` notes (`src/mexico.ts`) show only for the area id they were written for, as "Background notes"; the 100 km nearest-note fallback is gone. The past-disasters list (`HISTORY`) stays, labelled "hand-picked list".
+- Checked in headless Chrome against the Azure data: Make → Preparing → Read + Download on desktop and phone, the reader shows all 22 pages, the PDF text holds the new section; 31 tests pass. Not checked: a real phone, Simple mode's guide (it has no hand-written place text and does not show the cards yet).
+
 ## Test
 
 ```
