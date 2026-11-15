@@ -187,6 +187,13 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 - **No live source found** (so nothing live for them): oil spills (NOAA's incident list refuses requests from web pages), groundwater, subsidence, logging, coastal loss, reservoirs, permafrost, ice sheets, glacial lakes. These are slow changes: the radar areas are where they show.
 - Checked 2026-11-14 in headless Chrome: 233 events across ten types (earthquakes 46, wildfires 139, cold 16, floods 12, sea ice 6, hurricanes 4, volcanoes 3, forecast 3, marine 2, drought 2).
 
+## Phone layout (branch `mobile`)
+
+- At 900px wide or less the globe stays on top (half the screen height) and one panel shows under it; the tabs Explore / Open areas pick which. Opening an area switches to Open areas; the tutorial switches tabs to show each step.
+- The view wheel starts hidden on phones (the wheel button brings it back), the map credits start folded behind the (i), fields are 16px so iOS does not zoom into them, buttons are at least 40px tall on touch screens, and the page keeps clear of the notch and home bar.
+- Desktop is unchanged.
+- Checked 2026-11-14 in headless Chrome at 390×844, 844×390 and 1440×900 (no page scroll, no console errors besides the missing back-end file). Not checked: a real phone, Safari, dragging the wheel by touch. Landscape phones are cramped: the map's button column is cut off at the bottom of the globe.
+
 ## Test
 
 ```

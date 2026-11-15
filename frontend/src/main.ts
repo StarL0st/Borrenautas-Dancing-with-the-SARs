@@ -777,13 +777,18 @@ const buildWheel = () =>
 
 // ---- Side panels: the arrows on the edges of the globe push them away and pull them back ----
 
+// On a phone the two panels share the space under the globe: tabs pick one, showing it hides the other.
+const phone = matchMedia("(max-width: 900px)");
 function showPanel(id: "nav" | "detail", on: boolean) {
   $(id).inert = !on;
   $(id).parentElement!.classList.toggle(`no-${id}`, !on);
   $(`${id}-toggle`).setAttribute("aria-expanded", String(on));
+  $(`tab-${id}`).setAttribute("aria-pressed", String(on));
+  if (on && phone.matches) showPanel(id === "nav" ? "detail" : "nav", false);
 }
 for (const id of ["nav", "detail"] as const) {
   $(`${id}-toggle`).onclick = () => showPanel(id, $(`${id}-toggle`).getAttribute("aria-expanded") !== "true");
+  $(`tab-${id}`).onclick = () => showPanel(id, true);
 }
 
 // ---- Welcome screen: the Earth's horizon turning under the title, until Start ----
@@ -792,8 +797,9 @@ for (const id of ["nav", "detail"] as const) {
 function homeUi(on: boolean) {
   document.body.classList.toggle("at-home", on);
   for (const part of document.querySelectorAll<HTMLElement>("header, main")) part.inert = on;
-  showPanel("nav", !on);
+  // Detail first, so on a phone the filters are the tab left showing.
   showPanel("detail", !on);
+  showPanel("nav", !on);
   for (const [m, b] of Object.entries(viewButtons)) b.setAttribute("aria-pressed", String(m === "globe"));
 }
 
@@ -815,9 +821,9 @@ let orbiting = false; // an animation is running: Start and the house button wai
 // The panel widths and the phone layout mirror the stylesheet (`.app`, `.stage`).
 function globeCenter(panels: boolean) {
   const m = document.querySelector("main")!.getBoundingClientRect();
-  const wide = !matchMedia("(max-width: 900px)").matches;
+  const wide = !phone.matches;
   const left = m.left + (panels && wide ? 300 : 0), right = m.right - (panels && wide ? 360 : 0);
-  const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.6 : 1);
+  const bottom = wide ? m.bottom : m.top + innerHeight * (panels ? 0.5 : 1);
   return { x: (left + right) / 2, y: (m.top + bottom) / 2 };
 }
 type Point = ReturnType<typeof globeCenter>;
@@ -894,6 +900,8 @@ async function leaveHome() {
   const move = !calm.matches;
   if (move) document.body.classList.add("orbiting"); // the flying letters stand in for the name
   homeUi(false);
+  // On a phone the open credits cover the date slider; folded, they stay one tap away on the (i).
+  if (phone.matches) document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
   globe.welcome(false, 1700);
   $("home-btn").focus();
   if (move) {
@@ -979,6 +987,7 @@ function onSetting(key: keyof Settings) {
 $("settings-btn").onclick = () => dialog.showModal();
 
 wheel.dataset.size = settings.wheel;
+if (phone.matches) showWheel(false); // it would cover most of a phone's small globe; the button brings it back
 applyLanguage();
 loadLive();
 loadLiveFeeds();
