@@ -23,7 +23,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 
 - **Event icons** on every filter type: filled when on, outline when off. Compact buttons, with "Show N more" per group.
 - **Live events, worldwide, last 24 hours,** for every type with a public feed, weather included. Serious and extreme events carry a danger label. The page says how often the server checks the sources.
-- **Most destructive recent events** (Mexico since 2015, with sources).
+- ~~**Most destructive recent events**~~ (removed in round 7).
 - **Open areas panel (Technical mode only):** a satellite before/now view (NASA GIBS), "What changed" with effects on plants and animals, and a timeline of remarkable events per zone. Simple mode shows a short popup with "See all details".
 - **Removed in round 3:** the "How dangerous" slider, the "Infrastructure risks near you" function and the "Most dangerous right now" box.
 
@@ -50,7 +50,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `1b71788` | 5 | Docs: round 5 |
 | `fa02065` | 6 | Versioned PDFs kept up to date; every explanation sourced (NASA first) |
 | `cd616da` | 6 | Docs: round 6 |
-| *next commit* | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
+| `bb7a14f` | 7 | Removed "Most destructive recent events"; spacing for the danger tag; picture type and time frame in Simple mode's comparison |
 | *this commit* | 7 | Docs: round 7 |
 
 ## Round 7 (2026-11-15)
