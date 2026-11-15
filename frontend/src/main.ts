@@ -98,6 +98,7 @@ let cluster: { kind: MarkerKind; ids: string[] } | undefined;
 const CLUSTER_ROWS = 40;
 const globe = createGlobe("map", settings.texture, toggle, (kind, ids) => {
   cluster = { kind, ids };
+  setSpin(false); // or the group would drift away while its list is read
   showPanel("detail", true);
   render();
   $("detail").scrollTop = 0;
@@ -393,23 +394,36 @@ function render() {
 
 // The events behind the clicked marker, each with its details and a way to go to it.
 function clusterCard(): HTMLElement | undefined {
-  if (!cluster) return;
+  if (!cluster) return void globe.setGhosts([], false);
   const { kind, ids } = cluster;
   const wanted = new Set(ids);
   const items =
     kind === "live"
       ? liveEvents.filter((f) => wanted.has(f.properties.id)).map((f) => ({ p: f.properties, info: () => liveInfo(f.properties), zoom: 6 }))
       : reports.filter((f) => wanted.has(f.properties.id)).map((f) => ({ p: f.properties, info: () => eventInfo(f.properties), zoom: 11 }));
-  if (!items.length) return void (cluster = undefined); // the data moved on
-  const close = el("button", { type: "button" }, t("card.close"));
-  close.onclick = () => {
-    cluster = undefined;
-    render();
+  if (!items.length) return void ((cluster = undefined), globe.setGhosts([], false)); // the data moved on
+  const closer = (label: string, className = "") => {
+    const b = el("button", { type: "button", className }, label);
+    b.setAttribute("aria-label", t("card.close"));
+    b.onclick = () => {
+      cluster = undefined;
+      render();
+    };
+    return b;
   };
+  const close = closer(t("card.close"));
+  // Where each of them is, as small dots on the map, until the list is closed.
+  globe.setGhosts(items.map(({ p }) => ({ lon: p.lon, lat: p.lat, color: typeColor(p.category) })), kind === "live");
   return el(
     "section",
     { className: `card cluster ${kind}` },
-    el("h3", {}, typeIcon(items[0].p.category), t(kind === "live" ? "cluster.live" : "cluster.radar", { n: items.length, type: shortLabel(items[0].p.category) })),
+    el(
+      "h3",
+      {},
+      typeIcon(items[0].p.category),
+      el("span", {}, t(kind === "live" ? "cluster.live" : "cluster.radar", { n: items.length, type: shortLabel(items[0].p.category) })),
+      closer("×", "remove"), // a long list: closing must not need scrolling to its end
+    ),
     ...items.slice(0, CLUSTER_ROWS).map(({ p, info, zoom }) => {
       const go = el("button", { type: "button", className: "link" }, t("cluster.go"));
       go.onclick = () => {

@@ -215,7 +215,20 @@ export function createGlobe(
       map.on("click", "events-fill", (e) => picking || showEvent(e.features![0].properties as EventFeature["properties"], e.lngLat));
       map.on("mouseenter", "events-fill", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "events-fill", () => (map.getCanvas().style.cursor = ""));
-      map.on("moveend", drawMarkers);
+      // Where the events behind the selected marker are, as small dots (setGhosts).
+      map.addSource("ghosts", { type: "geojson", data: empty });
+      map.addLayer({
+        id: "ghosts", type: "circle", source: "ghosts",
+        paint: {
+          "circle-radius": 4, "circle-color": ["get", "color"],
+          "circle-opacity": ["case", ["get", "hollow"], 0.15, 0.85],
+          "circle-stroke-color": ["case", ["get", "hollow"], ["get", "color"], "#fefdff"], "circle-stroke-width": 1.5,
+        },
+      });
+      // Auto-rotate ends a move on every frame. Redrawing the markers each time would swap the
+      // one under the pointer before a click lands, so while turning they are redrawn every
+      // 1.5 s at most (they ride along with the map in between) and never under the pointer.
+      map.on("moveend", () => (spinFrameId && (overMarker || performance.now() - drawnAt < 1500)) || drawMarkers());
       // The halo is the click target so the dots are easy to hit on touch screens.
       map.on("click", "areas-halo", (e) => picking || onPick(e.features![0].properties.id));
       map.on("mouseenter", "areas-halo", () => (map.getCanvas().style.cursor = "pointer"));
@@ -261,9 +274,12 @@ export function createGlobe(
   // detections filled, so a live event never reads as a radar detection.
   const dots: Record<MarkerKind, Dot[]> = { radar: [], live: [] };
   let markers: Marker[] = [];
+  let drawnAt = 0, overMarker = false;
   function drawMarkers() {
     for (const m of markers) m.remove();
     markers = [];
+    drawnAt = performance.now();
+    overMarker = false;
     const { width, height } = map.getContainer().getBoundingClientRect();
     const c = map.getCenter(), rad = Math.PI / 180;
     // On the side of the Earth turned toward the camera (the far side also projects to the screen).
@@ -285,9 +301,19 @@ export function createGlobe(
         b.style.setProperty("--c", g[0].color);
         b.setAttribute("aria-label", `${shortLabel(g[0].type)}: ${g.length}`);
         b.title = `${shortLabel(g[0].type)}: ${g.length}`;
+        b.onpointerenter = () => (overMarker = true);
+        b.onpointerleave = () => (overMarker = false);
         b.onclick = (e) => {
           e.stopPropagation(); // not also a click on the map under it
           if (!picking) onGroup(kind, g.map((d) => d.id));
+        };
+        // Double click: close in on the events of this group.
+        b.ondblclick = (e) => {
+          e.stopPropagation(); // not also the map's own double-click zoom
+          const lons = g.map((d) => d.lon), lats = g.map((d) => d.lat);
+          map.fitBounds([Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)], {
+            padding: 96, maxZoom: Math.max(map.getZoom(), kind === "radar" ? 13 : 9),
+          });
         };
         const at: [number, number] = [g.reduce((n, d) => n + d.lon, 0) / g.length, g.reduce((n, d) => n + d.lat, 0) / g.length];
         markers.push(new Marker({ element: b }).setLngLat(at).addTo(map));
@@ -303,6 +329,18 @@ export function createGlobe(
       // animation (a hidden tab pauses animations, and "moveend" would never come).
       popup.setLngLat([lon, lat]).setDOMContent(content).addTo(map);
       map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
+    },
+
+    // Small dots where the events of the selected marker are; an empty list removes them.
+    async setGhosts(points: { lon: number; lat: number; color: string }[], hollow: boolean) {
+      await ready;
+      map.getSource<GeoJSONSource>("ghosts")!.setData({
+        type: "FeatureCollection",
+        features: points.map((p) => ({
+          type: "Feature" as const, properties: { color: p.color, hollow },
+          geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+        })),
+      });
     },
 
     // City names in the page's language (English where the list has no other).
