@@ -260,6 +260,14 @@ export function createGlobe(container: string, texture: Texture, onPick: (id: st
       map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom) });
     },
 
+    // Tell the page where the map looks each time it comes to rest: zoom and [w, s, e, n].
+    onView(seen: (zoom: number, box: [number, number, number, number]) => void) {
+      map.on("moveend", () => {
+        const b = map.getBounds();
+        seen(map.getZoom(), [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+      });
+    },
+
     // `shown` already passed the filters and carries its display color.
     async setLive(shown: (LiveFeature & { properties: { color: string } })[]) {
       await ready;

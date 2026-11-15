@@ -79,6 +79,9 @@ export type AreaView = {
   series: SeriesRef[];
   credits: string[];
   friendly?: string; // C8 file, when the back end made one
+  requested?: boolean; // looked up by some visitor, not a curated site
+  kind?: string; // "mosaic": a whole country
+  stub?: { events: number; layers: number; dates: string[] }; // from index.json; its files are not loaded yet
 };
 
 // Contract change types -> the app's filter types (ids in filters.ts). The contract has no field
@@ -275,4 +278,33 @@ export function readFriendly(j: unknown): Friendly | undefined {
     cards: f.cards.filter((c) => c && typeof c.category === "string" && typeof c.headline === "string" && Number.isFinite(c.level)),
     data_notes: Array.isArray(f.data_notes) ? f.data_notes.map(String) : [],
   };
+}
+
+// ---- Loading on demand (index.json, contract 0.7) ----
+
+// One entry of index.json: an area without its layers and events.
+export type IndexArea = Omit<ManifestArea, "layers" | "timeseries" | "credits" | "friendly"> & {
+  events?: number; layers?: number; dates?: string[]; requested?: boolean; kind?: string;
+};
+
+export const stubView = (a: IndexArea): AreaView => ({
+  ...toAreaView({ ...a, layers: [] }),
+  requested: a.requested,
+  kind: a.kind,
+  stub: { events: a.events ?? 0, layers: a.layers ?? 0, dates: a.dates ?? [] },
+});
+
+export const overlaps = (a: Bbox, b: Bbox) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+
+export const NEAR_KM = 10; // same as the back end's lookup (server.py NEAR_KM)
+const grown = ([w, s, e, n]: Bbox, km: number): Bbox => {
+  const dy = km / 111.32, dx = dy / Math.cos((((s + n) / 2) * Math.PI) / 180);
+  return [w - dx, s - dy, e + dx, n + dy];
+};
+
+// The area a position belongs to: inside its box or within NEAR_KM of it. Curated sites win over
+// looked-up places; whole countries never match (every point would).
+export function areaAt<A extends { bbox: Bbox; requested?: boolean; kind?: string }>(lon: number, lat: number, areas: A[]): A | undefined {
+  const hits = areas.filter((a) => a.kind !== "mosaic" && overlaps(grown(a.bbox, NEAR_KM), [lon, lat, lon, lat]));
+  return hits.find((a) => !a.requested) ?? hits[0];
 }

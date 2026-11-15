@@ -21,13 +21,14 @@ import {
 } from "./mexico";
 import countriesUrl from "./assets/countries.json?url";
 import {
-  ago, datesFor, inFilter, inside, layerAt, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, supportedVersion, toAreaView,
-  type AreaView, type Friendly, type EventFeature, type Layer, type LiveFeature, type Manifest,
+  ago, areaAt, datesFor, inFilter, inside, layerAt, overlaps, topEvents, liveList, liveShown, liveWhere, polarizations, readFriendly, severityOf, SOURCE_SHORT, stubView, supportedVersion, toAreaView,
+  type AreaView, type Friendly, type EventFeature, type IndexArea, type Layer, type LiveFeature, type Manifest, type ManifestArea,
 } from "./logic";
 import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./satview";
 import { comparator, newCompareState, type CompareState, type Picture } from "./compare";
 import { opticalDecode, radarDecode, subBox } from "./compare-core";
 import { collectLive, LIVE_MINUTES, recent } from "./livefeeds";
+import { loadPlaces, savePlaces } from "./places";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
 import { el } from "./ui";
@@ -54,6 +55,15 @@ document.documentElement.dataset.mode = settings.mode;
 
 let live: AreaView[] = [];
 let reports: EventFeature[] = []; // detected changes from events.geojson (contract 0.3)
+// Contract 0.7: the page starts from index.json and fetches an area's own files when the area
+// is opened or looked at up close. `loaded` holds those; without index.json (an older back
+// end) everything comes at once, as before.
+let lazy = false;
+const loaded = new Map<string, { view: AreaView; features: EventFeature[] }>();
+const loading = new Map<string, Promise<void>>();
+const LOAD_ZOOM = 7; // from here in, areas in view load by themselves
+const SUGGESTED = ["mexico", "chapala", "yucatan", "villahermosa"]; // listed until the visitor has places
+let places = loadPlaces(); // the visitor's own places, positions only
 let liveEvents: LiveFeature[] = []; // live.geojson: public disaster feeds, not radar detections
 let liveUpdated = ""; // its generated_at, or "" when the feeds are not available
 let manifestAt = ""; // the radar results' generated_at (manifest.json)
@@ -245,12 +255,28 @@ $("process").onclick = async () => {
   const form = $<HTMLFormElement>("coords");
   if (!form.reportValidity()) return;
   const lat = +$<HTMLInputElement>("lat").value, lon = +$<HTMLInputElement>("lon").value;
+  // Already there (a city, a place someone asked for): open it, nothing to process.
+  const known = lazy ? areaAt(lon, lat, areas()) : undefined;
+  if (known) {
+    addPlace(lon, lat);
+    setStatus("status.known", { name: known.title });
+    if (opened.includes(known.id)) render();
+    else toggle(known.id);
+    return;
+  }
   setStatus("status.asking");
   try {
     const res = await fetch(new URL("sites", API), {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lat, lon }),
     });
-    if (res.status === 202 || res.status === 200) setStatus("status.accepted"); // 200: cached (contract 0.5)
+    if (res.status === 202 || res.status === 200) {
+      // 200: cached (contract 0.5); "empty" means NISAR has nothing there.
+      const answer = (await res.json().catch(() => ({}))) as { empty?: boolean };
+      if (answer.empty) return setStatus("status.empty");
+      setStatus("status.accepted");
+      addPlace(lon, lat);
+      await loadLive(); // a cached place is in the index already
+    }
     else if (res.status === 404 || res.status === 405) setStatus("status.unsupported");
     else if (res.status === 401) setStatus("status.token");
     else setStatus("status.refused", { code: res.status });
@@ -276,29 +302,50 @@ function render() {
   const shown = areas().filter((a) => inFilter(a, ticked) && inPicked(...a.center));
   opened = opened.filter((id) => shown.some((a) => a.id === id));
 
+  // The list holds the visitor's own places (and whole countries); until there are any, a few
+  // suggestions. Places other visitors asked for are never listed, and are drawn only once
+  // their files are loaded (zoomed in over them).
+  const mineIds = new Set(places.map((p) => areaAt(...p, areas())?.id));
+  const waiting = lazy ? places.filter((p) => !areaAt(...p, areas())) : [];
+  const own = mineIds.size > 0 || waiting.length > 0;
+  const listed = !lazy ? shown : shown.filter((a) => a.kind === "mosaic" || (own ? mineIds.has(a.id) : SUGGESTED.includes(a.id)));
+  const onGlobe = shown.filter((a) => !a.requested || mineIds.has(a.id) || loaded.has(a.id));
+
   results.replaceChildren(
-    ...shown.map((a, n) => {
-      const dates = a.events.map((e) => e.date).sort();
+    ...(lazy ? [el("li", { className: "muted" }, t(own ? "list.mine" : "list.suggested"))] : []),
+    ...listed.map((a, n) => {
+      const dates = a.stub ? a.stub.dates : a.events.map((e) => e.date).sort();
       const when = dates.length ? t("list.dates", { from: dates[0], to: dates.at(-1)! }) : t("list.nodates");
+      const count = a.stub ? a.stub.layers : a.layers.length;
       const row = el(
         "button",
         { type: "button", className: "result", onclick: () => toggle(a.id) },
         el("strong", {}, dot(colorOf(a)), a.title),
-        el("span", { className: "muted" }, a.example ? t("list.example") : `${when} · ${t("list.images", { n: a.layers.length })}`),
+        el("span", { className: "muted" }, a.example ? t("list.example") : `${when} · ${t("list.images", { n: count })}`),
       );
       row.setAttribute("aria-pressed", String(opened.includes(a.id)));
-      const li = el("li", { className: stagger ? "stagger" : "" }, row);
+      const li = el("li", { className: stagger ? "stagger result-row" : "result-row" }, row);
+      if (mineIds.has(a.id)) li.append(removeButton(a.title, (p) => areaAt(...p, areas())?.id === a.id));
       li.style.setProperty("--i", String(Math.min(n, 12)));
       return li;
     }),
+    // Asked for, not processed yet: it turns into an area when the back end is done.
+    ...waiting.map((p) =>
+      el(
+        "li",
+        { className: "result-row" },
+        el("span", { className: "result muted" }, t("list.pending", { lat: p[1].toFixed(2), lon: p[0].toFixed(2) })),
+        removeButton(`${p[1].toFixed(2)}, ${p[0].toFixed(2)}`, (q) => q === p),
+      ),
+    ),
   );
-  if (!shown.length) results.append(el("li", { className: "muted" }, t("list.none")));
+  if (!listed.length && !waiting.length) results.append(el("li", { className: "muted" }, t("list.none")));
 
   const notes = [shown.some((a) => a.example) && t("banner.example"), shown.some((a) => a.synthetic) && t("banner.synthetic")].filter(Boolean);
   banner.hidden = !notes.length;
   banner.textContent = notes.join(" ");
 
-  globe.setAreas(shown.map((area) => ({ area, color: colorOf(area) })), opened);
+  globe.setAreas(onGlobe.map((area) => ({ area, color: colorOf(area) })), opened);
   globe.setEvents(
     reports.filter((e) => eventShown(e) && inPicked(e.properties.lon, e.properties.lat)).map((e) => ({ ...e, properties: { ...e.properties, color: typeColor(e.properties.category) } })),
   );
@@ -325,10 +372,72 @@ function render() {
   entering = undefined;
 }
 
+// ---- The visitor's own places (places.ts) ----
+
+// Remember a position, unless one already kept stands for the same area (or the same spot).
+function addPlace(lon: number, lat: number) {
+  const id = areaAt(lon, lat, areas())?.id;
+  const same = (p: [number, number]) => (id ? areaAt(...p, areas())?.id === id : Math.abs(p[0] - lon) < 0.01 && Math.abs(p[1] - lat) < 0.01);
+  if (places.some(same)) return;
+  places = [...places, [+lon.toFixed(4), +lat.toFixed(4)]];
+  savePlaces(places);
+}
+
+function removeButton(name: string, gone: (p: [number, number]) => boolean): HTMLElement {
+  const b = el("button", { type: "button", className: "remove", textContent: "×" });
+  b.setAttribute("aria-label", t("list.remove", { name }));
+  b.title = t("list.remove", { name });
+  b.onclick = () => {
+    places = places.filter((p) => !gone(p));
+    savePlaces(places);
+    render();
+  };
+  return b;
+}
+
+// ---- Loading an area's own files (contract 0.7) ----
+
+const getJson = <T>(path: string): Promise<T | undefined> =>
+  fetch(new URL(path, BASE), { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<T>) : undefined)).catch(() => undefined);
+
+function loadArea(id: string): Promise<void> {
+  if (!lazy || loaded.has(id)) return Promise.resolve();
+  let job = loading.get(id);
+  if (!job) {
+    job = Promise.all([
+      getJson<ManifestArea & { requested?: boolean; kind?: string }>(`areas/${id}/area.json`),
+      getJson<{ features?: EventFeature[] }>(`areas/${id}/events.geojson`), // none yet: no events
+    ])
+      .then(([area, events]) => {
+        if (!area) return;
+        const features = events?.features ?? [];
+        loaded.set(id, { view: { ...toAreaView(area, features), requested: area.requested, kind: area.kind }, features });
+        live = live.map((a) => (a.id === id ? loaded.get(id)!.view : a));
+        reports = [...loaded.values()].flatMap((l) => l.features);
+      })
+      .finally(() => loading.delete(id));
+    loading.set(id, job);
+  }
+  return job;
+}
+
+// Zoomed in: the areas in view load by themselves, so their detections and outlines appear.
+globe.onView((zoom, box) => {
+  if (!lazy || zoom < LOAD_ZOOM) return;
+  const todo = live.filter((a) => a.stub && a.kind !== "mosaic" && overlaps(a.bbox, box));
+  if (todo.length) Promise.all(todo.map((a) => loadArea(a.id))).then(render);
+});
+
 // Clicking a dot or a list row opens the area as a tab; clicking again closes it.
 function toggle(id: string) {
   const a = areas().find((x) => x.id === id);
   if (!a) return;
+  if (a.stub) {
+    // Its files are not here yet: fetch them, then open (a failed fetch leaves it closed).
+    loadArea(id).then(() => loaded.has(id) && toggle(id));
+    return;
+  }
+  if (lazy && !opened.includes(id) && a.kind !== "mosaic") addPlace(...a.center);
   if (simple()) {
     // Simple mode's guide shows one place at a time; clicking it again goes back to the welcome.
     opened = opened[0] === id ? [] : [id];
@@ -1293,6 +1402,21 @@ async function loadLive() {
   seriesCache.clear();
   friendlyCache.clear();
   try {
+    const index = await getJson<{ contract_version: string; generated_at?: string; areas: IndexArea[] }>("index.json");
+    if (index && supportedVersion(index.contract_version)) {
+      lazy = true;
+      manifestAt = index.generated_at ?? "";
+      const again = [...new Set([...opened, ...loaded.keys()])]; // what is on screen is fetched again
+      loaded.clear();
+      live = index.areas.map(stubView);
+      reports = [];
+      await Promise.all(again.map(loadArea));
+      setStatus("status.connected", { areas: live.filter((a) => !a.requested).length, events: index.areas.reduce((n, a) => n + (a.events ?? 0), 0) });
+      render();
+      stagger = false;
+      return;
+    }
+    lazy = false;
     const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" }); // never an old copy
     if (!res.ok) throw new Error(String(res.status));
     const manifest: Manifest & { generated_at?: string } = await res.json();
@@ -1323,7 +1447,7 @@ async function loadLive() {
 // without one (files on storage), look every 5 minutes and reload only when they changed.
 async function checkManifest() {
   try {
-    const res = await fetch(new URL("manifest.json", BASE), { cache: "no-store" });
+    const res = await fetch(new URL(lazy ? "index.json" : "manifest.json", BASE), { cache: "no-store" });
     const m = res.ok ? ((await res.json()) as { generated_at?: string }) : undefined;
     const at = m?.generated_at ?? res.headers.get("last-modified") ?? "";
     if (at && at !== manifestAt) loadLive();
@@ -1332,6 +1456,10 @@ async function checkManifest() {
   }
 }
 setInterval(checkManifest, 5 * 60 * 1000);
+// While a place the visitor asked for is still being processed, look every 15 seconds.
+// shortcut: a place NISAR has no data for stays "processing" until removed by hand; ask
+// GET /sites/<id> for its state if that confuses people.
+setInterval(() => lazy && places.some((p) => !areaAt(...p, areas())) && checkManifest(), 15 * 1000);
 
 // ---- Live disaster feeds (live.geojson; optional, like everything from the back end) ----
 

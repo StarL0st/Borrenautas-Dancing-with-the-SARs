@@ -400,3 +400,18 @@ test("friendly cards (C8) are read safely", () => {
   assert.equal(readFriendly(null), undefined);
   assert.equal(toAreaView({ id: "a", title: "A", summary: "", change_types: [], layers: [], friendly: "areas/a/friendly.json" }).friendly, "areas/a/friendly.json");
 });
+
+test("a position belongs to the area it is in or next to; index entries become stubs", async () => {
+  const { areaAt, overlaps, stubView } = await import("../src/logic.ts");
+  const city = { id: "city", bbox: [-103.5, 20.5, -103.2, 20.8] as [number, number, number, number] };
+  const cell = { id: "cell", bbox: [-103.6, 20.4, -103.1, 20.9] as [number, number, number, number], requested: true };
+  const country = { id: "mx", bbox: [-118, 14, -86, 33] as [number, number, number, number], kind: "mosaic" };
+  assert.equal(areaAt(-103.3, 20.6, [cell, city, country])?.id, "city"); // curated before looked-up
+  assert.equal(areaAt(-103.3, 20.86, [city])?.id, "city"); // 6.7 km north of the box
+  assert.equal(areaAt(-103.3, 21.0, [city, country]), undefined); // 22 km away; a country never matches
+  assert.equal(areaAt(-103.3, 20.6, [cell])?.id, "cell");
+  assert.ok(overlaps(city.bbox, cell.bbox) && !overlaps(city.bbox, [0, 0, 1, 1]));
+  const stub = stubView({ id: "a", title: "A", summary: "", change_types: ["wildfire"], bbox: [0, 0, 1, 1], events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"], requested: true });
+  assert.deepEqual(stub.stub, { events: 3, layers: 7, dates: ["2026-06-01", "2026-10-01"] });
+  assert.deepEqual([stub.requested, stub.layers.length, stub.types], [true, 0, ["wildfires"]]);
+});

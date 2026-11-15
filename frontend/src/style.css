@@ -702,3 +702,9 @@ a.btn[hidden] { display: none; }
 .reader-body > .muted { color: #d6dde3; text-align: center; }
 .reader-pages { display: grid; justify-items: center; gap: 14px; }
 .reader-page { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 4px 18px #0008; }
+
+/* The visitor's own places: the row and its remove button side by side. */
+.result-row { display: flex; align-items: stretch; }
+.result-row .result { flex: 1; min-width: 0; }
+.remove { flex: none; width: 44px; background: none; border: 0; color: var(--muted); font-size: 1.2rem; line-height: 1; }
+.remove:hover, .remove:focus-visible { color: var(--text); }
