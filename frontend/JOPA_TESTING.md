@@ -1,9 +1,13 @@
 # `jopa-testing`: user interface work (local branch)
 
 Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
-**Round 4 is local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (24 after round 4) pass; it was run locally and looked at in the app's browser.
+**Rounds 4 and 5 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (28 after round 5) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 4)
+## What the branch has now (after round 5)
+
+- **Simple mode has its own side panel, written for a 10-year-old**: a welcome guide, then for each place six numbered questions (what is this place about, what did the space radar see, look for yourself, did you know, where does this come from, words to know).
+- **Technical timelines are short**: the 5 most important detected changes and the 5 most important remarkable events per zone; the rest is in the report.
+- **Downloadable PDF report per zone**: a cover with key numbers and contents, then 12 numbered sections with pictures, charts and tables, every part labeled with its source and date.
 
 - **The latest `frontend` branch** (welcome screen, country search, live events the page fetches itself, NOAA weather alerts and USGS volcano levels, Azure addresses), with this branch's own features kept.
 - **Every piece of data says where it comes from and when**, with one badge style: ◆ NISAR radar, ● other satellite, ▲ live report, ■ published record, each with the product and the date it was taken.
@@ -35,7 +39,20 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `2103f2d` | 3 | Docs: change log row above |
 | `a3c0da6` | 4 | Merged the latest `origin/frontend` (abbf80b) into this branch; kept the Mexico history, zone notes, worst-events list, Simple-mode popup and danger labels |
 | `db6c2a1` | 4 | Data origin badges, radar explainer, before/after comparator, decision log |
-| *this commit* | 4 | Docs: round 4 |
+| `689018e` | 4 | Docs: round 4 |
+| `a0e9a8a` | 5 | Simple-mode guide, top-5 timelines, PDF report, cloud-aware photo comparison |
+| *this commit* | 5 | Docs: round 5 |
+
+## Round 5 (2026-11-15)
+
+| Request | What changed |
+|---|---|
+| A sidebar for Simple mode, easy enough for a 10-year-old | The right-hand panel now shows in Simple mode too, as **Your guide** (`kidCard`, `kidWelcome` in `src/main.ts`; words in `src/kid.ts` and the `kid.*` texts in `src/i18n.ts`). **Nothing open:** "Hi, explorer!", how to use the map in three steps, what the dot colors mean, who NISAR is, words to know. **A place open** (one at a time; clicking it again goes back): 1. *What is this place about?* each kind of change in one everyday sentence ("Sinking ground: the ground slowly goes down, like a cake sinking in the middle"). 2. *What did the space radar see?* how many days NISAR looked and what it found, in words ("239 farm fields that changed"), with a note that "may have" still needs checking. 3. *Look for yourself:* two space photos a year apart in the comparator, without the technical controls, ending in "About N out of every 100 pieces of this picture changed". 4. *Did you know?* one true fact. 5. *Where does this come from?* NISAR, other satellites and experts' reports, each with its date written out ("October 21, 2026"). 6. *Words to know.* Then **Download everything (PDF)** and **I want all the details** (switches to Technical). The old Simple-mode popup is gone. Short sentences, one idea each; English, Spanish and German. |
+| Technical mode: only the 5 most important events per zone | **Detected changes:** the card keeps the 5 with the largest size × confidence (`topEvents` in `src/logic.ts`), newest first; with only radar passes, the 5 latest. **Remarkable events:** the 5 worst, then newest (`topHistory` in `src/mexico.ts`). Each list says "N more in the full report" with a PDF button. Headings only say "the 5 most important" when there were more to choose from. |
+| A downloadable PDF with all the information, organized and good-looking | `src/report.ts` (loaded only when asked, with jsPDF 4.2.1 and jspdf-autotable 5.0.9). **Cover:** dark band with the area name, "At a glance" tiles (radar dates, detected changes, main kinds, data maturity), summary and clickable contents with page numbers. **Sections:** 1 Where the data come from (the four source kinds and a table of every source with dates). 2 Pictures: radar first vs latest pass, detected-change, surface-type and ground-motion maps two per row with legends, satellite before/now. 3 Detected changes: bars by kind and by month, the 5 most important in full, then every change in a table. 4 Change over time (charts). 5 What changed in the zone, plants and animals, linked sources. 6 Remarkable events (all). 7 Live reports nearby (fire hot spots summed up in one line). 8 How the radar sees these changes. 9 Methods and decisions. 10 List of every radar picture. 11 Words used. 12 Credits and the "hypotheses, not facts" note. Page header and "Page N of M" footer on every page. English or Spanish (German falls back to English). Villahermosa: 17 pages; Yucatán (443 changes): 31 pages, made in under 4 seconds. |
+| (found while testing) Clouds counted as change in photos | The photo comparison now leaves out clouds and a 1-pixel ring around them, and measures dark ground against a minimum brightness so forest shade is not "changed". Technical mode says how much cloud was left out; the kids' view says when clouds make counting unfair ("That is why NISAR uses radar: it sees right through clouds!") and looks longer for clear days. |
+
+**Checked in the browser:** the guide's welcome and a place card (Yucatán, Villahermosa, Chapala), the top-5 timelines with "59 more in the full report", PDFs for Villahermosa (English) and Yucatán (Spanish) rendered page by page and looked at; a production build works and keeps the PDF code in its own file. **Note:** the team's Azure storage changed during testing (13 areas, then 4); the app shows whatever is there.
 
 ## Round 4 (2026-11-14, night)
 
@@ -296,7 +313,7 @@ See "Source check" in Round 2 for what was checked and corrected, and what was n
 
 ## When you want to run it
 
-Round 4: the front end alone, reading the team's real NISAR results from Azure (read-only):
+Rounds 4 and 5: the front end alone, reading the team's real NISAR results from Azure (read-only):
 
 ```bash
 cd frontend && VITE_DATA_BASE=https://gigassars.blob.core.windows.net/data/ VITE_API_BASE=https://gigas-sars.westus2.cloudapp.azure.com/ npm run dev -- --host 127.0.0.1 --port 5173
