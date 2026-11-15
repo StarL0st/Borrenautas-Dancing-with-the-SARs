@@ -58,7 +58,7 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `99896ae` | 7 | Docs: round 7 |
 | `0ea75a8` | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
 | `80b47e7` | 8 | Docs: round 8 |
-| *next commit* | 9 | Report reader inside the page; report buttons become links to a file made in advance |
+| `e8d9080` | 9 | Report reader inside the page; report buttons become links to a file made in advance |
 | *this commit* | 9 | Docs: round 9 |
 
 ## Round 9 (2026-11-15)
