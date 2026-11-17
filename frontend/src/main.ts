@@ -1319,6 +1319,7 @@ function historyItem(e: HistoryEvent): HTMLDetailsElement {
     { className: "hist" },
     el("summary", {}, el("time", { dateTime: e.date }, e.date.slice(0, 4)), typeIcon(e.type), el("strong", {}, tx(e.title, lang()))),
     el("p", {}, tx(e.impact, lang())),
+    ...(e.seenBy?.length ? [el("p", { className: "muted" }, originBadge("satellite", "", t("zone.seenby", { list: e.seenBy.join(" · ") })))] : []),
     sourceList(e.sources),
   );
 }

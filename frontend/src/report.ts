@@ -3,8 +3,9 @@
 //
 // Layout: a cover with the area, its key numbers and the contents, then numbered sections, each
 // starting with a heading; every picture and table says where its data come from and when.
-// Text is in English or Spanish (German falls back to English, as in mexico.ts). The built-in PDF
-// fonts only know Western European letters, so other characters are replaced (`clean`).
+// Text is in English, Spanish or French (German falls back to English, as in mexico.ts; a Japanese page
+// gets an English report). The built-in PDF fonts only know Western European letters, so other
+// characters are replaced (`clean`).
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import type { Series } from "./chart";
@@ -141,6 +142,7 @@ const EN = {
   hPicture: "Picture", hProduct: "Product", hMaturity: "Maturity", hUnits: "Units", hRange: "Range",
   disclaimer: "Radar results are hypotheses from radar alone, not confirmed facts. Check with local authorities before making decisions.",
   legend: "Legend",
+  seenBy: "Seen from space by",
 };
 const ES: Words = {
   title: "Informe de zona",
@@ -229,21 +231,112 @@ const ES: Words = {
   hPicture: "Imagen", hProduct: "Producto", hMaturity: "Madurez", hUnits: "Unidades", hRange: "Rango",
   disclaimer: "Los resultados del radar son hipótesis solo con radar, no hechos confirmados. Consulta a las autoridades locales antes de tomar decisiones.",
   legend: "Leyenda",
+  seenBy: "Visto desde el espacio por",
+};
+// French (jopa-testing, 2026-11-17). The decision log in the report stays in English.
+const FR: Words = {
+  title: "Rapport de zone",
+  made: "Version {v} · créée le {date} avec G.I.G.A.S",
+  asOf: "Données au : résultats NISAR publiés {radar} ; rapports en direct {live} ; photos satellite {sat}.",
+  whatsNew: "Nouveautés depuis la version {n}",
+  summaryFrom: "Description de la zone tirée de la liste des zones d'étude du projet.",
+  rulesText: "Chaque description ci-dessous est rédigée par les règles de détection de l'application à partir des mesures radar.",
+  sRefs: "Références",
+  refsIntro: "Chaque explication de ce rapport cite l'une de ces sources. Chaque page a été ouverte et lue le {date}. Les chiffres qui sont des règles propres à l'application citent le code du projet.",
+  dataCredits: "Citations des données",
+  subtitle: "Ce que le radar NISAR a vu depuis l'espace, avec le contexte d'autres satellites, de services d'alerte et de documents publiés.",
+  glance: "En bref",
+  passes: "Dates radar",
+  changes: "Changements détectés",
+  kinds: "Principaux types de changement",
+  maturity: "Maturité des données NISAR",
+  none: "aucun",
+  noRadar: "Il n'y a pas encore de données radar NISAR pour ce lieu. Tout ce rapport vient d'autres sources.",
+  contents: "Sommaire",
+  page: "Page {n} sur {total}",
+  sSources: "D'où viennent les données",
+  sPictures: "Images : avant et après",
+  sChanges: "Changements détectés",
+  sTrends: "Évolution dans le temps",
+  sZone: "Notes de contexte (rédigées par l'équipe pour ce lieu)",
+  sHistory: "Événements passés marquants à proximité (liste choisie à la main)",
+  sFriendly: "Ce que le radar a trouvé ici",
+  fKind: "Type",
+  fLevel: "Niveau",
+  fWhat: "Ce que cela signifie",
+  fSize: "Taille et dates",
+  fLevels: "Surveillé, rien trouvé|Petit ou faible|1-5 % de la zone|Plus de 5 % de la zone",
+  fStatus: "Calme|À surveiller|Alerte",
+  fNote: "Créé automatiquement pour chaque zone à partir de ses résultats radar (contrat C8) ; les phrases sont en anglais.",
+  sLive: "Rapports en direct à proximité",
+  sWhy: "Comment le radar voit ces changements",
+  sMethods: "Méthodes et décisions",
+  sInventory: "Liste des images radar",
+  sGlossary: "Mots utilisés dans ce rapport",
+  sCredits: "Crédits et citations",
+  kindsIntro: "Chaque partie de ce rapport porte l'un des quatre types de source, pour que l'on sache toujours ce qui vient de NISAR.",
+  kNisar: "Radar NISAR",
+  kSatellite: "Autre satellite",
+  kFeed: "Rapport en direct",
+  kRecord: "Document publié",
+  dNisar: "Satellite radar de la NASA et de l'ISRO. Voit à travers les nuages, de jour comme de nuit. Les données principales de ce rapport.",
+  dSatellite: "Images ordinaires d'autres satellites (NASA GIBS). Contexte seulement, jamais utilisées pour détecter des changements.",
+  dFeed: "Alertes de services publics (USGS, NASA EONET, GDACS, NOAA). Pas NISAR.",
+  dRecord: "Rapports d'agences, études scientifiques et articles sur des catastrophes passées, chacun avec son lien.",
+  hKind: "Type", hSource: "Source", hWhat: "Quoi exactement", hDates: "Dates", hNotes: "Notes",
+  gcovWhat: "Rétrodiffusion GCOV (HH et HV)", gunwWhat: "Mouvement du sol GUNW", sme2What: "Humidité du sol SME2", derivedWhat: "Cartes dérivées par notre traitement",
+  gibsWhat: "Photos pour la vue avant/après",
+  liveWhat: "Alertes près de ce lieu, dernières 24 heures",
+  recordWhat: "Notes de zone et événements marquants",
+  checked: "Sources vérifiées le {date}",
+  picPair: "Radar NISAR, {group} : premier passage ({before}) et dernier passage ({after}). Clair = écho fort, sombre = écho faible.",
+  picChange: "Changement détecté entre le {from} et le {to}, sur l'image radar du {base}.",
+  picSurface: "Type de surface d'après la moyenne de toutes les dates radar (du {from} au {to}).",
+  picMotion: "Mouvement du sol du {from} au {to}, sur l'image radar du {base}. Rouge : s'éloigne du satellite. Bleu : s'en rapproche.",
+  picSat: "{name} : avant ({before}) et maintenant ({now}). Jours dégagés les plus proches ; ils peuvent différer des dates radar.",
+  picNone: "Aucune image n'a pu être chargée.",
+  before: "Avant", after: "Après", now: "Maintenant",
+  changesIntro: "Le radar a trouvé {n} changements entre le {from} et le {to}. Chacun est une hypothèse issue du seul radar, avec une confiance de 0 à 100 %.",
+  byKind: "Changements par type",
+  byMonth: "Changements par mois d'observation",
+  top: "Les {n} plus importants (les plus grands et les plus sûrs)",
+  all: "Tous les changements détectés",
+  hDate: "Dates", hType: "Type", hSaw: "Ce que le radar a vu", hArea: "Surface (km²)", hConf: "Confiance",
+  noChanges: "Le radar n'a trouvé aucun changement ici, ou cette zone n'a pas été analysée.",
+  trendsIntro: "Valeurs moyennes sur la zone à chaque date radar (NISAR).",
+  noTrends: "Pas de séries temporelles pour cette zone.",
+  nature: "Plantes et animaux",
+  sources: "Sources",
+  hYear: "Date", hEvent: "Événement", hImpact: "Ce qui s'est passé",
+  noHistory: "Aucun événement marquant enregistré à moins de 150 km.",
+  liveIntro: "Rapports de services publics d'alerte à moins de 300 km, au {date}. Ce ne sont pas des données NISAR.",
+  noLive: "Aucun rapport en direct à moins de 300 km dans les dernières 24 heures.",
+  hWhen: "Signalé (UTC)", hWhere: "Où",
+  fires: "Points chauds d'incendie vus par satellite (NASA FIRMS) : {n}, le plus récent le {date} UTC.",
+  whyIntro: "NISAR ne prend pas de photos. Il envoie des micro-ondes vers le sol et écoute l'écho. Ce qui modifie l'écho, c'est l'eau et la forme, pas la couleur.",
+  methodsIntro: "Pourquoi nous avons choisi ces données et ces méthodes, et ce à quoi nous avons renoncé (tableau en anglais).",
+  hDecision: "Décision", hChose: "Notre choix", hWhy: "Pourquoi", hGiveUp: "Ce que nous perdons",
+  hWord: "Mot", hMeaning: "Ce que cela signifie",
+  inventoryIntro: "Toutes les images NISAR de cette zone, par ordre de date.",
+  hPicture: "Image", hProduct: "Produit", hMaturity: "Maturité", hUnits: "Unités", hRange: "Plage",
+  disclaimer: "Les résultats radar sont des hypothèses issues du seul radar, pas des faits confirmés. Vérifiez auprès des autorités locales avant de prendre des décisions.",
+  legend: "Légende",
+  seenBy: "Vu depuis l'espace par",
 };
 
 // Each definition says only what its sources say (sources.ts).
-const GLOSSARY: { term: string; en: string; es: string; refs: RefId[] }[] = [
-  { term: "NISAR", en: "NASA-ISRO Synthetic Aperture Radar: a satellite launched on July 30, 2025 that observes Earth's land and ice every 12 days.", es: "Radar de Apertura Sintética NASA-ISRO: un satélite lanzado el 30 de julio de 2025 que observa la tierra y el hielo de la Tierra cada 12 días.", refs: ["nisarFacts"] },
-  { term: "L-band", en: "NISAR's main radar: wavelength 24 cm. Longer waves go deeper into tree canopy than shorter ones.", es: "El radar principal de NISAR: longitud de onda de 24 cm. Las ondas largas entran más en el dosel que las cortas.", refs: ["nisarFacts", "sar"] },
-  { term: "Backscatter", en: "The energy of a radar pulse that comes back to the instrument after it interacts with the Earth.", es: "La energía de un pulso de radar que regresa al instrumento después de interactuar con la Tierra.", refs: ["sar"] },
-  { term: "HH / HV", en: "Polarizations: HH is sent and received horizontally; HV is sent horizontally and received vertically. Double bounce (buildings, tree trunks, flooded vegetation) shows most in HH; volume scattering by leaves and branches shows most in HV.", es: "Polarizaciones: HH se envía y recibe en horizontal; HV se envía en horizontal y se recibe en vertical. El doble rebote (edificios, troncos, vegetación inundada) se nota más en HH; la dispersión de volumen de hojas y ramas, en HV.", refs: ["sar"] },
-  { term: "dB (decibel)", en: "A ratio scale: dB = 10 × log10(ratio). Half the echo is 10 × log10(0.5) ≈ -3 dB; double is about +3 dB.", es: "Una escala de razones: dB = 10 × log10(razón). La mitad del eco es 10 × log10(0.5) ≈ -3 dB; el doble, unos +3 dB.", refs: [] },
-  { term: "GCOV", en: "NISAR Level 2 product: radiometrically terrain-corrected backscatter, for uses such as disturbance detection, inundation mapping and crop mapping.", es: "Producto NISAR de nivel 2: retrodispersión con corrección radiométrica del terreno, para usos como detección de disturbios, mapeo de inundaciones y de cultivos.", refs: ["asfProducts"] },
-  { term: "GUNW", en: "NISAR Level 2 product: an unwrapped, multi-looked differential interferogram from two radar images, for measuring ground displacement.", es: "Producto NISAR de nivel 2: un interferograma diferencial desenvuelto y multilook de dos imágenes de radar, para medir desplazamientos del suelo.", refs: ["asfProducts"] },
-  { term: "SME2", en: "NISAR Level 3 soil moisture product.", es: "Producto NISAR de nivel 3 de humedad del suelo.", refs: ["nisarFacts", "asfProducts"] },
-  { term: "Maturity", en: "BETA products are not fully calibrated; PROVISIONAL products are fully calibrated and partially validated; VALIDATED products were first released on November 6, 2026.", es: "Los productos BETA no están totalmente calibrados; los PROVISIONAL están calibrados y parcialmente validados; los VALIDATED se publicaron por primera vez el 6 de noviembre de 2026.", refs: ["asfProducts"] },
-  { term: "Confidence", en: "How strongly the app's detection rules support a change, from 0 to 100%.", es: "Qué tan fuerte es el apoyo de las reglas de detección de la app a un cambio, de 0 a 100%.", refs: ["rules"] },
-  { term: "Hypothesis", en: "How the app labels every radar result: likely, but not confirmed on the ground.", es: "Cómo etiqueta la app cada resultado del radar: probable, pero no confirmado en el terreno.", refs: ["rules"] },
+const GLOSSARY: { term: string; en: string; es: string; fr: string; refs: RefId[] }[] = [
+  { term: "NISAR", en: "NASA-ISRO Synthetic Aperture Radar: a satellite launched on July 30, 2025 that observes Earth's land and ice every 12 days.", es: "Radar de Apertura Sintética NASA-ISRO: un satélite lanzado el 30 de julio de 2025 que observa la tierra y el hielo de la Tierra cada 12 días.", fr: "Radar à synthèse d'ouverture NASA-ISRO : un satellite lancé le 30 juillet 2025 qui observe les terres et les glaces de la Terre tous les 12 jours.", refs: ["nisarFacts"] },
+  { term: "L-band", en: "NISAR's main radar: wavelength 24 cm. Longer waves go deeper into tree canopy than shorter ones.", es: "El radar principal de NISAR: longitud de onda de 24 cm. Las ondas largas entran más en el dosel que las cortas.", fr: "Le radar principal de NISAR : longueur d'onde de 24 cm. Les ondes longues pénètrent plus profondément dans la canopée que les courtes.", refs: ["nisarFacts", "sar"] },
+  { term: "Backscatter", en: "The energy of a radar pulse that comes back to the instrument after it interacts with the Earth.", es: "La energía de un pulso de radar que regresa al instrumento después de interactuar con la Tierra.", fr: "Rétrodiffusion : l'énergie d'une impulsion radar qui revient à l'instrument après avoir interagi avec la Terre.", refs: ["sar"] },
+  { term: "HH / HV", en: "Polarizations: HH is sent and received horizontally; HV is sent horizontally and received vertically. Double bounce (buildings, tree trunks, flooded vegetation) shows most in HH; volume scattering by leaves and branches shows most in HV.", es: "Polarizaciones: HH se envía y recibe en horizontal; HV se envía en horizontal y se recibe en vertical. El doble rebote (edificios, troncos, vegetación inundada) se nota más en HH; la dispersión de volumen de hojas y ramas, en HV.", fr: "Polarisations : HH est émis et reçu à l'horizontale ; HV est émis à l'horizontale et reçu à la verticale. Le double rebond (bâtiments, troncs, végétation inondée) se voit surtout en HH ; la diffusion de volume des feuilles et des branches, surtout en HV.", refs: ["sar"] },
+  { term: "dB (decibel)", en: "A ratio scale: dB = 10 × log10(ratio). Half the echo is 10 × log10(0.5) ≈ -3 dB; double is about +3 dB.", es: "Una escala de razones: dB = 10 × log10(razón). La mitad del eco es 10 × log10(0.5) ≈ -3 dB; el doble, unos +3 dB.", fr: "Une échelle de rapports : dB = 10 × log10(rapport). La moitié de l'écho vaut 10 × log10(0,5) ≈ -3 dB ; le double, environ +3 dB.", refs: [] },
+  { term: "GCOV", en: "NISAR Level 2 product: radiometrically terrain-corrected backscatter, for uses such as disturbance detection, inundation mapping and crop mapping.", es: "Producto NISAR de nivel 2: retrodispersión con corrección radiométrica del terreno, para usos como detección de disturbios, mapeo de inundaciones y de cultivos.", fr: "Produit NISAR de niveau 2 : rétrodiffusion corrigée radiométriquement du relief, pour des usages comme la détection de perturbations, la cartographie des inondations et des cultures.", refs: ["asfProducts"] },
+  { term: "GUNW", en: "NISAR Level 2 product: an unwrapped, multi-looked differential interferogram from two radar images, for measuring ground displacement.", es: "Producto NISAR de nivel 2: un interferograma diferencial desenvuelto y multilook de dos imágenes de radar, para medir desplazamientos del suelo.", fr: "Produit NISAR de niveau 2 : un interférogramme différentiel déroulé et multi-vues issu de deux images radar, pour mesurer les déplacements du sol.", refs: ["asfProducts"] },
+  { term: "SME2", en: "NISAR Level 3 soil moisture product.", es: "Producto NISAR de nivel 3 de humedad del suelo.", fr: "Produit NISAR de niveau 3 d'humidité du sol.", refs: ["nisarFacts", "asfProducts"] },
+  { term: "Maturity", en: "BETA products are not fully calibrated; PROVISIONAL products are fully calibrated and partially validated; VALIDATED products were first released on November 6, 2026.", es: "Los productos BETA no están totalmente calibrados; los PROVISIONAL están calibrados y parcialmente validados; los VALIDATED se publicaron por primera vez el 6 de noviembre de 2026.", fr: "Les produits BETA ne sont pas entièrement étalonnés ; les PROVISIONAL sont étalonnés et partiellement validés ; les VALIDATED ont été publiés pour la première fois le 6 novembre 2026.", refs: ["asfProducts"] },
+  { term: "Confidence", en: "How strongly the app's detection rules support a change, from 0 to 100%.", es: "Qué tan fuerte es el apoyo de las reglas de detección de la app a un cambio, de 0 a 100%.", fr: "À quel point les règles de détection de l'application soutiennent un changement, de 0 à 100 %.", refs: ["rules"] },
+  { term: "Hypothesis", en: "How the app labels every radar result: likely, but not confirmed on the ground.", es: "Cómo etiqueta la app cada resultado del radar: probable, pero no confirmado en el terreno.", fr: "La façon dont l'application qualifie chaque résultat radar : probable, mais non confirmé sur le terrain.", refs: ["rules"] },
 ];
 
 // ---- Look ----
@@ -298,7 +391,7 @@ function flatten(imgs: (HTMLImageElement | undefined)[], width = 900): { url: st
 /** The PDF of one snapshot, as a file. `meta` says which version it is and what is new in it. */
 export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: ReportMeta): Promise<Blob> {
   const a = snap.area;
-  const L: Words = snap.lang === "es" ? ES : EN;
+  const L: Words = snap.lang === "es" ? ES : snap.lang === "fr" ? FR : EN;
   const lang = snap.lang;
   const made = new Date(meta.made);
   const today = made.toISOString().slice(0, 10);
@@ -824,7 +917,10 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     chip("record", fill(L.checked, { date: RECORDS_CHECKED }));
     table(
       [L.hYear, L.hEvent, L.hImpact, L.sources],
-      history.map((e) => [e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang), e.sources.map((s) => s.name).join("; ")]),
+      history.map((e) => [
+        e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang),
+        e.sources.map((s) => s.name).join("; ") + (e.seenBy?.length ? `\n${L.seenBy}: ${e.seenBy.join("; ")}` : ""),
+      ]),
       { widths: [20, 42, 76, 40], size: 8 },
     );
   }
@@ -885,7 +981,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
 
   // ===== 11. Glossary =====
   section(L.sGlossary);
-  table([L.hWord, L.hMeaning, "[ ]"], GLOSSARY.map((g) => [g.term, lang === "es" ? g.es : g.en, cite(g.refs).trim()]), { widths: [32, CW - 50, 18], size: 9, bold: 0 });
+  table([L.hWord, L.hMeaning, "[ ]"], GLOSSARY.map((g) => [g.term, lang === "es" ? g.es : lang === "fr" ? g.fr : g.en, cite(g.refs).trim()]), { widths: [32, CW - 50, 18], size: 9, bold: 0 });
 
   // ===== 12. References and data citations =====
   section(L.sRefs, true);
