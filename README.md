@@ -39,14 +39,14 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-sou
 
 Submission for the challenge [Dancing with the SARs](https://www.spaceappschallenge.org/2026/challenges/dancing-with-the-sars/) (event: November 14-15, 2026).
 
-The Earth's surface is always changing: wetlands flood and dry, forests are cleared or burn, cities sink as groundwater is pumped out, fields change with the seasons. Radar satellites see these changes day and night and through clouds, but radar images are hard to read without training.
+The Earth's surface is always in constant change: wetlands flood and dry, forests are cleared or burn, cities sink as groundwater is pumped out, fields change with the seasons. Radar satellites observe these changes day and night passing through any weather, but radar images are hard to read without training.
 
 G.I.G.A.S makes that data readable:
 
 - A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
-- **Two modes**: *Simple*, written so a 10-year-old can follow it, and *Technical*, with every layer, measurement and provenance record.
+- **Two modes**: *Simple*, making data accesible and understandable to the general public, and *Technical*, with every layer, measurement and provenance record for a more desiganted scientific/engineering field.
 
 The hackathon demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites watched for sinking ground. The design is global.
 
