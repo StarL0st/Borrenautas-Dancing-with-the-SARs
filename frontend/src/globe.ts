@@ -4,9 +4,10 @@ import { Map, Marker, NavigationControl, Popup, setWorkerUrl, type GeoJSONSource
 // MapLibre cannot find its worker file by itself once Vite bundles it, so hand it the URL.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { t } from "./i18n";
+import { getLang, t, type Lang } from "./i18n";
 import { shortLabel, typeLabel } from "./filters";
 import { icon } from "./icons";
+import { liveDetail, livePlace, liveTitle } from "./live-text";
 import { groupDots, liveWhere, type AreaView, type EventFeature, type Layer, type LiveFeature } from "./logic";
 import { originBadge, when } from "./origin";
 import { satelliteLayer } from "./satellite";
@@ -87,7 +88,7 @@ const style: StyleSpecification = {
 };
 
 // City names (src/assets/cities.json, made by scripts/cities.mjs from Natural Earth).
-export type CityRow = [lon: number, lat: number, rank: number, capital: number, en: string, es: string, de: string];
+export type CityRow = [lon: number, lat: number, rank: number, capital: number, en: string, es: string, de: string, fr: string, ja: string];
 // [first rank, last rank, from zoom]: the largest cities show first, the rest as you zoom in.
 const CITY_TIERS = [[0, 2, 2], [3, 4, 4], [5, 6, 5.5], [7, 10, 7]];
 
@@ -133,11 +134,11 @@ export function liveInfo(p: LiveFeature["properties"]): HTMLElement {
   return el(
     "div",
     { className: "event-popup" },
-    el("strong", {}, p.title),
-    el("p", {}, liveWhere(p)),
+    el("strong", {}, liveTitle(p, getLang(), shortLabel)),
+    el("p", {}, livePlace(liveWhere(p), getLang())),
     el("p", {}, originBadge("feed", p.source_name || p.source, t("origin.reported", { date: exact(p.date) }))),
     el("p", { className: "muted" }, typeLabel(p.category)),
-    p.detail ? el("p", {}, p.detail) : "",
+    p.detail ? el("p", {}, liveDetail(p.detail, getLang())) : "",
     el("p", { className: "muted" }, t("live.source", { source: p.credit })),
     link ?? "",
   );
@@ -356,9 +357,9 @@ export function createGlobe(
     },
 
     // City names in the page's language (English where the list has no other).
-    async setCities(rows: CityRow[], lang: "en" | "es" | "de") {
+    async setCities(rows: CityRow[], lang: Lang) {
       await ready;
-      const at = { en: 4, es: 5, de: 6 }[lang];
+      const at = { en: 4, es: 5, de: 6, fr: 7, ja: 8 }[lang];
       map.getSource<GeoJSONSource>("cities")!.setData({
         type: "FeatureCollection",
         features: rows.map((r) => ({

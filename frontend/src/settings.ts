@@ -7,7 +7,7 @@ import { el } from "./ui";
 export type Settings = { lang: Lang; wheel: "large" | "medium" | "small"; texture: Texture; mode: "simple" | "technical" };
 
 const OPTIONS: { [K in keyof Settings]: readonly Settings[K][] } = {
-  lang: ["en", "es", "de"],
+  lang: ["en", "es", "de", "fr", "ja"],
   wheel: ["large", "medium", "small"],
   texture: ["sentinel", "hologram", "street"],
   mode: ["simple", "technical"],

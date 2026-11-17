@@ -30,6 +30,8 @@
   /* Switching mode cross-fades the two side panels only; the globe keeps running underneath. */
   view-transition-name: none;
 }
+/* Japanese (jopa-testing): IBM Plex Sans has no Japanese letters; name the system fonts that do. */
+:root:lang(ja) { --sans: "IBM Plex Sans", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, "Noto Sans JP", system-ui, sans-serif; }
 #nav { view-transition-name: nav; }
 #detail { view-transition-name: detail; }
 ::view-transition-group(*) { animation-duration: 220ms; animation-timing-function: var(--ease-out); }

@@ -10,7 +10,8 @@ import { autoTable } from "jspdf-autotable";
 import type { Series } from "./chart";
 import { DECISIONS } from "./decisions";
 import { TOPICS, topicsFor } from "./explain";
-import { t } from "./i18n";
+import type { Key, Lang } from "./i18n";
+import { livePlace, liveTitle } from "./live-text";
 import { CLASSES } from "./legend";
 import { datesFor, importance, layerAt, liveWhere, SOURCE_SHORT, ticks, type AreaView, type EventFeature, type Friendly, type Layer, type LiveFeature } from "./logic";
 import { tx, zoneHistory, zoneNote, HISTORY, type Source } from "./mexico";
@@ -37,6 +38,7 @@ export type ReportEnv = {
   base: URL; // where the radar pictures are
   typeName: (type: string) => string; // filter type names in the page's language
   satName: (layer: string) => string; // "HLS · Landsat 8/9 · 30 m"
+  text: (key: Key) => string; // interface text in the report's language
 };
 
 /** Everything the report shows, fetched now. Compare snapshots with report-core.ts. */
@@ -630,7 +632,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     if (!img) return;
     maps.push({ img, kind: "nisar", label: `${layer.group ?? ""} · ${(layer.date_range ?? [layer.date]).filter(Boolean).join(" - ")}`, legend, caption: captionText(base?.date ?? end) });
   };
-  const classLegend = (group: string): [RGB, string][] => (CLASSES[group] ?? []).map(([c, key]) => [parseRgb(c), t(key)]);
+  const classLegend = (group: string): [RGB, string][] => (CLASSES[group] ?? []).map(([c, key]) => [parseRgb(c), env.text(key)]);
   const changeLayers = layers.filter((l) => l.group === "Detected change").sort((p, q) => (p.date_range?.[1] ?? "").localeCompare(q.date_range?.[1] ?? ""));
   const lastChange = changeLayers.at(-1);
   await overlay(lastChange, (base) => fill(L.picChange, { from: lastChange?.date_range?.[0] ?? "", to: lastChange?.date_range?.[1] ?? "", base }), classLegend("Detected change"));
@@ -843,7 +845,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     if (others.length) {
       table(
         [L.hWhen, L.hType, L.hEvent, L.hWhere, L.hSource],
-        others.map((p) => [p.date.replace("T", " ").replace("Z", ""), env.typeName(p.category), p.title, liveWhere(p), SOURCE_SHORT[p.source] ?? p.source_name]),
+        others.map((p) => [p.date.replace("T", " ").replace("Z", ""), env.typeName(p.category), liveTitle(p, lang as Lang, env.typeName), livePlace(liveWhere(p), lang as Lang), SOURCE_SHORT[p.source] ?? p.source_name]),
         { widths: [28, 30, 56, 40, 24], size: 8, accent: [120, 80, 0] },
       );
     }

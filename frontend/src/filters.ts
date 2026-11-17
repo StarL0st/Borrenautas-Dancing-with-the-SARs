@@ -1,7 +1,7 @@
 // Filter groups and their subdivisions. The ids are the back end's `categories` (contract 0.3);
 // their names live in i18n.ts as `group.<id>` and `type.<id>`. Colors are from the Okabe-Ito
 // colorblind-safe palette; groups are always named in text too, never by color alone.
-import { t, type Key } from "./i18n";
+import { t, tIn, type Key, type Lang } from "./i18n";
 
 export const GROUPS: { id: string; color: string; items: string[] }[] = [
   {
@@ -26,4 +26,6 @@ export const groupLabel = (id: string) => t(`group.${id}` as Key);
 export const typeLabel = (id: string) => (isType(id) ? t(`type.${id}` as Key) : id);
 export const typeColor = (id: string) => GROUPS.find((g) => g.items.includes(id))?.color ?? "#e6f1f5";
 // "Earthquakes", not "Earthquakes (location and impact assessment)".
-export const shortLabel = (id: string) => typeLabel(id).replace(/\s*[(:].*/, "");
+export const shortLabel = (id: string) => typeLabel(id).replace(/\s*[(:（：].*/, "");
+// The same in a given language (for the PDF report).
+export const shortLabelIn = (l: Lang, id: string) => (isType(id) ? tIn(l, `type.${id}` as Key) : id).replace(/\s*[(:（：].*/, "");

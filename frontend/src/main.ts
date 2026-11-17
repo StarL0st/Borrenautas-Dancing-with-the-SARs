@@ -4,9 +4,9 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./style.css";
 import { chart, type Series } from "./chart";
 import { exampleAreas } from "./example-areas";
-import { GROUPS, groupLabel, isType, shortLabel, typeColor, typeLabel } from "./filters";
+import { GROUPS, groupLabel, isType, shortLabel, shortLabelIn, typeColor, typeLabel } from "./filters";
 import { createGlobe, eventInfo, liveInfo, type CityRow, type MarkerKind, type ViewMode } from "./globe";
-import { setLang, t, type Key } from "./i18n";
+import { setLang, t, tIn, type Key, type Lang } from "./i18n";
 import { icon } from "./icons";
 import { originBadge, originKey, RECORDS_CHECKED, when } from "./origin";
 import type { ReportEnv, ReportInput } from "./report";
@@ -29,6 +29,7 @@ import { findClear, gibsUrl, isoDay, SAT_LAYERS, viewBox, type Found } from "./s
 import { comparator, newCompareState, type CompareState, type Picture } from "./compare";
 import { opticalDecode, radarDecode, subBox } from "./compare-core";
 import { collectLive, LIVE_MINUTES, recent } from "./livefeeds";
+import { livePlace, liveTitle, setCountryNames } from "./live-text";
 import { loadPlaces, savePlaces } from "./places";
 import { loadSettings, renderSettings, saveSettings, type Settings } from "./settings";
 import { startTour } from "./tour";
@@ -184,7 +185,7 @@ function buildFilters() {
 // ---- Left panel: country search ----
 
 // Natural Earth outlines (public domain), with each country's name in the three languages.
-type Country = { id: string; en: string; es: string; de: string; at: [number, number]; polys: number[][][][] };
+type Country = { id: string; en: string; es: string; de: string; fr: string; ja: string; at: [number, number]; polys: number[][][][] };
 let countries: Country[] = [];
 const picked = new Set<string>(); // ids of the countries searched for; empty means everywhere
 const inPicked = (lon: number, lat: number) => !picked.size || countries.some((c) => picked.has(c.id) && inside(lon, lat, c.polys));
@@ -246,6 +247,7 @@ fetch(countriesUrl)
   .then((r) => r.json())
   .then((list: Country[]) => {
     countries = list;
+    setCountryNames(list); // news titles name countries in the reader's language
     buildCountries();
     render();
   })
@@ -878,7 +880,8 @@ function updatePdf(a: AreaView): Promise<Pdf | undefined> {
   if (running) return running;
   const job = (async () => {
     const mod = await import("./report");
-    pdfEnv ??= { base: BASE, typeName: shortLabel, satName: gibsName };
+    const l = pdfLang();
+    pdfEnv = { base: BASE, typeName: (id) => shortLabelIn(l, id), satName: gibsName, text: (key) => tIn(l, key) };
     const snap = await mod.snapshotReport(reportInput(a));
     const key = contentKey(snap);
     const old = pdfs.get(a.id);
@@ -991,7 +994,7 @@ function reportInput(a: AreaView): ReportInput {
     area: a,
     events: reports.filter((e) => e.properties.area_id === a.id).map((e) => e.properties),
     live: liveEvents.map((f) => f.properties).filter((p) => distanceKm([p.lon, p.lat], a.center) <= 300),
-    lang: lang(),
+    lang: pdfLang(),
     asOf: { radar: manifestAt, live: liveUpdated },
     series: () => loadSeries(a),
     friendly: () => loadFriendly(a),
@@ -1266,6 +1269,8 @@ function friendlySection(a: AreaView): Node {
 // ---- Zone notes, history, satellite view (jopa-testing; data in mexico.ts, satview.ts) ----
 
 const lang = () => settings.lang;
+// The PDF's built-in fonts only draw Western European letters: a Japanese page gets an English report.
+const pdfLang = (): Lang => (settings.lang === "ja" ? "en" : settings.lang);
 
 // First and last date of the area's radar pictures.
 function radarSpan(a: AreaView): [string, string] | undefined {
@@ -1557,8 +1562,8 @@ function liveRow(f: LiveFeature, now: number, fmt: Intl.RelativeTimeFormat): HTM
           globe.openLive(p);
         },
       },
-      el("strong", {}, typeIcon(p.category), p.title),
-      el("span", { className: "where" }, liveWhere(p)),
+      el("strong", {}, typeIcon(p.category), liveTitle(p, settings.lang, shortLabel)),
+      el("span", { className: "where" }, livePlace(liveWhere(p), settings.lang)),
       el("span", { className: "muted" }, `${shortLabel(p.category)} · ${fmt.format(...ago(p.date, now))} · ${SOURCE_SHORT[p.source] ?? p.source}`),
       ...(sev >= 2 ? [el("span", { className: `sev s${sev}` }, sevLabel(sev))] : []),
     ),
