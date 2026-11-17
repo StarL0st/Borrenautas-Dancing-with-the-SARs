@@ -1709,7 +1709,39 @@ function homeUi(on: boolean) {
 // Each letter is drawn twice: once over the map and once under it, where the Earth itself hides
 // it (the map is see-through around the globe). A letter shows in one layer or the other.
 const nameEl = document.querySelector<HTMLElement>(".home-name")!;
-nameEl.replaceChildren(...[...nameEl.textContent!].map((ch) => el("span", {}, ch)));
+
+// The letters are solid (jopa-testing, 2026-11-17): each one is its face over a stack of copies set
+// back in depth, inside a 3D box, so the letter shows real sides and thickness when it turns round
+// the Earth (a painted shadow stayed flat when the letter turned edge-on). The sides darken toward
+// the back, in the colors of the old shadow. The title holds the same pose as the first frame of the
+// flight, so the swap from title to flying letters does not show.
+const DEPTH = 20; // copies behind the face: close enough that the sides look solid as the letter turns
+// Side color, from just behind the face (light) to the back (dark): the old shadow's colors, blended
+// smoothly so the sides do not show stripes.
+const SIDE_FRONT = [0xb9, 0xcf, 0xdc], SIDE_BACK = [0x35, 0x55, 0x6b];
+const sideColor = (k: number) => `rgb(${SIDE_FRONT.map((c, i) => Math.round(c + ((SIDE_BACK[i] - c) * (k - 1)) / (DEPTH - 1))).join(" ")})`;
+const POSE = { x: 12, y: -14 }; // degrees: tipped back and turned a little, so the depth shows at rest
+const pose = (turnY = POSE.y, tiltX = POSE.x) => `perspective(600px) rotateY(${turnY}deg) rotateX(${tiltX}deg)`;
+function solidLetter(ch: string, className: string): HTMLElement {
+  const sides = Array.from({ length: DEPTH }, (_, i) => {
+    const k = DEPTH - i; // the deepest first
+    const side = el("span", { className: "side" }, ch);
+    side.style.transform = `translateZ(${(-k * 0.3) / DEPTH}em)`;
+    side.style.color = sideColor(k);
+    side.setAttribute("aria-hidden", "true");
+    return side;
+  });
+  const box = el("span", { className: `solid ${className}` }, ...sides, el("span", { className: "face" }, ch));
+  box.dataset.ch = ch;
+  return box;
+}
+nameEl.replaceChildren(
+  ...[...nameEl.textContent!].map((ch) => {
+    const letter = solidLetter(ch, "");
+    letter.style.transform = pose();
+    return letter;
+  }),
+);
 const layers = [$("fly-front"), $("fly-back")];
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -1745,8 +1777,9 @@ function letterPath(home: Point, g: Point, far: number, size: number, behind: bo
     const ringX = g.x + far * Math.sin(turn), ringY = g.y + 0.12 * far * Math.cos(turn);
     const scale = 1 + (size * (0.75 + 0.25 * Math.cos(turn)) - 1) * join; // smaller on the far side
     return {
-      // Each letter faces outward from the ring, so it turns edge-on as it rounds the side.
-      transform: `translate(${home.x + (ringX - home.x) * join}px, ${home.y + (ringY - home.y) * join}px) translate(-50%, -50%) scale(${scale}) perspective(600px) rotateY(${turn * join}rad)`,
+      // Each letter faces outward from the ring, so it turns edge-on as it rounds the side and its
+      // sides show. It leaves the title in the title's own pose and keeps the backward tilt.
+      transform: `translate(${home.x + (ringX - home.x) * join}px, ${home.y + (ringY - home.y) * join}px) translate(-50%, -50%) scale(${scale}) ${pose((turn * join * 180) / Math.PI + POSE.y * (1 - join))}`,
       opacity: i > 18 === behind ? 1 : 0,
     };
   });
@@ -1755,7 +1788,7 @@ function letterPath(home: Point, g: Point, far: number, size: number, behind: bo
 // A copy of one letter of the name in a layer, with where that letter sits in the title.
 function flyer(span: HTMLElement, layer: HTMLElement) {
   const type = getComputedStyle(nameEl), r = span.getBoundingClientRect();
-  const letter = el("span", { className: "fly" }, span.textContent!);
+  const letter = solidLetter(span.dataset.ch!, "fly");
   Object.assign(letter.style, { fontSize: type.fontSize, fontWeight: type.fontWeight, fontFamily: type.fontFamily });
   layer.append(letter);
   return { letter, home: { x: r.left + r.width / 2, y: r.top + r.height / 2 } };
@@ -1791,8 +1824,8 @@ function riseName() {
       const at = (y: number, rest: string) => `translate(${home.x}px, ${y}px) translate(-50%, -50%) ${rest}`;
       return letter.animate(
         [
-          { transform: at(innerHeight + 60, "scale(0.6) perspective(600px) rotateX(-70deg)"), opacity: 1 },
-          { transform: at(home.y, "scale(1) perspective(600px) rotateX(0deg)"), opacity: 1 },
+          { transform: at(innerHeight + 60, `scale(0.6) ${pose(POSE.y, -70)}`), opacity: 1 },
+          { transform: at(home.y, `scale(1) ${pose()}`), opacity: 1 },
         ],
         { duration: 900, delay: i * 110, fill: "both", easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
       ).finished;
