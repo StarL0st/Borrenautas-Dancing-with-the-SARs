@@ -1,16 +1,18 @@
 # `jopa-testing`: user interface work (local branch)
 
-**Round 10 (2026-11-17): the branch starts again from `main`.** The local `jopa-testing` was reset to GitHub's `main` at `4e42616` (every earlier commit of this branch was already in `main`, so nothing was lost). Uncommitted local drafts from before (a README methodology draft and `METHODOLOGY.md`, both already in `main`'s README) were kept as `git stash` entry "pre-2026-11-17 local README methodology draft". Nothing is pushed; nothing goes to `main`. Round 10 is described below, under "Round 10".
+**Round 10 (2026-11-17): the branch starts again from `main`.** The local `jopa-testing` was reset to GitHub's `main` at `4e42616` (every earlier commit of this branch was already in `main`, so nothing was lost). Uncommitted local drafts from before (a README methodology draft and `METHODOLOGY.md`, both already in `main`'s README) were kept as `git stash` entry "pre-2026-11-17 local README methodology draft". Nothing goes to `main`. Round 10 is described below, under "Round 10"; round 11 kept only its language changes and put everything else back as it was in `main`. After round 11 the branch was pushed to GitHub as `jopa-testing` (2026-11-17).
 
 Personal testing branch, first created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
 **Rounds 4 to 9 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 10)
+## What the branch has now (after round 11)
 
-- **Five languages** (round 10): English, Spanish, German, **French** and **Japanese** in the Accessibility menu. Every interface text, city and country name, the Simple-mode guide, the radar explainer and the remarkable events are in French and Japanese.
-- **News titles in the reader's language** (round 10): "Happening now", the globe popup and the PDF rebuild every live title from translated words (`src/live-text.ts`), with places and the app's own details.
-- **More places, seen by more satellites** (round 10): 13 more sourced events (37 in all). 35 of the 37 study areas now have remarkable events nearby, against 19 before. Each new event names the satellites that saw it.
-- **Solid 3D letters** in the opening animation (round 10): the letters of G.I.G.A.S have real thickness that shows as they circle the Earth.
+Everything is as in `main` (`4e42616`), plus the language changes of round 10:
+
+- **Five languages:** English, Spanish, German, **French** and **Japanese** in the Accessibility menu. Every interface text, city and country name, the Simple-mode guide, the radar explainer, and `main`'s remarkable events and zone notes are in French and Japanese. The PDF report has a French version; a Japanese page gets an English PDF.
+- **News titles in the reader's language:** "Happening now", the globe popup and the PDF rebuild every live title from translated words (`src/live-text.ts`), with places and the app's own details.
+
+Round 10 also added 13 sourced places and events with the satellites that saw them, and solid 3D letters in the opening animation; round 11 removed both (see below).
 
 - **Reading a zone's report works everywhere** (round 9): "Read the report" opens it inside the page; "Download full report (PDF)" is a plain link to the finished file.
 
@@ -71,9 +73,28 @@ Personal testing branch, first created 2026-11-14 from `origin/testing` (6e9cd94
 | `fc2772d` | 10 | French and Japanese; news titles, places and details in the reader's language |
 | `b300d0b` | 10 | 13 more sourced places and events, seen by more satellites; French and Japanese long texts; French PDF |
 | `bf2b68c` | 10 | Opening animation with solid 3D letters |
-| *this commit* | 10 | Docs: round 10 |
+| `7d143d4` | 10 | Docs: round 10 |
+| `9763606` | 10 | Docs: corrected the count of interface texts |
+| `6bc2515` | 11 | Revert: opening animation back to `main`'s version (undoes `bf2b68c`) |
+| `be82a88` | 11 | Revert: new places, events and satellite lines back to `main`'s version; French and Japanese kept |
+| *this commit* | 11 | Docs: round 11 |
+
+## Round 11 (2026-11-17, later the same day)
+
+Request: "stop it, keep the languages' changes and get everything else back to normal. push this new version into my personal branch."
+
+| Request | What changed |
+|---|---|
+| Stop it | The local app (Vite on port 5175, reading the team's Azure data) was stopped. |
+| Keep the language changes | Kept, unchanged from round 10: French and Japanese everywhere, the news titles, places and details in the reader's language (`live-text.ts`), French and Japanese city and country names, the French PDF. |
+| Everything else back to normal | **Opening animation:** `git revert` of `bf2b68c`. `main.ts` and `style.css` hold `main`'s animation again; only the Japanese font rule remains in the stylesheet. **Places and events:** `mexico.ts` is `main`'s file plus the French and Japanese texts of its 24 events and 4 zone notes. Removed: the 13 new events, Manuel's added landfall, their sources, the `seenBy` field, the "Seen from space by" line (timeline, PDF, five languages) and the tests for them. |
+| Push to my personal branch | Pushed to GitHub as the branch `jopa-testing`. Nothing was pushed to `main`. |
+
+**Checked:** `tsc --noEmit`, 40 tests pass (`test/live-text.test.ts` and `test/languages.test.ts` included), `npm run build` passes. `git diff 4e42616` lists only language files: interface texts, assets with names, news titles, kids' guide, explainer, event translations, PDF words, settings, the Japanese font rule, tests and these notes.
 
 ## Round 10 (2026-11-17)
+
+**Round 11 removed the new places and events and the 3D letters described here.** Their rows and the source table are kept as a record of what was checked.
 
 Request: make a personal branch from GitHub's `main`; translate the news titles ("what happened"); cover more places, with more satellites, in the references; add French and Japanese; give the letters of the opening animation depth; check that everything works.
 
@@ -404,10 +425,10 @@ The live feeds were ported from `testing-live-events`, because `testing` only ha
 - **NASA data first:**
   - EONET, FIRMS and GIBS (HLS, VIIRS, MODIS) are NASA.
   - NASA Earth Observatory is cited for context.
-  - Round 10 adds NASA Earth Observatory, Earthdata, JPL, GPM and Terra pages for each new event, and the satellites they name: Aqua, Terra, Landsat 5/7/8, Suomi NPP, QuikSCAT, TRMM, GPM, NOAA's GOES-12, JAXA's ALOS, NASA's UAVSAR.
+  - (Round 10 cited more NASA pages and satellites for 13 new events; round 11 removed those events.)
 - **Other public sources,** each credited by name with a link:
   - US government: USGS, NOAA NHC, NOAA OR&R.
-  - International: GDACS (UN OCHA and EU JRC), Smithsonian GVP, the International Charter Space and Major Disasters (round 10).
+  - International: GDACS (UN OCHA and EU JRC), Smithsonian GVP.
   - Mexican government: SSN (UNAM), CENAPRED, CONAGUA, SEMARNAT, CONABIO, CONANP.
   - Other: IUCN Red List, Global Forest Watch (Landsat), and a peer-reviewed paper.
 - **No logos, no claim of endorsement.** Live events say they are not radar detections, as before.
