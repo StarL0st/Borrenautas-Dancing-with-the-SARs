@@ -10,7 +10,7 @@ Challenge: [Dancing with the SARs](https://www.spaceappschallenge.org/2026/chall
 
 Live site: **[gigas.earth](https://gigas.earth)**
 
-G.I.G.A.S (Global Interactive Geographical Analytics System) is an open-source web app that shows how the Earth's surface changes, as seen by the NISAR radar satellite, on an interactive 3D globe. A back end turns NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe shows them next to live disaster events from official public sources, in plain words for the public and with full technical detail for scientists.
+G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that shows how the Earth’s surface changes utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end turns NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe shows them next to live disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
 
 ## Map of Contents
 
