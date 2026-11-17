@@ -34,7 +34,7 @@ A globe that zooms into a map (one MapLibre map, `globe` projection).
 - **Go to coordinates:** latitude and longitude inputs fly to that point and drop a pin.
 - **Views:** "Globe view", "Close-up view" (low, tilted camera with the horizon in view), and "Auto-rotate" (turns the Earth slowly; stops when you open an area).
 - **View wheel** (`src/wheel.ts`): Zoom, Orbit, Home, Center, Look, Up/Down. Hold a button and drag, or focus it and use the arrow keys.
-- **Accessibility menu** (`src/settings.ts`): language (English, Spanish, German), wheel size (large, medium, small; medium is the default) and globe texture. Choices are saved in the browser.
+- **Accessibility menu** (`src/settings.ts`): language (English, Spanish, German, French, Japanese), wheel size (large, medium, small; medium is the default) and globe texture. Choices are saved in the browser.
 - **Mode switch** (header, between Tutorial and Accessibility): **Simple** (default) or **Technical**. Technical shows everything the back end sends. Simple uses short filter names (same text size as Technical), no coordinate form, and in each open area: one radar picture chosen by the app (detected change, else surface type, else the first layer) with a date slider and color key, one sentence about the radar passes, and the detected changes without confidence figures. No chart and no provenance in Simple mode.
 - **Satellite** (`src/satellite.ts`, mesh in `src/assets/satellite.bin`): a model circling the globe, drawn as a MapLibre custom layer. It is an illustration: the orbit has NISAR's 98.4° tilt, but position, height and size are not real, and the tutorial says so. It fades out when zooming in and stands still when the system asks for reduced motion.
 - **Look**: the team palette (Ink Black `#031927` surfaces, White `#fefdff` text, Powder Blue `#8eb1c7` secondary text, Tangerine Dream `#ef946c` for what is on or primary, Ebony `#6b654b` as the fill behind notices); roles are documented at the top of `src/style.css`. IBM Plex Sans and IBM Plex Mono (bundled, no font server). The page title is **G.I.G.A.S**.
@@ -46,7 +46,7 @@ A globe that zooms into a map (one MapLibre map, `globe` projection).
 
 ### Languages
 
-All interface text is in `src/i18n.ts`; a test checks every language has every key. Text from the radar data (area names, layer descriptions, event summaries) is shown as the back end sends it, in English.
+All interface text is in `src/i18n.ts`; a test checks every language has every key. Text from the radar data (area names, layer descriptions, event summaries) is shown as the back end sends it, in English. French and Japanese were added on `jopa-testing` (2026-11-17), together with `src/live-text.ts`, which rebuilds the live news titles from the feeds (USGS, NASA EONET, GDACS, NOAA) in the reader's language. A Japanese page gets an English PDF report: the PDF's built-in fonts cannot draw Japanese. Details in `JOPA_TESTING.md`, round 10.
 
 ### Globe textures
 
@@ -150,7 +150,7 @@ Live events ("Happening now") taken from the back-end lane's `testing-live-event
 
 ### Seventh batch
 
-- **Country search** (left panel): pick one or more countries; they are outlined on the globe, and the area list, detected changes and live events keep only what lies inside them. Outlines and names (EN/ES/DE) are Natural Earth 1:110m (public domain), stored in `src/assets/countries.json`. Limits: a point just off the coast (many earthquakes) counts as outside, and the smallest countries are not in that file (177 countries).
+- **Country search** (left panel): pick one or more countries; they are outlined on the globe, and the area list, detected changes and live events keep only what lies inside them. Outlines and names (EN/ES/DE/FR/JA) are Natural Earth 1:110m (public domain), stored in `src/assets/countries.json`. Limits: a point just off the coast (many earthquakes) counts as outside, and the smallest countries are not in that file (177 countries).
 - **Welcome screen** redrawn: small "Welcome to", large "G.I.G.A.S", the Earth higher on the screen.
 - **"On" color** is light blue (Powder Blue, `--on`); the main action (Start, Go) stays tangerine.
 - **From the `jopa-testing` branch** (its front-end code, not merged as a whole):

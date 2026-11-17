@@ -1,9 +1,16 @@
 # `jopa-testing`: user interface work (local branch)
 
-Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
+**Round 10 (2026-11-17): the branch starts again from `main`.** The local `jopa-testing` was reset to GitHub's `main` at `4e42616` (every earlier commit of this branch was already in `main`, so nothing was lost). Uncommitted local drafts from before (a README methodology draft and `METHODOLOGY.md`, both already in `main`'s README) were kept as `git stash` entry "pre-2026-11-17 local README methodology draft". Nothing is pushed; nothing goes to `main`. Round 10 is described below, under "Round 10".
+
+Personal testing branch, first created 2026-11-14 from `origin/testing` (6e9cd94) with the latest `origin/frontend` (e7a8f48) merged in.
 **Rounds 4 to 9 are local only (not pushed).** On GitHub the team deleted the branch `jopa-testing` on 2026-11-14 and kept its round 3 state as the tag `archive/jopa-testing` (see `docs/10-status-log.md` on `main`); some of its features were ported to `frontend`. Checked after every round: `tsc --noEmit` and the frontend unit tests (30 after round 6) pass; it was run locally and looked at in the app's browser.
 
-## What the branch has now (after round 9)
+## What the branch has now (after round 10)
+
+- **Five languages** (round 10): English, Spanish, German, **French** and **Japanese** in the Accessibility menu. Every interface text, city and country name, the Simple-mode guide, the radar explainer and the remarkable events are in French and Japanese.
+- **News titles in the reader's language** (round 10): "Happening now", the globe popup and the PDF rebuild every live title from translated words (`src/live-text.ts`), with places and the app's own details.
+- **More places, seen by more satellites** (round 10): 13 more sourced events (37 in all). 35 of the 37 study areas now have remarkable events nearby, against 19 before. Each new event names the satellites that saw it.
+- **Solid 3D letters** in the opening animation (round 10): the letters of G.I.G.A.S have real thickness that shows as they circle the Earth.
 
 - **Reading a zone's report works everywhere** (round 9): "Read the report" opens it inside the page; "Download full report (PDF)" is a plain link to the finished file.
 
@@ -59,7 +66,59 @@ Personal testing branch, created 2026-11-14 from `origin/testing` (6e9cd94) with
 | `0ea75a8` | 8 | Decision log and "Why these data and methods?" removed from the page; DECISIONS.md in the repository |
 | `80b47e7` | 8 | Docs: round 8 |
 | `e8d9080` | 9 | Report reader inside the page; report buttons become links to a file made in advance |
-| *this commit* | 9 | Docs: round 9 |
+| `1d955b6` | 9 | Docs: round 9 (rounds 1 to 9 reached `main` with `f948463`) |
+| `4e42616` | 10 | **Branch reset to GitHub `main`** (2026-11-17) |
+| `fc2772d` | 10 | French and Japanese; news titles, places and details in the reader's language |
+| `b300d0b` | 10 | 13 more sourced places and events, seen by more satellites; French and Japanese long texts; French PDF |
+| `bf2b68c` | 10 | Opening animation with solid 3D letters |
+| *this commit* | 10 | Docs: round 10 |
+
+## Round 10 (2026-11-17)
+
+Request: make a personal branch from GitHub's `main`; translate the news titles ("what happened"); cover more places, with more satellites, in the references; add French and Japanese; give the letters of the opening animation depth; check that everything works.
+
+| Request | What changed |
+|---|---|
+| Branch from `main` | `jopa-testing` reset to `origin/main` (`4e42616`). See the note at the top. |
+| News titles were not translated | **Cause:** the live sources (USGS, NASA EONET, GDACS, NOAA, and the back end's copy of them) write in English, and the app showed `title` as it came. **Fix:** `src/live-text.ts` recognizes the shapes the feeds use and rebuilds the title from translated words. Examples: "Magnitude 4.6 earthquake", "Flood in Spain 1104287", "Wildfire Red Hill, Perry, Mississippi", "Tropical Cyclone AKVAN-26", "Kanlaon Volcano, Philippines", "Forest fires in Benin, Burkina Faso", "Winter Storm Watch", "Kilauea volcano: alert level WATCH". Names of storms, fires and towns stay as the source wrote them; country names come from Natural Earth. It also translates "where" ("12 km NNE of Ridgecrest, CA", country lists) and the details the app writes itself ("Magnitude 5.1, depth 10 km", "Orange alert", "since …"). A title in no known shape keeps its words after the event type in the reader's language. Used by Happening now, the globe popup and the PDF. **Checked against real feeds:** of 1,219 titles from the feeds of 2026-11-17, every title the app shows was matched in all four languages. The only titles left unmatched were NOAA alert kinds the app filters out (small-craft and gale warnings). Free text written by a source (a NOAA headline, a USGS volcano notice, GDACS severity text) stays in English. |
+| French and Japanese | `src/i18n.ts`: 388 interface texts each (a test checks every key and placeholder). `cities.json` and `countries.json`: French and Japanese names from Natural Earth (`NAME_FR`, `NAME_JA`), added to the existing rows. All 7,295 cities matched by position and English name, so the list itself did not change. `scripts/cities.mjs` now writes the two new columns. The Simple-mode guide (`kid.ts`), the radar explainer (`explain.ts`), every remarkable event and zone note (`mexico.ts`): French and Japanese. Japanese uses the system's Japanese fonts (IBM Plex Sans has no Japanese letters). **PDF report:** French has its own words and glossary. **A Japanese page gets an English PDF**, because the PDF's built-in fonts cannot draw Japanese; the setting's help text says so. Still English in French or Japanese: the decision log (PDF only; the French PDF says so), the back end's sentences (area names and summaries, C8 cards), as for Spanish and German. |
+| More places, more satellites | 13 new remarkable events in `HISTORY` (`src/mexico.ts`), and Manuel's 2013 landfall west of Culiacán added to the Ingrid and Manuel event. Each fact was checked against a page read on 2026-11-17; see the table below. A new field `seenBy` names the satellites and instruments, shown as "Seen from space by" in the timeline and in the PDF's history table. **Study areas with remarkable events nearby: 35 of 37** (19 before). Still none: Durango and Ciudad Victoria. A 2019 Durango fire is in the list but about 200 km from the city, outside the 150 km a zone looks. No readable source placed an event near Ciudad Victoria: NOAA's hurricane reports refuse automated readers, and that block was not worked around. |
+| Depth on the letters round the Earth | Before, the depth was a painted text shadow, which stays flat when a letter turns edge-on. Now each letter is a face over 20 copies set back 0.3 em in depth inside one 3D box (`solidLetter` in `main.ts`, `.solid` in `style.css`), with sides fading from light to dark in the old shadow's colors. As the letters circle the globe their sides and thickness show. The title holds the flight's first pose (tipped back 12°, turned 14°), so the hand-over to the flying letters does not show; coming home, the letters rise into the same pose. Reduced-motion users still get no flight. |
+
+### New events and their sources (all read on 2026-11-17)
+
+| Event | Places (study areas it reaches) | Satellites | Sources |
+|---|---|---|---|
+| Hurricane Isidore, 2002 | Mérida, Hopelchén region | Aqua MODIS, TRMM | International Charter activation "Hurricane in Yucatan, Mexico"; NASA Earth Observatory 10202 and 2816 |
+| ALOS finds 17 sinking cities, 2007–2011 | Aguascalientes, Celaya, Querétaro, Morelia, Irapuato, León, San Luis Potosí, Guadalajara, Tepic, Toluca, Mexico City (and Zacatecas, Guanajuato within 150 km) | ALOS PALSAR (JAXA, L-band like NISAR) | Chaussard, Wdowinski, Cabral-Cano and Amelung (2014), *Remote Sensing of Environment* 140 |
+| Hurricane Dean, 2007 | Costa Maya, 65 km from Chetumal | GOES-12, Aqua MODIS, QuikSCAT | International Charter activation of 21 Aug 2007; NASA Earth Observatory 7974, 7977, 18891 |
+| Fires from Santa Clarita to Tijuana, 2007 | Tijuana | Aqua MODIS | NASA Earth Observatory 19219 |
+| El Mayor–Cucapah earthquake, 2010 | Mexicali | ALOS PALSAR, UAVSAR (airborne) | NASA Earthdata "Baja's Fault"; NASA JPL news of 23 June 2010 |
+| Worst drought in northern Mexico in 71 years, 2011 | Sierra Tarahumara | Terra MODIS | NASA Earth Observatory 76983 and 148270 |
+| Hurricane Odile, 2014 | Cabo San Lucas (La Paz within 150 km) | Terra MODIS, TRMM | NASA Terra news; NASA GPM pages (two) |
+| Fire in the Durango mountains, 2019 | West of Ciénega de Escobar | Aqua MODIS | NASA Earth Observatory 144845 |
+| Tropical Storm Cristobal, 2020 | Campeche, Mérida, Chetumal | GPM (IMERG) | NASA Earth Observatory 146817 |
+| Dust storm from the Chihuahuan Desert, 2021 | Ciudad Juárez | Suomi NPP VIIRS | NASA Earth Observatory 148057 |
+| Drought over 85% of Mexico, 2021 | Villa Victoria reservoir, Sinaloa | Landsat 8 OLI, Terra and Aqua MODIS | NASA Earth Observatory 148270 |
+| Lake Chapala shrinks, 1986–2001 | Lake Chapala (Guadalajara) | Landsat 5 TM, Landsat 7 ETM+ | NASA Earth Observatory 3786 |
+| Tenth dust storm of 2025 in El Paso and Juárez | Ciudad Juárez | Aqua MODIS | NASA Earth Observatory 154230 |
+| Manuel's second landfall, 2013 (added to the existing event) | West of Culiacán | TRMM | NASA GPM "Deadly Manuel Becomes a Hurricane" |
+
+The full links are in `src/mexico.ts`; each event shows its sources in the app and in the PDF. Positions: the event's own place where the source names it. Where a source names only states (Cristobal: Yucatán, Campeche, Quintana Roo), the state capital stands for the state. Isidore is placed at Mérida, because the Charter counts the people affected "in Yucatan alone". Ciénega de Escobar's position is from OpenStreetMap (Nominatim).
+
+**Not used, because the page could not be read:** NOAA National Hurricane Center reports (they refuse automated readers; the block was not worked around), the USGS event page for El Mayor–Cucapah (it loads its content with JavaScript), and a few Earth Observatory pages that now redirect to an index. Facts that only those pages hold (exact landfall times, NHC death tolls) are not in the app.
+
+### Checked
+
+- `npm test`: 42 tests pass. New: `test/live-text.test.ts` (real titles from the feeds of 2026-11-17 in every language; places; details; US states not taken for countries) and `test/languages-places.test.ts` (every long text in four languages; every source a web page; ten satellite families named; every study area but Durango and Ciudad Victoria has events nearby).
+- `npm run build` (type check and production build) passes. Its only warning, about chunk size, was there before.
+- Run locally in the app's browser, first without a back end, then against the team's Azure data (37 areas, 3,191 detected changes):
+  - French: the whole page, and the live list with 266 events, every title translated ("Séisme de magnitude 2,8", "Veille d'inondation", "Inondation : Indonésie").
+  - Japanese: the header, the Simple-mode guide, and the live list ("マグニチュード2.8の地震", "鉄砲水警報").
+  - The Chapala card in French shows the two new events with "Vu depuis l'espace par : Landsat 5 … Landsat 7".
+  - The PDF: a French report (11 pages) and a Spanish one were made in the page. The French one's text starts "RAPPORT DE ZONE", and its history table lists the satellites.
+  - The opening animation: the title in its solid pose; frames paused at 0.45 s and 1.25 s show the solid letters leaving the title and crossing the globe; a letter turned 40° and 70° shows a smooth, solid side; the return to the title ends in the same pose; no script errors.
+- Not checked: a real phone, Safari, the Japanese page's look with the browser pane showing (the pane was hidden, so screenshots of it may be stale), and a Japanese PDF (it is English by design).
 
 ## Round 9 (2026-11-15)
 
@@ -345,9 +404,10 @@ The live feeds were ported from `testing-live-events`, because `testing` only ha
 - **NASA data first:**
   - EONET, FIRMS and GIBS (HLS, VIIRS, MODIS) are NASA.
   - NASA Earth Observatory is cited for context.
+  - Round 10 adds NASA Earth Observatory, Earthdata, JPL, GPM and Terra pages for each new event, and the satellites they name: Aqua, Terra, Landsat 5/7/8, Suomi NPP, QuikSCAT, TRMM, GPM, NOAA's GOES-12, JAXA's ALOS, NASA's UAVSAR.
 - **Other public sources,** each credited by name with a link:
   - US government: USGS, NOAA NHC, NOAA OR&R.
-  - International: GDACS (UN OCHA and EU JRC), Smithsonian GVP.
+  - International: GDACS (UN OCHA and EU JRC), Smithsonian GVP, the International Charter Space and Major Disasters (round 10).
   - Mexican government: SSN (UNAM), CENAPRED, CONAGUA, SEMARNAT, CONABIO, CONANP.
   - Other: IUCN Red List, Global Forest Watch (Landsat), and a peer-reviewed paper.
 - **No logos, no claim of endorsement.** Live events say they are not radar detections, as before.
