@@ -48,7 +48,7 @@ G.I.G.A.S makes that data readable:
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
 - **Two modes**: *Simple*, written so a 10-year-old can follow it, and *Technical*, with every layer, measurement and provenance record.
 
-The hackathon demo covers Mexico: three case-study sites, a country-wide soil-moisture mosaic and 33 city sites watched for sinking ground. The design is global.
+The hackathon demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites watched for sinking ground. The design is global.
 
 ## Background
 
