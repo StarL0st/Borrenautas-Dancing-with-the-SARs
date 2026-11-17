@@ -142,7 +142,6 @@ const EN = {
   hPicture: "Picture", hProduct: "Product", hMaturity: "Maturity", hUnits: "Units", hRange: "Range",
   disclaimer: "Radar results are hypotheses from radar alone, not confirmed facts. Check with local authorities before making decisions.",
   legend: "Legend",
-  seenBy: "Seen from space by",
 };
 const ES: Words = {
   title: "Informe de zona",
@@ -231,7 +230,6 @@ const ES: Words = {
   hPicture: "Imagen", hProduct: "Producto", hMaturity: "Madurez", hUnits: "Unidades", hRange: "Rango",
   disclaimer: "Los resultados del radar son hipótesis solo con radar, no hechos confirmados. Consulta a las autoridades locales antes de tomar decisiones.",
   legend: "Leyenda",
-  seenBy: "Visto desde el espacio por",
 };
 // French (jopa-testing, 2026-11-17). The decision log in the report stays in English.
 const FR: Words = {
@@ -321,7 +319,6 @@ const FR: Words = {
   hPicture: "Image", hProduct: "Produit", hMaturity: "Maturité", hUnits: "Unités", hRange: "Plage",
   disclaimer: "Les résultats radar sont des hypothèses issues du seul radar, pas des faits confirmés. Vérifiez auprès des autorités locales avant de prendre des décisions.",
   legend: "Légende",
-  seenBy: "Vu depuis l'espace par",
 };
 
 // Each definition says only what its sources say (sources.ts).
@@ -917,10 +914,7 @@ export async function renderReport(snap: ReportSnapshot, env: ReportEnv, meta: R
     chip("record", fill(L.checked, { date: RECORDS_CHECKED }));
     table(
       [L.hYear, L.hEvent, L.hImpact, L.sources],
-      history.map((e) => [
-        e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang),
-        e.sources.map((s) => s.name).join("; ") + (e.seenBy?.length ? `\n${L.seenBy}: ${e.seenBy.join("; ")}` : ""),
-      ]),
+      history.map((e) => [e.date, `${tx(e.title, lang)}\n${env.typeName(e.type)}`, tx(e.impact, lang), e.sources.map((s) => s.name).join("; ")]),
       { widths: [20, 42, 76, 40], size: 8 },
     );
   }
