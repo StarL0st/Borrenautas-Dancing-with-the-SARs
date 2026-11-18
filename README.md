@@ -157,7 +157,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 <p align="center">Filters by type, in three groups.</p>
 
 - **My places.** Places you open are kept in your browser (only their coordinates) and listed for next time. New visitors see a few suggested places.
-- **Go to coordinates** (Technical mode): fly to a latitude and longitude. **Process this place** asks the back end to analyze it. If the place is already a known area, that area opens instead.
+- **"Go to coordinates"** (Technical mode): fly to a latitude and longitude. **"Process this place"** asks the back end to analyze it. If the place is already a known area, that area opens instead.
 
 <p align="center">
   <img src="images/coordinates.png" alt="The Go to coordinates box, highlighted: latitude and longitude fields, a Go button and a Process this place button, with the globe turned to Asia and Africa" width="800">
