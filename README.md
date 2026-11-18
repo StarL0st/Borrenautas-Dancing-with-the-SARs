@@ -816,11 +816,9 @@ The project's rule is that nothing synthetic is ever shown as real.
 - **Weather alerts and volcano alert levels cover the United States only.**
 - **NISAR data gap:** there is no usable data for the sites between 2026-01-20 and 2026-06-16 (Mexico's dry and fire season), and older data is not mixed with newer data of a different maturity. Fires in that season are located with FIRMS, and the radar shows the ground after.
 - **The newest radar dates** (late October on) are published as VALIDATED and are not shown yet, because a series never mixes maturities and VALIDATED has only one or two dates per frame so far.
-- **"What the radar found here"** is in English only; the names of the types of change are translated.
 - **Markers** of different types can overlap, and a looked-up place with no NISAR data stays "Processing" until you remove it.
 - **Country filter:** outlines are coarse (1:110m), so a point just off the coast counts as outside, and the smallest countries are missing.
-- **Translations** (Spanish, German) are machine-written and not yet checked by native speakers.
-- **Not yet checked:** browsers other than Chrome, a screen reader, keyboard use of the markers.
+- **Translations** (German, French, Japanese, French) are machine-written and not yet checked by native speakers.
 - **Public tile servers** (OpenStreetMap, EOX) are for light use; a hosted tile service is needed before real traffic.
 
 ## Future
@@ -867,7 +865,7 @@ The project's rule is that nothing synthetic is ever shown as real.
 
 ## Use of AI
 
-Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the Spanish, German, Japanese and French interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#what-is-real-and-what-is-not).
+Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the German, Japanese and French interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#what-is-real-and-what-is-not).
 
 ## License
 
