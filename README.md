@@ -57,9 +57,9 @@ The hackathon demo covers Mexico: three main case-study sites (with additional p
 </p>
 <p align="center">NISAR in Orbit (Artist's Concept), PIA26613. Credit: NASA/JPL-Caltech.</p>
 
-NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. A radar sends its own microwave pulses and measures what comes back, so it works at night and through clouds. What comes back depends mostly on how rough the surface is and how much water it holds. That makes radar good at seeing floods (open water turns dark), forest loss (the signal from tree canopies drops), new buildings (bright corners), and ground that rises or sinks by centimetres between two passes.
+NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures what comes back, so it thorugh the night and past clouds. What comes back depends mostly on how rough the surface is and how much water it holds. This makes the radar good at seeing floods (open water turns dark), forest loss (the signal from tree canopies drops), new buildings (bright corners), and ground that rises or sinks by centimetres between two passes.
 
-The challenge asks for an interactive application that uses NISAR data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad audience.
+The challenge calls for an interactive application that uses NISAR data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad audience.
 
 ## Who it is for
 
