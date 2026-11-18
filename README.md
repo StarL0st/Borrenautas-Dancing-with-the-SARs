@@ -63,7 +63,7 @@ The challenge calls for an interactive application that uses NISAR data to track
 
 ## Who it is for
 
-| User | What they get |
+| User | What is available |
 |---|---|
 | General Public | Simple mode: making the data understandable to its public (students, inquisitives, needs based), one picture per place chosen by the software, a "why the radar sees changes" explainer, a guided tutorial, five languages |
 | Resource managers and decision-makers | Where and when change happened, visual graphs, how big, how confident the detection is, what is happening live nearby, and a PDF report per area to share |
@@ -77,13 +77,13 @@ The challenge calls for an interactive application that uses NISAR data to track
 
 ## The web page
 
-The page opens on a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. On the first visit the app asks whether you want the tutorial and which mode to start in. The house button brings you back.
+The page opens up with a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. On the first visit the app asks whether you want the tutorial and which mode to start in. The house button brings you back.
 
-The screen has three parts:
+The screen has three sections:
 
-- **Left panel**: country search, filters by type of change, live events ("Happening now"), my places, coordinates (Technical mode) and the list of radar areas.
-- **The globe**: one map that is a globe when zoomed out and a flat map when zoomed in.
-- **Right panel**: the areas you opened, stacked as tabs. In Simple mode it becomes "Your guide".
+- **Left panel**:Where the features country search, filters by type of change, live events ("Happening now"), my places, coordinates (Technical mode) and the list of radar areas can be found.
+- **The globe**: a singular map that consists of a globe when zoomed out and converts into flat map when zoomed in.
+- **Right panel**: the areas opened by the user, stacked as tabs. In Simple mode it becomes "Your guide".
 
 On a mobile device the globe sits on top and the panels below it, under two tabs (**Explore** and **Open areas**). The panel grows as you scroll and the globe shrinks to a strip.
 
