@@ -279,7 +279,7 @@ button tab.
 - **Honesty notices**: a banner whenever example places or synthetic test data are on screen.
 
 <p align="center">
-  <img src="images/accessibility-menu-v2.png" alt="The accessibility menu: language (English, Español, Deutsch), wheel size (Large, Medium, Small) and globe texture (High Quality, Hologram, Street map), with a note that text from the radar data stays in English" width="800">
+  <img src="images/accessibility-menu-v2.png" alt="The accessibility menu: language (English, Español, Deutsch, Français, 日本語), wheel size (Large, Medium, Small) and globe texture (High Quality, Hologram, Street map), with a note that text from the radar data stays in English" width="800">
 </p>
 <p align="center">The accessibility menu: language, wheel size and globe look.</p>
 
