@@ -77,12 +77,12 @@ The challenge calls for an interactive application that uses NISAR data to track
 
 ## The web page
 
-The page opens up with a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. On the first visit the app asks whether you want the tutorial and which mode to start in. The house button brings you back.
+The page opens up with a welcome screen: the name over the Earth's horizon, slowly turning. Pressing **Start** sends the letters round the Earth and behind it while the camera pulls back to the whole globe and the panels slide in. The house button brings you back to the starting page with another animation. On the first visit the app asks whether you want the tutorial and which mode to start in. 
 
 The screen has three sections:
 
 - **Left panel**:Where the features country search, filters by type of change, live events ("Happening now"), my places, coordinates (Technical mode) and the list of radar areas can be found.
-- **The globe**: a singular map that consists of a globe when zoomed out and converts into flat map when zoomed in.
+- **The globe**: a singular map that consists of a globe when zoomed out and converts into flat map when zoomed in where dots representing the information can be found.
 - **Right panel**: the areas opened by the user, stacked as tabs. In Simple mode it becomes "Your guide".
 
 On a mobile device the globe sits on top and the panels below it, under two tabs (**Explore** and **Open areas**). The panel grows as you scroll and the globe shrinks to a strip.
