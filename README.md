@@ -253,7 +253,7 @@ button tab.
 <p align="center">
   <img src="images/live-events.png" alt="The Happening now list, highlighted: worldwide, last 24 hours, labelled as a live report from USGS, NASA EONET, GDACS and NOAA, not NISAR, with earthquakes and surf advisories listed; the globe shows the event markers" width="800">
 </p>
-<p align="center">"Happening now": live events worldwide from the last 24 hours, labelled as not NISAR.</p>
+<p align="center">"Happening now": live events worldwide from the last 24 hours.</p>
 
 <p align="center">
   <img src="images/live-event-details.png" alt="The details of a magnitude 3.3 earthquake in Alaska, highlighted: live report badge, the U.S. Geological Survey as source, the time reported, the depth and a 'More from the source' link" width="800">
@@ -272,9 +272,9 @@ button tab.
 </p>
 <p align="center">The mode switch in the header.</p>
 
-- **Three languages**: English, Spanish and German.
+- **Five languages**: English, Spanish, German, Japanese, and French.
 - **Guided tutorial** on the first visit and from the Tutorial button.
-- **Works on phones**, in portrait and landscape.
+- **Works on mobile devices**, in portrait and landscape.
 - **Accessibility**: full keyboard use, screen-reader labels, color never used alone (types are always named and have icons), a colorblind-safe palette for the filter groups and charts, and reduced motion respected throughout (animations become fades or stop).
 - **Honesty notices**: a banner whenever example places or synthetic test data are on screen.
 
