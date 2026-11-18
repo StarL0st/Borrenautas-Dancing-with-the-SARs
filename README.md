@@ -861,13 +861,13 @@ The project's rule is that nothing synthetic is ever shown as real.
 ## Languages, frameworks and other technologies
 
 - **Front end:** TypeScript, Vite, MapLibre GL JS (globe projection), WebGL, jsPDF (makes the reports), pdf.js (shows them), plain DOM and CSS (no UI framework), Node's built-in test runner.
-- **Back end:** Python, uv, `asf_search`, `h5py` + `fsspec`, pytest, ruff.
+- **Back end:** Python, uv, asf_search, h5py + fsspec, pytest, ruff.
 - **Hosting:** Cloudflare Workers (the site, gigas.earth); Microsoft Azure virtual machine and Blob Storage (the API and the data), Docker Compose, Caddy.
 - **Data services:** NASA Earthdata / ASF DAAC, NASA GIBS, NASA EONET, NASA FIRMS, USGS, NOAA, GDACS.
 
 ## Use of AI
 
-Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the Spanish and German interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#what-is-real-and-what-is-not).
+Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the Spanish, German, Japanese and French interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#what-is-real-and-what-is-not).
 
 ## License
 
