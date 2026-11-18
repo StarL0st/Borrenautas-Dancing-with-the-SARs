@@ -134,10 +134,11 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
   <img src="images/look-street-zoom.png" alt="The Street map look in the close-up view, zoomed in on Hermosillo, Sonora, with roads and place names" width="800">
 </p>
 <p align="center">Street map, zoomed in on Hermosillo, Sonora.</p>
-- **City names** in English, Spanish and German, largest cities first (Natural Earth populated places).
-- **Grouped markers.** Events of the same type close together on screen share one square marker with its type icon and a count. Filled markers are radar detections; hollow markers are live events. Clicking a marker lists its events at the top of the right panel, and double-clicking zooms to the group. Markers stay clickable while the globe turns.
+
+- **City names** in English, Spanish, German, French, and Japanese, largest cities first (Natural Earth populated places).
+- **Grouped markers** Events of the same type close together on screen share one square marker with its type icon and a count. Filled markers are radar detections; hollow markers are live events. Clicking a marker lists its events at the top of the right panel, and double-clicking zooms to the group. Markers stay clickable while the globe turns.
 - **An orbiting satellite** as a decoration. Its orbit has NISAR's tilt, but its position, height and size are not real, and the tutorial says so.
-- **Side panels** can be pushed off screen and pulled back with the arrows on the globe's edges.
+- **Side panels** can be pushed off screen and pulled back with the arrows on the globe's edges depending on preferences and readability.
 
 ### Scope reduction
 
