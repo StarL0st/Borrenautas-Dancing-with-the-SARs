@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { STRINGS, type Lang } from "../src/i18n.ts";
+import { gdacsUpdated } from "../src/livefeeds.ts";
 import { countryName, liveDetail, livePlace, liveTitle, setCountryNames } from "../src/live-text.ts";
 
 const countries = JSON.parse(readFileSync(new URL("../src/assets/countries.json", import.meta.url), "utf8"));
@@ -67,4 +68,11 @@ test("news details: the app's own words are translated, the source's free text i
   assert.equal(liveDetail("Orange alert · Tropical Storm (maximum wind speed of 93 km/h) · since 2026-11-10", "fr"), "Alerte orange · Tropical Storm (maximum wind speed of 93 km/h) · depuis le 2026-11-10");
   assert.equal(liveDetail("Reported by GDACS", "ja"), "報告元：GDACS");
   assert.equal(liveDetail("Magnitude 5.1", "en"), "Magnitude 5.1");
+});
+
+test("GDACS: an ongoing event is dated by its real last update, never in the future (Indonesia flood, 2026-11-18)", () => {
+  const now = Date.parse("2026-11-18T18:00:00Z");
+  assert.equal(gdacsUpdated({ fromdate: "2026-10-24T01:00:00", todate: "2026-11-20T01:00:00", datemodified: "2026-11-18T12:18:03" }, now), "2026-11-18T12:18Z");
+  assert.equal(gdacsUpdated({ fromdate: "2026-10-24T01:00:00", todate: "2026-11-20T01:00:00" }, now), "2026-10-24T01:00Z");
+  assert.equal(gdacsUpdated({ fromdate: "2026-11-01T00:00:00", todate: "2026-11-10T06:00:00" }, now), "2026-11-10T06:00Z");
 });

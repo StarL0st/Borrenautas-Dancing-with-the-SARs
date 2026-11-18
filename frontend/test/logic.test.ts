@@ -194,7 +194,7 @@ test("live feeds: each source becomes events with a type, a place, a source and 
   assert.deepEqual([q.properties.id, q.properties.category, q.properties.date, q.properties.severity, q.properties.lon], ["usgs-us1", "earthquakes", "2026-11-14T10:30Z", 2, 126.2]);
   assert.match(q.properties.detail, /depth 35 km · Tsunami/);
   const g = parseGdacs(gdacs);
-  assert.deepEqual(g.map((f) => [f.properties.id, f.properties.category, f.properties.date, f.properties.severity, f.properties.place]), [["gdacs-TC7", "hurricanes", "2026-11-14", 3, "Mexico"]]);
+  assert.deepEqual(g.map((f) => [f.properties.id, f.properties.category, f.properties.date, f.properties.severity, f.properties.place]), [["gdacs-TC7", "hurricanes", "2026-11-14T06:00Z", 3, "Mexico"]]);
   const e = parseEonet(eonet, ["GDACS"]); // the flood reached EONET through GDACS: taken from GDACS only
   assert.deepEqual(e.map((f) => [f.properties.category, f.properties.lon, f.properties.date]), [["hurricanes", 131, "2026-11-14"]]);
   assert.equal(eonetCategory("tempExtremes", "Cold wave in Peru"), "cold");

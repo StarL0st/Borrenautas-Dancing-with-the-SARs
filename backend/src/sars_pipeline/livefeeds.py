@@ -284,6 +284,15 @@ def parse_usgs(data: dict) -> list[dict]:
     return out
 
 
+def gdacs_updated(p: dict, now: datetime | None = None) -> str:
+    """When GDACS last changed an event: datemodified or todate, the latest that is not in the
+    future (GDACS sets the todate of an ongoing event days ahead), else the start."""
+    now = now or datetime.now(UTC)
+    stamps = [f"{str(s)[:16]}Z" for s in (p.get("datemodified"), p.get("todate")) if s]
+    past = sorted(s for s in stamps if datetime.fromisoformat(s.replace("Z", "+00:00")) <= now)
+    return past[-1] if past else (f"{str(p['fromdate'])[:16]}Z" if p.get("fromdate") else "")
+
+
 def parse_gdacs(data: dict, skip_types: set[str] = frozenset({"EQ"})) -> list[dict]:
     out = []
     for f in data.get("features", []):
@@ -304,7 +313,7 @@ def parse_gdacs(data: dict, skip_types: set[str] = frozenset({"EQ"})) -> list[di
                 f"{p['eventtype']}{p['eventid']}",
                 GDACS_CATEGORIES.get(p["eventtype"], "other"),
                 p.get("name") or p.get("description", ""),
-                last or start,  # latest update: a live map shows what is current
+                gdacs_updated(p),  # latest real update, never in the future
                 *pt,
                 detail=detail,
                 url=(p.get("url") or {}).get("report", ""),

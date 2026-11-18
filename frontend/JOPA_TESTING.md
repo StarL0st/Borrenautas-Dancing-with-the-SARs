@@ -77,7 +77,22 @@ Round 10 also added 13 sourced places and events with the satellites that saw th
 | `9763606` | 10 | Docs: corrected the count of interface texts |
 | `6bc2515` | 11 | Revert: opening animation back to `main`'s version (undoes `bf2b68c`) |
 | `be82a88` | 11 | Revert: new places, events and satellite lines back to `main`'s version; French and Japanese kept |
-| *this commit* | 11 | Docs: round 11 |
+| `3b260f3` | 11 | Docs: round 11 |
+| `7a236d1` | 11 | Merged `main` (4c0b4c6); this commit was then pushed to `main` |
+| *this commit* | 12 | GDACS events dated by their real last update, never in the future (front end and back end), tests, docs |
+
+## Round 12 (2026-11-18): "Flood in Indonesia" always first in Happening now
+
+**What was wrong (a bug, not a new event).** GDACS lists one long flood in Indonesia (event 1104253, episode 6, green alert) that started on **2026-10-24** and is still going on. For an ongoing event GDACS sets `todate` **in the future**: on 2026-11-18 its `todate` was **2026-11-20**, while its real last change (`datemodified`) was 2026-11-18 12:18 UTC. The app dated GDACS events by `todate` ("latest update"), so:
+- the date was in the future. "How long ago" stops at zero, so it read "this minute" for days;
+- the list is sorted newest first, so a future date always came first;
+- GDACS keeps moving `todate` ahead while the flood lasts, so this went on day after day. The event stays listed because GDACS marks it as current (`iscurrent`), which is right.
+
+**Fix.** An event is now dated by GDACS's real last change: `datemodified` or `todate`, whichever is latest **but not in the future**; without either, its start (`gdacsUpdated` in `frontend/src/livefeeds.ts`, `gdacs_updated` in `backend/src/sars_pipeline/livefeeds.py`; the back end had the same bug in its copy of the feeds). Dates now carry the time (UTC), so "how long ago" is exact. The details still say since when the event goes on.
+
+**Checked.** Tests: frontend 41 pass, back end 53 pass, each with the real record of 2026-11-18 as a new case. In the app (page asking the sources itself, 258 live events), the flood now reads "Floods · 10 hours ago · GDACS" at position 191 instead of "this minute" at the top.
+
+**Still to do outside this branch:** the deployed back end writes `live.geojson` with the old rule until it runs this code, and the page prefers that file when it is fresh. So the hosted site keeps the old behavior until the back end is redeployed.
 
 ## Round 11 (2026-11-17, later the same day)
 

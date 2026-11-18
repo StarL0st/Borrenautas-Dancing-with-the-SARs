@@ -122,7 +122,7 @@ def test_usgs():
 def test_gdacs_leaves_earthquakes_to_usgs():
     (f,) = lf.parse_gdacs(GDACS)
     p = f["properties"]
-    assert (p["category"], p["date"]) == ("hurricanes", "2026-11-13")
+    assert (p["category"], p["date"]) == ("hurricanes", "2026-11-13T00:00Z")
     assert p["detail"] == "Orange alert · Category 2"
 
 
@@ -144,7 +144,7 @@ def test_gdacs_uses_latest_update_and_drops_empty_severity():
         ]
     }
     (f,) = lf.parse_gdacs(data)
-    assert f["properties"]["date"] == "2026-11-12"
+    assert f["properties"]["date"] == "2026-11-12T00:00Z"
     assert f["properties"]["detail"] == "Green alert · since 2026-08-17"
 
 
@@ -337,3 +337,12 @@ def test_recent_keeps_a_day_and_what_is_still_going_on():
     going = lf.feature("gdacs", 4, "floods", "t", "2026-10-01", 0, 0, active=True)
     ids = [f["properties"]["id"] for f in lf.recent([old, new, day, going], now)]
     assert ids == ["usgs-2", "gdacs-3", "gdacs-4"]
+
+
+def test_gdacs_never_dates_an_event_in_the_future():
+    # The real record of 2026-11-18: an ongoing flood whose todate GDACS had set two days ahead.
+    p = {"fromdate": "2026-10-24T01:00:00", "todate": "2026-11-20T01:00:00", "datemodified": "2026-11-18T12:18:03"}
+    now = lf.datetime(2026, 11, 18, 18, 0, tzinfo=lf.UTC)
+    assert lf.gdacs_updated(p, now) == "2026-11-18T12:18Z"
+    assert lf.gdacs_updated({"fromdate": "2026-10-24T01:00:00", "todate": "2026-11-20T01:00:00"}, now) == "2026-10-24T01:00Z"
+    assert lf.gdacs_updated({"fromdate": "2026-11-01T00:00:00", "todate": "2026-11-10T06:00:00"}, now) == "2026-11-10T06:00Z"

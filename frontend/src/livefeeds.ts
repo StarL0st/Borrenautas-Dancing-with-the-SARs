@@ -167,8 +167,18 @@ function countries(p: Json, most = 3): string {
   return names.slice(0, most).join(", ") + (more > 0 ? ` and ${more} more` : "");
 }
 
+// When GDACS last changed an event: its `datemodified` or `todate`, whichever is latest but not in
+// the future. GDACS sets `todate` of an ongoing event days ahead (the Indonesia flood of 2026-11-18
+// had todate 2026-11-20), which the list showed as "this minute" and kept first for days
+// (jopa-testing, 2026-11-18). Without either, the start.
+export function gdacsUpdated(p: Json, now: number = Date.now()): string {
+  const utc = (s: unknown) => (s ? `${String(s).slice(0, 16)}Z` : "");
+  const past = [utc(p.datemodified), utc(p.todate)].filter((d) => d && Date.parse(d) <= now).sort();
+  return past.at(-1) ?? utc(p.fromdate);
+}
+
 // Earthquakes are skipped: they come from USGS.
-export function parseGdacs(data: Json, skipTypes: string[] = ["EQ"]): LiveFeature[] {
+export function parseGdacs(data: Json, skipTypes: string[] = ["EQ"], now: number = Date.now()): LiveFeature[] {
   const out: LiveFeature[] = [];
   for (const f of data.features ?? []) {
     const p = f.properties, pt = pointOf(f.geometry);
@@ -177,8 +187,8 @@ export function parseGdacs(data: Json, skipTypes: string[] = ["EQ"]): LiveFeatur
     const start = String(p.fromdate ?? "").slice(0, 10), last = String(p.todate ?? "").slice(0, 10);
     const detail = [p.alertlevel && `${p.alertlevel} alert`, sev.severity ? sev.severitytext : "", last && `since ${start}`].filter(Boolean).join(" · ");
     out.push(
-      // The date is the latest update: a live map shows what is current.
-      feature("gdacs", `${p.eventtype}${p.eventid}`, GDACS_CATEGORIES[p.eventtype] ?? "other", p.name || p.description || "", last || start, ...pt, {
+      // The date is the latest real update (never a future date): a live map shows what is current.
+      feature("gdacs", `${p.eventtype}${p.eventid}`, GDACS_CATEGORIES[p.eventtype] ?? "other", p.name || p.description || "", gdacsUpdated(p, now), ...pt, {
         detail, url: p.url?.report ?? "", place: countries(p), severity: ({ Red: 3, Orange: 2 } as Record<string, number>)[p.alertlevel] ?? 1,
         // Floods, droughts, cyclones and eruptions last for days: GDACS says which still go on.
         // Fires are too many for that and follow the 24-hour rule.
