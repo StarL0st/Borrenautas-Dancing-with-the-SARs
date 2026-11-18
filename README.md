@@ -90,7 +90,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 <p align="center">
   <img src="images/app-overview.png" alt="The app in Simple mode: live events and my places on the left, Mexico on the globe with grouped event markers, and the guide for Mexico on the right" width="800">
 </p>
-<p align="center">The program as a general view.</p>
+<p align="center">The G.I.G.A.S. program as a general view.</p>
 
 ## Features
 
