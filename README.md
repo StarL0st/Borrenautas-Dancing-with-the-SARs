@@ -92,6 +92,11 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 </p>
 <p align="center">The G.I.G.A.S. program as a general view.</p>
 
+<p align="center">
+  <img src="images/app-overview-mobile.jpeg" alt="The app on a phone in Simple mode: the header buttons and mode switch on top, the globe turned to Asia and the Pacific with grouped event markers, and the Explore panel with the country search and filters below" width="360">
+</p>
+<p align="center">The G.I.G.A.S. program as a general view on mobile.</p>
+
 ## Features
 
 ### The globe
