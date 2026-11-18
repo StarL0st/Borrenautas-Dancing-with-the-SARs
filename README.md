@@ -120,7 +120,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 </p>
 <p align="center">The view wheel.</p>
 
-- **Three looks** for the Earth: High Quality (cloud-free Sentinel-2 mosaic, sharp down to city blocks), Hologram (dark outline map) and Street map.
+- **Three looks** for the Earth: High Quality (cloud-free Sentinel-2 mosaic, sharp down to city blocks, based on the Copernicus Data), Hologram (dark outline map) and Street map.
 
 <table>
   <tr>
