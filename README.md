@@ -10,7 +10,7 @@ Challenge: [Dancing with the SARs](https://www.spaceappschallenge.org/2026/chall
 
 Live site: **[gigas.earth](https://gigas.earth)**
 
-G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that shows how the Earth’s surface changes utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end turns NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe shows them next to live disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
+G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that demonstrates how the Earth’s surface changes, with the passage of time, utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end translated NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe depcits them next to real-time disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
 
 ## Map of Contents
 
@@ -35,7 +35,7 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-sou
 19. [License](#license)
 20. [Team members and their contributions](#team-members-and-their-contributions)
 
-## About the project
+## About G.I.G.A.S.
 
 Submission for the challenge [Dancing with the SARs](https://www.spaceappschallenge.org/2026/challenges/dancing-with-the-sars/) (event: November 14-15, 2026).
 
@@ -46,9 +46,9 @@ G.I.G.A.S makes that data readable:
 - A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
-- **Two modes**: *Simple*, making data accesible and understandable to the general public, and *Technical*, with every layer, measurement and provenance record for a more desiganted scientific/engineering field.
+- **Two modes**: *Simple*: allows for every type of public to read it, making data accesible and understandable to the general public; *Technical: contains with every layer, measurement and provenance record for a more desiganted scientific/engineering field.
 
-The hackathon demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites watched for sinking ground. The design is global.
+The hackathon demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites monitored for sinking ground. The design is global.
 
 ## Background
 
@@ -57,9 +57,9 @@ The hackathon demo covers Mexico: three main case-study sites (with additional p
 </p>
 <p align="center">NISAR in Orbit (Artist's Concept), PIA26613. Credit: NASA/JPL-Caltech.</p>
 
-NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures what comes back, so it thorugh the night and past clouds. What comes back depends mostly on how rough the surface is and how much water it holds. This makes the radar good at seeing floods (open water turns dark), forest loss (the signal from tree canopies drops), new buildings (bright corners), and ground that rises or sinks by centimetres between two passes.
+NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to precisely detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale shifts in surface elevation between two passes.
 
-The challenge calls for an interactive application that uses NISAR data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad audience.
+The challenge calls for an interactive application that uses NISAR's data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad audience.
 
 ## Who it is for
 
