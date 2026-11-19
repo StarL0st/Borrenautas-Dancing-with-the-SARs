@@ -72,7 +72,7 @@ The challenge calls for an interactive application that uses NISAR's data to tra
 ## Videos
 
 - Live site: [gigas.earth](https://gigas.earth)
-- Demo video: [Youtube Link](https://youtu.be/Qfw1v12CXTo)
+- Demo video: [Youtube Link](https://youtu.be/GcO9EWhOn7o)
 - Video Pitch: [Drive Link](https://drive.google.com/drive/folders/1syZIggpHnRGlp1bwS313TBuuic6mN78-?usp=share_link)
 
 ## The web page
