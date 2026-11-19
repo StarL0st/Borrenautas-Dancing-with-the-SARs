@@ -46,7 +46,7 @@ G.I.G.A.S makes that data readable:
 - A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
-- **Two modes**: *Simple*: allows for every type of general public, making data accessible and understandable to them; *Technical*: contains every layer, measurement and provenance record for a more designated scientific/engineering field.
+- **Two modes**: *Simple*: written for the general public, making the data accessible and easy to understand; *Technical*: every layer, measurement and provenance record, for scientific and engineering users.
 
 The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites monitored for sinking ground. The design is global.
 
@@ -57,7 +57,7 @@ The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional 
 </p>
 <p align="center">NISAR in Orbit (Artist's Concept), PIA26613. Credit: NASA/JPL-Caltech.</p>
 
-NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale ground motion between two passes”.
+NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale ground motion between two passes.
 
 The challenge calls for an interactive application that uses NISAR's data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad or specific audience depending on the needs.
 
@@ -342,7 +342,7 @@ Steps, per site:
 </p>
 <p align="center">The country-wide area in Technical mode: soil moisture at about 2 km, drought and fire detections.</p>
 
-The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a 0.2° (about 22km) grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
+The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a 0.2° (about 22 km) grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
 
 **Public API** (at `api.gigas.earth`): `GET /api/areas` (every processed area), `GET /api/events` (detected changes, filterable by area, type, dates and minimum confidence), `GET /api/live` (live events), plus history by point and dates. Details: `backend/README.md`.
 
