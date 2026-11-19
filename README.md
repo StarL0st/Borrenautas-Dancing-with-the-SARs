@@ -142,7 +142,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 
 ### Scope reduction
 
-- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events keep only what lies inside them.
+- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events mantains only what lies inside them.
 
 <p align="center">
   <img src="images/country-search-v2.png" alt="The country search box, highlighted at the top of the left panel, above the filters" width="800">
