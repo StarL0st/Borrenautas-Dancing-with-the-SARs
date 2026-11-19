@@ -246,7 +246,7 @@ Simple mode has its own side panel, written for beginners: a welcome guide, then
   </tr>
 </table>
 
-A **"Why the radar sees changes"** section explains with pictures, in every area card, and can expand to a full page with the "How radar sees"
+A **"Why the radar sees changes"** section outlines with pictures, in every area card, and can expand to a full page with the "How radar sees"
 button tab.
 <p align="center">
   <img src="images/how-radar-sees-button.png" alt="The How radar sees button, highlighted in the header between Tutorial and the mode switch" width="800">
@@ -255,7 +255,7 @@ button tab.
 
 ### Live events ("Happening now")
 
-- Hollow markers on the globe and a list that says **what, where, how long ago, and who reported it**. Serious and extreme events carry a danger label. Clicking a row flies there and opens the details with a link to the source.
+- Hollow markers on the globe and a list that states **what, where, how long ago, and who reported it**. Serious and extreme events include a danger label. Clicking a row flies there and opens the details with a link to the source.
 
 <p align="center">
   <img src="images/live-events.png" alt="The Happening now list, highlighted: worldwide, last 24 hours, labelled as a live report from USGS, NASA EONET, GDACS and NOAA, not NISAR, with earthquakes and surf advisories listed; the globe shows the event markers" width="800">
@@ -280,7 +280,7 @@ button tab.
 <p align="center">The mode switch in the header.</p>
 
 - **Five languages**: English, Spanish, German, Japanese, and French.
-- **Guided tutorial** on the first visit and from the Tutorial button.
+- **Guided tutorial** on the first visit and given from the Tutorial button.
 - **Works on mobile devices**, in portrait and landscape.
 - **Accessibility**: full keyboard use, screen-reader labels, color never used alone (types are always named and have icons), a colorblind-safe palette for the filter groups and charts, and reduced motion respected throughout (animations become fades or stop).
 - **Honesty notices**: a banner whenever example places or synthetic test data are on screen.
