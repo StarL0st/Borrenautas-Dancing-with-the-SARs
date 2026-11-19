@@ -10,7 +10,7 @@ Challenge: [Dancing with the SARs](https://www.spaceappschallenge.org/2026/chall
 
 Live site: **[gigas.earth](https://gigas.earth)**
 
-G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that demonstrates how the Earth’s surface changes, with the passage of time, utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end translated NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe depcits them next to real-time disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
+G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that demonstrates how the Earth’s surface changes, with the passage of time, utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end translated NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe depicts them next to real-time disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
 
 ## Map of Contents
 
@@ -39,14 +39,14 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-sou
 
 Submission for the challenge [Dancing with the SARs](https://www.spaceappschallenge.org/2026/challenges/dancing-with-the-sars/) (event: November 14-15, 2026).
 
-The Earth's surface is always in constant change: wetlands flood and dry, forests are cleared or burn, cities sink as groundwater is pumped out, fields change with the seasons. Radar satellites observe these changes day and night passing through any weather, but radar images are hard to read without training.
+The Earth's surface is in constant change: wetlands flood and dry, forests are cleared or burn, cities sink as groundwater is pumped out, fields change with the seasons. Radar satellites observe these changes day and night passing through any weather, but radar images are hard to read without training.
 
 G.I.G.A.S makes that data readable:
 
 - A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
-- **Two modes**: *Simple*: allows for every type of public to read it, making data accesible and understandable to the general public; *Technical: contains with every layer, measurement and provenance record for a more desiganted scientific/engineering field.
+- **Two modes**: *Simple*: allows for every type of general public, making data accessible and understandable to the general public; *Technical*: contains with every layer, measurement and provenance record for a more designated scientific/engineering field.
 
 The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites monitored for sinking ground. The design is global.
 
@@ -65,7 +65,7 @@ The challenge calls for an interactive application that uses NISAR's data to tra
 
 | User | What is available |
 |---|---|
-| General Public | Simple mode: making the data understandable to its public (students, inquisitives, needs based), one picture per place chosen by the software, a "why the radar sees changes" explainer, a guided tutorial, five language option depending on the user's preference |
+| General Public | Simple mode: making the data understandable to its public (students, inquisitives, needs based), one picture per place chosen by the software, a "why the radar sees changes" explainer, a guided tutorial, five language options depending on the user's preference |
 | Resource managers and decision-makers | Where and when change happened, visual graphs, the size demonstrated, how confident the detection is, what is happening live nearby, and a PDF report per area to share |
 | Scientists | Technical mode: every layer and polarization, value ranges, time series, full provenance (granules, product, maturity, parameters), and a public API |
 
@@ -81,7 +81,7 @@ The page opens up with a welcome screen: the name over the Earth's horizon, slow
 
 The screen has three sections:
 
-- **Left panel**:Where the features country search, filters by type of change, live events ("Happening now"), my places, coordinates (Technical mode) and the list of radar areas can be found.
+- **Left panel**: Where the features country search, filters by type of change, live events ("Happening now"), my places, coordinates (Technical mode) and the list of radar areas can be found.
 - **The globe**: a singular map that consists of a globe when zoomed out and converts into flat map when zoomed in where dots representing the information can be found.
 - **Right panel**: the areas opened by the user, stacked as tabs. In Simple mode it becomes "Your guide".
 
@@ -142,7 +142,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 
 ### Scope reduction
 
-- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events mantains only what lies inside them.
+- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events mantain only what lies inside them.
 
 <p align="center">
   <img src="images/country-search-v2.png" alt="The country search box, highlighted at the top of the left panel, above the filters" width="800">
@@ -171,18 +171,18 @@ Areas use lazy loading. An AOI’s data is only fetched when the user opens it o
 - **Raster layers**: Geocoded SAR images placed on the globe, with a time slider for choosing the acquisition date and a layer opacity control.
   In Technical mode the user picks the layer: radar backscatter per polarization channel from the L2 GCOV product, change-detection maps, ground displacement from interferometry (GUNW), or soil moisture.
   In Simple mode the layer is picked automatically, based on which one shows the most change in that area.
-- **Legend and description** Every layer has a color scale with units and value range, plus a short plain-language note on what the layer measures.
+- **Legend and description**: Every layer has a color scale with units and value range, plus a short plain-language note on what the layer measures.
 - **Automated change summary (“What the radar found here”)**: a short written summary of the changes detected in every AOI, including areas that visitors look up themselves.
 - **Data lineage (“Where this comes from”)**: Product type and level, polarization, data maturity level, source granule IDs, the processing steps and their parameters, software versions, and credit lines.
-- **Source labels Markings** Every dataset has a tag showing where it came from (◆ NISAR SAR, ● other satellite, ▲ near-real-time report, ■ published record), along with the product ID and the date it was acquired.
+- **Source labels Markings**: Every dataset has a tag showing where it came from (◆ NISAR SAR, ● other satellite, ▲ near-real-time report, ■ published record), along with the product ID and the date it was acquired.
 - **Time-series plots**: One line chart per measured quantity, with a value readout under the cursor and a table view of the same data.
-- **Acquisition timeline and top changes** A timeline of every satellite pass over the AOI and the five largest detected changes. In Technical mode each change shows a confidence score. The rest are listed in the report.
-- **Before/after comparator**:A slider line that you drag across two images from different dates.
+- **Acquisition timeline and top changes**: A timeline of every satellite pass over the AOI and the five largest detected changes. In Technical mode each change shows a confidence score. The rest are listed in the report.
+- **Before/after comparator**: A slider line that you drag across two images from different dates.
   - Works with NISAR SAR images and with optical satellite images from NASA GIBS (Landsat and Sentinel-2 at 30 m, or daily VIIRS).
   - The two images can be 1 month to 10 years apart. Ctrl/⌘ + scroll zooms in and out.
   - In Technical mode a threshold slider highlights only pixels whose change is above a chosen percentage. The same threshold is also shown in decibels (dB = 10·log₁₀(1 + p), so a 100 % increase is about +3 dB).
 - **PDF report per area**: "Make report" creates the PDF, which can be read in the page or downloaded. It has:
-  - cover page with the key numbers.
+  - A cover page with the key numbers.
   - Numbered sections with images, charts and tables, each labelled with its source and acquisition date.
   - A numbered list of references, mostly NASA.
 #### A radar area, step by step (Villahermosa, Tabasco, in Technical mode)
@@ -335,14 +335,14 @@ Steps, per site:
 | Villahermosa, Tabasco | Floods |
 | Lake Chapala, Jalisco | Wildfires, forest loss |
 | Mexico (whole country) | Soil moisture mosaic, fires |
-| 33 cities: Mexico City, Guadalajara, Monterrey, Puerto Vallarta, El Paso and Ciudad Juárez, Tijuana, and 27 state capitals | Sinking ground |
+| 33 cities: Mexico City, Guadalajara, Monterrey, Puerto Vallarta, El Paso and Ciudad Juárez, Tijuana, and 27 other state capitals | Sinking ground |
 
 <p align="center">
   <img src="images/mexico-technical.png" alt="The whole of Mexico open in Technical mode: the country with its event markers, and the area card describing the soil moisture mosaic at about 2 km, with drought found in 1-5% of the area and fires watched" width="800">
 </p>
 <p align="center">The country-wide area in Technical mode: soil moisture at about 2 km, drought and fire detections.</p>
 
-The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a 22 km grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
+The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a "0.2° (about 22km) grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
 
 **Public API** (at `api.gigas.earth`): `GET /api/areas` (every processed area), `GET /api/events` (detected changes, filterable by area, type, dates and minimum confidence), `GET /api/live` (live events), plus history by point and dates. Details: `backend/README.md`.
 
@@ -387,7 +387,7 @@ The live disaster feeds (USGS, GDACS, NASA EONET, NOAA) are separate. They are n
 | Kind | Box | Dates | Products |
 |---|---|---|---|
 | Curated site (`backend/sites.json`) | Set by hand; the tool that adds sites refuses boxes over 1 square degree | Every acquisition since 2026-05-01 | GCOV, GUNW, SME2 (per site) |
-| Visitor lookup | 22 × 22 km, centered on a 0.2° grid cell (so nearby lookups share one cell). A point within 10 km of a curated site gets that site | The newest 4 GCOV dates, 4 GUNW pairs, 6 SME2 dates | GCOV, GUNW, SME2 |
+| Visitor lookup | 22 × 22 km, centered on a 0.2° (about 22 km) grid cell (so nearby lookups share one cell). A point within 10 km of a curated site gets that site | The newest 4 GCOV dates, 4 GUNW pairs, 6 SME2 dates | GCOV, GUNW, SME2 |
 | National mosaic (`"kind": "mosaic"`) | Mexico | The two latest 12-day cycles | SME2 only |
 
 ### 3. Granule search and selection
@@ -418,7 +418,7 @@ Code: `selection.py`.
 
 Code: `remote.py`, `site.py`.
 
-- **No granule is downloaded.** A full GCOV granule is about 6–7 GB.
+- **No granule is downloaded.** A full GCOV granule is about 2–7 GB.
   - Each file is opened over HTTPS with `fsspec` (Earthdata bearer token, 4 MiB blocks, block cache) and read with `h5py`.
   - Only the HDF5 chunks under the area's window are fetched. A 20 × 20 km GCOV window takes about 16 s ([docs/03](docs/03-data-sources.md)).
 - **Window.** The WGS84 box is projected to the granule's grid. The window is the rows and columns whose pixel *centers* fall inside it (`granule.window_slices`).
@@ -819,14 +819,14 @@ The project's rule is that nothing synthetic is ever shown as real.
 
 ## Known limits
 
-- **Two live sources need the back end:** two live sources can’t be called from the browser. The NOAA National Hurricane Center blocks requests from web pages (no CORS support), and NASA FIRMS needs an API key. Tropical cyclones are still covered through GDACS.
+- **Two live sources need the back end:** The NOAA National Hurricane Center blocks requests from web pages (no CORS support), and NASA FIRMS needs an API key. Tropical cyclones are still covered through GDACS.
 - **Geographical coverage**: weather alerts and volcano alert levels cover the United States only.
-- **NISAR data gap:**there is no usable data for the study sites between 2026-01-20 and 2026-06-16, which is Mexico’s dry and fire season. Time series never mix data-maturity levels, so older data can’t fill the gap. Fires in that period are located with FIRMS, and the radar shows the ground afterwards.
+- **NISAR data gap:** there is no usable data for the study sites between 2026-01-20 and 2026-06-16, which is Mexico’s dry and fire season. Time series never mix data-maturity levels, so older data can’t fill the gap. Fires in that period are located with FIRMS, and the radar shows the ground afterwards.
 - **Newest acquisitions held back**: data from late October onward is published at VALIDATED maturity and isn’t shown yet. A time series never mixes maturity levels, and VALIDATED has only one or two dates per frame so far.
 - **Marker overlap and processing state**: markers of different types can overlap. A looked-up place with no NISAR data stays “Processing” until the user removes it.
 - **Country filter:** the boundaries are low resolution (Natural Earth 1:110m). A point just off the coast counts as outside the country, and the smallest countries are missing.
 - **Translations** (German, French, Japanese) are machine-written and not yet checked by native speakers.
-- **Tile server capacity** (OpenStreetMap, EOX) are for light use; a hosted tile service is needed before real traffic.
+- **Tile server capacity**: (OpenStreetMap, EOX) for light use; a hosted tile service is needed before real traffic.
 
 ## Future
 
@@ -852,7 +852,7 @@ The project's rule is that nothing synthetic is ever shown as real.
 | `frontend/src/decisions.ts` | Methods and decisions (also written to `DECISIONS.md`) |
 | `frontend/src/satellite.ts` | The orbiting satellite (WebGL custom layer) |
 | `frontend/src/filters.ts`, `icons.ts`, `legend.ts` | Types of change, their groups, colors, icons and color keys |
-| `frontend/src/i18n.ts` | Every interface text in English, Spanish and German |
+| `frontend/src/i18n.ts` | Every interface text in English, Spanish, German, French and Japanese |
 | `frontend/src/chart.ts`, `wheel.ts`, `tour.ts`, `settings.ts` | Chart, view wheel, tutorial, accessibility menu |
 | `frontend/src/assets/` | Country outlines, city names, satellite model |
 | `frontend/src/logic.ts`, `frontend/test/` | Pure logic and its unit tests |
@@ -882,7 +882,7 @@ G.I.G.A.S is open source under the [GNU Affero General Public License v3.0](LICE
 
 | Name | Role |
 |---|---|
-| Diego de Silva Hernandez | Front-end development |
+| Diego de Silva Hernández | Front-end development |
 | Adrián Madrid Castro | Front-end development |
 | Hector Lerma Scott | Back-end development |
 | Jose Pablo Mendez Espino | Back-end development |
