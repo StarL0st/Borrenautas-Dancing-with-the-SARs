@@ -59,7 +59,7 @@ The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional 
 
 NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to precisely detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale shifts in surface elevation between two passes.
 
-The challenge calls for an interactive application that uses NISAR's data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad audience.
+The challenge calls for an interactive application that uses NISAR's data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad or specific audience depending on the needs.
 
 ## Who it is for
 
