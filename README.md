@@ -166,18 +166,25 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 
 ### Radar areas
 
-Areas load only when needed: when you open one, or when you zoom in close over it. Clicking a marker or a list row opens the area as a tab:
+Areas use lazy loading. An AOI’s data is only fetched when the user opens it or zooms past a set level over its footprint. Selecting a map marker or a list row opens the AOI in its own tab, which has these parts:
 
-- **Radar pictures** with a **date slider at the bottom of the globe** and an opacity control. In Technical mode you choose the layer (backscatter per polarization, detected change, ground motion, soil moisture); in Simple mode the app picks the most telling one.
-- **A color key** for every picture and a plain description of what it shows.
-- **"What the radar found here"**: a short summary of the changes found in the area, written by the back end for every area, including places looked up by visitors.
-- **"Where this comes from"**: product, polarization, data maturity, source granules, processing steps, parameters, software and credit.
-- **A source badge on every piece of data** (◆ NISAR radar, ● other satellite, ▲ live report, ■ published record), with the product and the date it was taken.
-- **Change over time**: a line chart per unit with a hover readout and a table view.
-- **Timeline** of radar passes and the five most important detected changes, with a confidence figure in Technical mode. The rest are in the report.
-- **Before/after comparator**: drag a line across two pictures, for NISAR radar pictures and for optical satellite photos from NASA GIBS (Landsat/Sentinel-2 at 30 m, or daily VIIRS), from 1 month to 10 years apart. Ctrl/⌘ + scroll zooms. In Technical mode a slider highlights only changes larger than a chosen percentage (also given in dB).
-- **PDF report** per area: press **Make report**, then read it inside the page or download it. A cover with key numbers, then numbered sections with pictures, charts and tables, every part labelled with its source and date, and a numbered list of references (mostly NASA).
-
+- **Raster layers**: Geocoded SAR images placed on the globe, with a time slider for choosing the acquisition date and a layer opacity control.
+  In Technical mode the user picks the layer: radar backscatter per polarization channel from the L2 GCOV product, change-detection maps, ground displacement from interferometry (GUNW), or soil moisture.
+  In Simple mode the layer is picked automatically, based on which one shows the most change in that area.
+- **Legend and description** Every layer has a color scale with units and value range, plus a short plain-language note on what the layer measures.
+- **Automated change summary (“What the radar found here”)**: a short written summary of the changes detected in every AOI, including areas that visitors look up themselves.
+- **Data lineage (“Where this comes from”)**: Product type and level, polarization, data maturity level, source granule IDs, the processing steps and their parameters, software versions, and credit lines.
+- **Source labels Markings** Every dataset has a tag showing where it came from (◆ NISAR SAR, ● other satellite, ▲ near-real-time report, ■ published record), along with the product ID and the date it was acquired.
+- **Time-series plots**: One line chart per measured quantity, with a value readout under the cursor and a table view of the same data.
+- **Acquisition timeline and top changes** A timeline of every satellite pass over the AOI and the five largest detected changes. In Technical mode each change shows a confidence score. The rest are listed in the report.
+- **Before/after comparator**:A slider line that you drag across two images from different dates.
+  Works with NISAR SAR images and with optical satellite images from NASA GIBS (Landsat and Sentinel-2 at 30 m, or daily VIIRS).
+  The two images can be 1 month to 10 years apart. Ctrl/⌘ + scroll zooms in and out.
+  In Technical mode a threshold slider highlights only pixels whose change is above a chosen percentage. The same threshold is also shown in decibels (dB = 10·log₁₀(1 + p), so a 100 % increase is about +3 dB).
+- **PDF report per area**: "Make report" creates the PDF, which can be read in the page or downloaded. It has:
+    A cover page with the key numbers.
+    Numbered sections with images, charts and tables, each labelled with its source and acquisition date.
+    A numbered list of references, mostly NASA.
 #### A radar area, step by step (Villahermosa, Tabasco, in Technical mode)
 
 <p align="center">
