@@ -178,13 +178,13 @@ Areas use lazy loading. An AOI’s data is only fetched when the user opens it o
 - **Time-series plots**: One line chart per measured quantity, with a value readout under the cursor and a table view of the same data.
 - **Acquisition timeline and top changes** A timeline of every satellite pass over the AOI and the five largest detected changes. In Technical mode each change shows a confidence score. The rest are listed in the report.
 - **Before/after comparator**:A slider line that you drag across two images from different dates.
-  Works with NISAR SAR images and with optical satellite images from NASA GIBS (Landsat and Sentinel-2 at 30 m, or daily VIIRS).
-  The two images can be 1 month to 10 years apart. Ctrl/⌘ + scroll zooms in and out.
-  In Technical mode a threshold slider highlights only pixels whose change is above a chosen percentage. The same threshold is also shown in decibels (dB = 10·log₁₀(1 + p), so a 100 % increase is about +3 dB).
+  - Works with NISAR SAR images and with optical satellite images from NASA GIBS (Landsat and Sentinel-2 at 30 m, or daily VIIRS).
+  - The two images can be 1 month to 10 years apart. Ctrl/⌘ + scroll zooms in and out.
+  - In Technical mode a threshold slider highlights only pixels whose change is above a chosen percentage. The same threshold is also shown in decibels (dB = 10·log₁₀(1 + p), so a 100 % increase is about +3 dB).
 - **PDF report per area**: "Make report" creates the PDF, which can be read in the page or downloaded. It has:
-    A cover page with the key numbers.
-    Numbered sections with images, charts and tables, each labelled with its source and acquisition date.
-    A numbered list of references, mostly NASA.
+  - cover page with the key numbers.
+  - Numbered sections with images, charts and tables, each labelled with its source and acquisition date.
+  - A numbered list of references, mostly NASA.
 #### A radar area, step by step (Villahermosa, Tabasco, in Technical mode)
 
 <p align="center">
