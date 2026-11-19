@@ -10,14 +10,14 @@ Challenge: [Dancing with the SARs](https://www.spaceappschallenge.org/2026/chall
 
 Live site: **[gigas.earth](https://gigas.earth)**
 
-G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that demonstrates how the Earth’s surface changes, with the passage of time, utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. A back end translated NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe depicts them next to real-time disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
+G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-source web app that portraits how the Earth’s surface changes, with the passage of time, utilizing the NASA-ISRO NISAR satellite’s data on an interactive 3D globe. Translated NISAR radar products into map layers and typed change events (floods, forest loss, sinking ground, soil drying). The globe depicts them next to real-time disaster events from official public sources, in simple terms for the public and with full technical detail for advanced users. 
 
 ## Map of Contents
 
-1. [About the project](#about-the-project)
+1. [About the G.I.G.A.S.](#about-gigas)
 2. [Background](#background)
 3. [Who it is for](#who-it-is-for)
-4. [Video and demo](#video-and-demo)
+4. [Video and demo](#videos)
 5. [The web page](#the-web-page)
 6. [Features](#features)
 7. [Live events: sources and update times](#live-events-sources-and-update-times)
@@ -26,7 +26,7 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-sou
 10. [Architecture](#architecture)
 11. [How to run it](#how-to-run-it)
 12. [NASA data and other sources](#nasa-data-and-other-sources)
-13. [What is real and what is not](#what-is-real-and-what-is-not)
+13. [What is real and what is not](#data-integrity-what-is-real-and-what-is-not)
 14. [Known limits](#known-limits)
 15. [Future](#future)
 16. [File descriptions](#file-descriptions)
@@ -46,7 +46,7 @@ G.I.G.A.S makes that data readable:
 - A **3D globe** you can spin, zoom and search by country or coordinates, on a computer or a mobile device.
 - **Radar areas**: places processed from NISAR data, each with its radar pictures over time, the changes detected, a chart, a downloadable PDF report, and where every image comes from.
 - **Live events**: what is happening on Earth right now (earthquakes, fires, floods, storms, volcanoes and more), from official sources, always labelled as *not* radar detections.
-- **Two modes**: *Simple*: allows for every type of general public, making data accessible and understandable to the general public; *Technical*: contains with every layer, measurement and provenance record for a more designated scientific/engineering field.
+- **Two modes**: *Simple*: allows for every type of general public, making data accessible and understandable to them; *Technical*: contains every layer, measurement and provenance record for a more designated scientific/engineering field.
 
 The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional points for observation), a country-wide soil-moisture mosaic and 33 city sites monitored for sinking ground. The design is global.
 
@@ -142,7 +142,7 @@ On a mobile device the globe sits on top and the panels below it, under two tabs
 
 ### Scope reduction
 
-- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events mantain only what lies inside them.
+- **Country search.** Pick one or more countries: they are outlined on the globe, and the area list, the detected changes and the live events maintain only what lies inside them.
 
 <p align="center">
   <img src="images/country-search-v2.png" alt="The country search box, highlighted at the top of the left panel, above the filters" width="800">
@@ -174,7 +174,7 @@ Areas use lazy loading. An AOI’s data is only fetched when the user opens it o
 - **Legend and description**: Every layer has a color scale with units and value range, plus a short plain-language note on what the layer measures.
 - **Automated change summary (“What the radar found here”)**: a short written summary of the changes detected in every AOI, including areas that visitors look up themselves.
 - **Data lineage (“Where this comes from”)**: Product type and level, polarization, data maturity level, source granule IDs, the processing steps and their parameters, software versions, and credit lines.
-- **Source labels Markings**: Every dataset has a tag showing where it came from (◆ NISAR SAR, ● other satellite, ▲ near-real-time report, ■ published record), along with the product ID and the date it was acquired.
+- **Source labels**: Every dataset has a tag showing where it came from (◆ NISAR SAR, ● other satellite, ▲ near-real-time report, ■ published record), along with the product ID and the date it was acquired.
 - **Time-series plots**: One line chart per measured quantity, with a value readout under the cursor and a table view of the same data.
 - **Acquisition timeline and top changes**: A timeline of every satellite pass over the AOI and the five largest detected changes. In Technical mode each change shows a confidence score. The rest are listed in the report.
 - **Before/after comparator**: A slider line that you drag across two images from different dates.
