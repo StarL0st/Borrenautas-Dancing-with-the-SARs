@@ -65,8 +65,8 @@ The challenge calls for an interactive application that uses NISAR's data to tra
 
 | User | What is available |
 |---|---|
-| General Public | Simple mode: making the data understandable to its public (students, inquisitives, needs based), one picture per place chosen by the software, a "why the radar sees changes" explainer, a guided tutorial, five languages |
-| Resource managers and decision-makers | Where and when change happened, visual graphs, how big, how confident the detection is, what is happening live nearby, and a PDF report per area to share |
+| General Public | Simple mode: making the data understandable to its public (students, inquisitives, needs based), one picture per place chosen by the software, a "why the radar sees changes" explainer, a guided tutorial, five language option depending on the user's preference |
+| Resource managers and decision-makers | Where and when change happened, visual graphs, the size demonstrated, how confident the detection is, what is happening live nearby, and a PDF report per area to share |
 | Scientists | Technical mode: every layer and polarization, value ranges, time series, full provenance (granules, product, maturity, parameters), and a public API |
 
 ## Videos
