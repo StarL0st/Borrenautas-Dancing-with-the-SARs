@@ -14,7 +14,7 @@ G.I.G.A.S (Global Interactive Geographical Analytics System) is a free, open-sou
 
 ## Map of Contents
 
-1. [About the G.I.G.A.S.](#about-gigas)
+1. [About G.I.G.A.S.](#about-gigas)
 2. [Background](#background)
 3. [Who it is for](#who-it-is-for)
 4. [Video and demo](#videos)
@@ -57,7 +57,7 @@ The G.I.G.A.S. demo covers Mexico: three main case-study sites (with additional 
 </p>
 <p align="center">NISAR in Orbit (Artist's Concept), PIA26613. Credit: NASA/JPL-Caltech.</p>
 
-NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to precisely detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale shifts in surface elevation between two passes.
+NISAR (NASA-ISRO Synthetic Aperture Radar) is a radar satellite from NASA and ISRO. The radar sends its own microwave pulses and measures the returning waves, enabling all-weather, day-and-night imaging capabilities independent of solar illumination and atmospheric conditions. The returning waves depend mostly on surface roughness and moisture content. This allows the radar to detect floods (open water darkens), deforestation (the signal from tree canopies drops), new infrastructure (bright corners), and centimeter-scale ground motion between two passes”.
 
 The challenge calls for an interactive application that uses NISAR's data to track and visualize one or more types of surface change, with intuitive tools that make the data understandable to a broad or specific audience depending on the needs.
 
@@ -342,7 +342,7 @@ Steps, per site:
 </p>
 <p align="center">The country-wide area in Technical mode: soil moisture at about 2 km, drought and fire detections.</p>
 
-The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a "0.2° (about 22km) grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
+The server re-checks every site for new NISAR passes every 12 hours, one site at a time. Visitors can also ask for any other place (**public lookup**): the point snaps to a 0.2° (about 22km) grid cell, so nearby requests share the result, and a point within 10 km of a known site gets that site.
 
 **Public API** (at `api.gigas.earth`): `GET /api/areas` (every processed area), `GET /api/events` (detected changes, filterable by area, type, dates and minimum confidence), `GET /api/live` (live events), plus history by point and dates. Details: `backend/README.md`.
 
@@ -872,7 +872,7 @@ The project's rule is that nothing synthetic is ever shown as real.
 
 ## Use of AI
 
-Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the German, Japanese and French interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#what-is-real-and-what-is-not).
+Two AI tools were used. **Claude** (Anthropic) wrote code under the team's direction and review, and wrote the German, Japanese and French interface texts. **Meshy** generated the satellite 3D model from NASA/JPL-Caltech's illustration of NISAR. No AI-generated images, audio or video are shown as data, and no data is invented: see [What is real and what is not](#data-integrity-what-is-real-and-what-is-not).
 
 ## License
 
